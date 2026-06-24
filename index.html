@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HU #122 — Pedidos Pendientes de Despacho</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<h2 class="sr-only">Listado de pedidos pendientes de despacho — Issue #122 HU G2</h2>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-top">
+    <div class="title-group">
+      <span class="badge-hu">HU #122</span>
+      <span class="page-title">Pedidos pendientes de despacho</span>
+    </div>
+    <span class="header-meta">
+      <i class="ti ti-database" aria-hidden="true"></i> datos mockeados — sprint actual
+    </span>
+  </div>
+</div>
+
+<!-- Métricas -->
+<div class="metrics" id="metrics"></div>
+
+<!-- Filtros -->
+<div class="filters">
+  <input type="text" id="buscar" placeholder="Buscar por cliente o #pedido…" oninput="renderTabla()" />
+  <select id="filtroEstado" onchange="renderTabla()">
+    <option value="">Todos los estados</option>
+    <option value="Confirmado">Confirmado</option>
+    <option value="Pendiente de despacho">Pendiente de despacho</option>
+   
+  </select>
+  <select id="filtroZona" onchange="renderTabla()">
+    <option value="">Todas las zonas</option>
+    <option value="Norte">Norte</option>
+    <option value="Centro">Centro</option>
+    <option value="Sur">Sur</option>
+    <option value="Este">Este</option>
+  </select>
+</div>
+
+<!-- Tabla -->
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th class="col-id"># Pedido</th>
+        <th class="col-cliente">Cliente</th>
+        <th class="col-fecha">Fecha</th>
+        <th class="col-estado">Estado</th>
+        <th class="col-zona">Zona</th>
+        <th class="col-monto">Total</th>
+        <th class="col-accion"></th>
+      </tr>
+    </thead>
+    <tbody id="tabla-body"></tbody>
+  </table>
+</div>
+
+<!-- Panel lateral -->
+<div class="detail-panel" id="panel">
+  <div class="detail-title">
+    <span id="panel-titulo">Detalle pedido</span>
+    <button class="icon-btn" onclick="cerrarPanel()" aria-label="Cerrar panel">
+      <i class="ti ti-x" aria-hidden="true"></i>
+    </button>
+  </div>
+  <div id="panel-contenido"></div>
+  <button class="btn-despachar" onclick="marcarDespachado()">
+    <i class="ti ti-truck-delivery" aria-hidden="true"></i> Marcar como despachado
+  </button>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+/* ================================================================
+   DATOS MOCKEADOS
+   TODO: reemplazar por fetch('GET /api/v1/pedidos?estado=confirmado')
+   ================================================================ */
+const pedidos = [
+  {
+    pedido_id: "P-0041", cliente: "Supermercado El Sol", cliente_id: "C-012",
+    fecha: "09/06/2026", estado: "Confirmado", zona: "Norte",
+    direccion: "Av. Rivadavia 1240, Bahía Blanca", vendedor: "Laura Gómez",
+    productos: [
+      { nombre: "Aceite Marolio 1L x12",   precio: 18600 },
+      { nombre: "Yerba CBSé 500g x20",      precio: 14200 },
+      { nombre: "Arroz Largo Fino 1kg x10", precio: 9600  }
+    ], obs: ""
+  },
+  {
+    pedido_id: "P-0042", cliente: "Almacén Don Ramón", cliente_id: "C-007",
+    fecha: "09/06/2026", estado: "Urgente", zona: "Centro",
+    direccion: "Sarmiento 455, Bahía Blanca", vendedor: "Marcos Pérez",
+    productos: [
+      { nombre: "Fideos Matarazzo 400g x24",    precio: 21600 },
+      { nombre: "Tomate entero Arcor 400g x12", precio: 10800 }
+    ], obs: "Cliente pide entrega antes de las 11hs"
+  },
+  {
+    pedido_id: "P-0043", cliente: "Kiosco Hermanos Vidal", cliente_id: "C-023",
+    fecha: "08/06/2026", estado: "Confirmado", zona: "Sur",
+    direccion: "Brown 880, Bahía Blanca", vendedor: "Laura Gómez",
+    productos: [
+      { nombre: "Coca-Cola 2.25L x6", precio: 42000 },
+      { nombre: "Sprite 1.5L x6",     precio: 14400 }
+    ], obs: ""
+  },
+  {
+    pedido_id: "P-0044", cliente: "Carnicería Los Pinos", cliente_id: "C-034",
+    fecha: "07/06/2026", estado: "Reprogramado", zona: "Este",
+    direccion: "Laprida 2100, Bahía Blanca", vendedor: "Tomás Ríos",
+    productos: [
+      { nombre: "Sal fina 1kg x25", precio: 8200 }
+    ], obs: "Reprogramado a pedido del cliente por falta de espacio"
+  },
+  {
+    pedido_id: "P-0045", cliente: "Minimercado Central", cliente_id: "C-009",
+    fecha: "09/06/2026", estado: "Confirmado", zona: "Centro",
+    direccion: "O'Higgins 780, Bahía Blanca", vendedor: "Marcos Pérez",
+    productos: [
+      { nombre: "Aceite Marolio 1L x12",            precio: 12400 },
+      { nombre: "Harina 000 1kg x10",               precio: 10500 },
+      { nombre: "Mermelada La Campagnola 420g x12",  precio: 13200 }
+    ], obs: ""
+  },
+  {
+    pedido_id: "P-0046", cliente: "Restaurante La Plaza", cliente_id: "C-051",
+    fecha: "08/06/2026", estado: "Urgente", zona: "Norte",
+    direccion: "Estomba 355, Bahía Blanca", vendedor: "Laura Gómez",
+    productos: [
+      { nombre: "Aceite de girasol 5L x4",  precio: 31200 },
+      { nombre: "Arroz Largo Fino 1kg x10", precio: 14400 }
+    ], obs: "Urgente — evento gastronómico mañana"
+  },
+  {
+    pedido_id: "P-0047", cliente: "Verdulería Frescura", cliente_id: "C-018",
+    fecha: "09/06/2026", estado: "Confirmado", zona: "Sur",
+    direccion: "Rodríguez 1520, Bahía Blanca", vendedor: "Tomás Ríos",
+    productos: [
+      { nombre: "Vinagre blanco 1L x12", precio: 6800 }
+    ], obs: ""
+  }
+];
+
+let pedidoActivo = null;
+const despachados = new Set();
+
+function totalPedido(p) {
+  return p.productos.reduce((s, x) => s + x.precio, 0);
+}
+
+function chipClass(estado) {
+  if (estado === "Confirmado")   return "chip chip-confirmado";
+  if (estado === "Urgente")      return "chip chip-urgente";
+  return "chip chip-reprogramado";
+}
+
+function renderMetrics() {
+  const pendientes = pedidos.filter(p => !despachados.has(p.pedido_id));
+  const total    = pendientes.length;
+  const urgentes = pendientes.filter(p => p.estado === "Urgente").length;
+  const monto    = pendientes.reduce((s, p) => s + totalPedido(p), 0);
+
+  document.getElementById("metrics").innerHTML = `
+    <div class="metric">
+      <div class="metric-label"><i class="ti ti-package" aria-hidden="true"></i> Pendientes</div>
+      <div class="metric-val">${total}</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label"><i class="ti ti-alert-triangle" aria-hidden="true"></i> Urgentes</div>
+      <div class="metric-val amber">${urgentes}</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label"><i class="ti ti-cash" aria-hidden="true"></i> Monto total</div>
+      <div class="metric-val green">$${monto.toLocaleString('es-AR')}</div>
+    </div>
+  `;
+}
+
+function renderTabla() {
+  const q      = document.getElementById("buscar").value.toLowerCase();
+  const estado = document.getElementById("filtroEstado").value;
+  const zona   = document.getElementById("filtroZona").value;
+
+  const filtrados = pedidos.filter(p => {
+    if (despachados.has(p.pedido_id)) return false;
+    if (q && !p.cliente.toLowerCase().includes(q) && !p.pedido_id.toLowerCase().includes(q)) return false;
+    if (estado && p.estado !== estado) return false;
+    if (zona   && p.zona   !== zona)   return false;
+    return true;
+  });
+
+  const tbody = document.getElementById("tabla-body");
+
+  if (filtrados.length === 0) {
+    tbody.innerHTML = `
+      <tr><td colspan="7">
+        <div class="empty-state">
+          <i class="ti ti-inbox empty-icon" aria-hidden="true"></i>
+          Sin pedidos con los filtros actuales
+        </div>
+      </td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filtrados.map(p => `
+    <tr onclick="abrirPanel('${p.pedido_id}')">
+      <td class="td-bold">${p.pedido_id}</td>
+      <td title="${p.cliente}">${p.cliente}</td>
+      <td>${p.fecha}</td>
+      <td><span class="${chipClass(p.estado)}">${p.estado}</span></td>
+      <td>${p.zona}</td>
+      <td class="td-monto">$${totalPedido(p).toLocaleString('es-AR')}</td>
+      <td style="text-align:center">
+        <button class="icon-btn" aria-label="Ver detalle pedido ${p.pedido_id}">
+          <i class="ti ti-eye" aria-hidden="true"></i>
+        </button>
+      </td>
+    </tr>
+  `).join("");
+}
+
+function abrirPanel(id) {
+  pedidoActivo = pedidos.find(p => p.pedido_id === id);
+  if (!pedidoActivo) return;
+  const p = pedidoActivo;
+
+  document.getElementById("panel-titulo").textContent = `Pedido ${p.pedido_id}`;
+  document.getElementById("panel-contenido").innerHTML = `
+    <div class="detail-section">
+      <div class="detail-section-label">Datos del pedido</div>
+      <div class="detail-row"><span>Cliente</span><span>${p.cliente}</span></div>
+      <div class="detail-row"><span>Vendedor</span><span>${p.vendedor}</span></div>
+      <div class="detail-row"><span>Fecha</span><span>${p.fecha}</span></div>
+      <div class="detail-row"><span>Estado</span><span class="${chipClass(p.estado)}">${p.estado}</span></div>
+      <div class="detail-row"><span>Zona</span><span>${p.zona}</span></div>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-label">
+        <i class="ti ti-map-pin" aria-hidden="true"></i> Dirección de entrega
+      </div>
+      <p class="detail-dir">${p.direccion}</p>
+    </div>
+    ${p.obs ? `
+    <div class="detail-section">
+      <div class="detail-section-label">
+        <i class="ti ti-notes" aria-hidden="true"></i> Observaciones
+      </div>
+      <p class="detail-obs">${p.obs}</p>
+    </div>` : ""}
+    <div class="detail-section">
+      <div class="detail-section-label">
+        <i class="ti ti-shopping-cart" aria-hidden="true"></i> Productos
+      </div>
+      ${p.productos.map(pr => `
+        <div class="product-item">
+          <span class="prod-name">${pr.nombre}</span>
+          <span class="prod-price">$${pr.precio.toLocaleString('es-AR')}</span>
+        </div>`).join("")}
+      <div class="product-total">
+        <span>Total</span>
+        <span>$${totalPedido(p).toLocaleString('es-AR')}</span>
+      </div>
+    </div>
+  `;
+
+  document.getElementById("panel").classList.add("open");
+}
+
+function cerrarPanel() {
+  document.getElementById("panel").classList.remove("open");
+  pedidoActivo = null;
+}
+
+function marcarDespachado() {
+  if (!pedidoActivo) return;
+  despachados.add(pedidoActivo.pedido_id);
+  mostrarToast(`✓ Pedido ${pedidoActivo.pedido_id} marcado como despachado`);
+  cerrarPanel();
+  renderTabla();
+  renderMetrics();
+}
+
+function mostrarToast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 2800);
+}
+
+renderMetrics();
+renderTabla();
+</script>
+
+</body>
+</html>
