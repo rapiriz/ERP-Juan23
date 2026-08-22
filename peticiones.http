@@ -1,0 +1,36 @@
+### 1. Registrar cobro exitoso completo
+POST http://localhost:8000/api/v1/rendiciones/cobros
+Content-Type: application/json
+
+{
+    "id_rendicion": 1,
+    "id_cliente": 5,
+    "id_factura": 101,
+    "monto": 12500.00,
+    "medio_pago": "transferencia"
+}
+
+
+### 2. Error: Falta un campo obligatorio (ej. medio_pago)
+POST http://localhost:8000/api/v1/rendiciones/cobros
+Content-Type: application/json
+
+{
+    "id_rendicion": 1,
+    "id_cliente": 5,
+    "id_factura": 101,
+    "monto": 5000.00
+}
+
+
+### 3. Error: Medio de pago inválido
+POST http://localhost:8000/api/v1/rendiciones/cobros
+Content-Type: application/json
+
+{
+    "id_rendicion": 1,
+    "id_cliente": 5,
+    "id_factura": 101,
+    "monto": 5000.00,
+    "medio_pago": "trueque"
+}
