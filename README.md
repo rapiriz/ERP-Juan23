@@ -1,5 +1,3 @@
 # ERP-Juan23
 Proyecto ERP
-
-push
-G1
+Integrante del G2 (entregas, cobros, caja, conciliación bancaria, facturación, rendiciones)
