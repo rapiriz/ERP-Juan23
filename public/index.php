@@ -10,12 +10,15 @@ require_once __DIR__ . '/../src/Rendiciones/Services/ProcesadorDeRendicionRepart
 require_once __DIR__ . '/../src/Rendiciones/Services/ProcesadorDeDiferenciaRendicion.php';
 require_once __DIR__ . '/../src/Rendiciones/Services/ProcesadorDeValidacionRendicion.php';
 require_once __DIR__ . '/../src/Rendiciones/Services/ProcesadorDeHistorialRendicion.php';
+require_once __DIR__ . '/../src/Rendiciones/Services/ProcesadorDeDevolucionRendicion.php';
 
 use Dominio\Rendiciones\Services\ProcesadorDeCobroRendicion;
 use Dominio\Rendiciones\Services\ProcesadorDeRendicionReparto;
 use Dominio\Rendiciones\Services\ProcesadorDeDiferenciaRendicion;
 use Dominio\Rendiciones\Services\ProcesadorDeValidacionRendicion;
 use Dominio\Rendiciones\Services\ProcesadorDeHistorialRendicion;
+use Dominio\Rendiciones\Services\ProcesadorDeDevolucionRendicion;
+
 // Tomo el método HTTP (GET, POST, etc.) y la ruta que está pidiendo el cliente o el frontend.
 $method = $_SERVER['REQUEST_METHOD'];
 $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
@@ -82,6 +85,18 @@ if ($method === 'GET' && $path === '/api/v1/rendiciones/historial') {
 
     $procesador = new ProcesadorDeHistorialRendicion();
     $resultado = $procesador->consultarHistorial($filtros);
+
+    http_response_code($resultado['codigo']);
+    echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+// Endpoint para registrar devoluciones dentro de una rendición (RENDICIÓN #8)
+if ($method === 'POST' && $path === '/api/v1/rendiciones/devoluciones') {
+    $input = json_decode(file_get_contents('php://input'), true);
+
+    $procesador = new ProcesadorDeDevolucionRendicion();
+    $resultado = $procesador->registrarDevolucion($input ?? []);
 
     http_response_code($resultado['codigo']);
     echo json_encode($resultado, JSON_UNESCAPED_UNICODE);

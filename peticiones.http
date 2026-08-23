@@ -95,3 +95,15 @@ GET http://localhost:8000/api/v1/rendiciones/historial?estado=Aprobada
 
 ### 10. Consultar Historial Filtrado por Repartidor (Ej: id_repartidor 12 - RENDICIÓN #10)
 GET http://localhost:8000/api/v1/rendiciones/historial?id_repartidor=12
+
+### 11. Registrar Devolución en Rendición (RENDICIÓN #8)
+POST http://localhost:8000/api/v1/rendiciones/devoluciones
+Content-Type: application/json
+
+{
+    "id_rendicion": 15,
+    "id_pedido": 305,
+    "cliente": "Comercio El Amigo",
+    "motivo": "Negocio cerrado al momento de la visita",
+    "observaciones": "Se reprograma la entrega para el próximo recorrido."
+}
