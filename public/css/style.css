@@ -1,0 +1,393 @@
+/* ====================================================================
+   ESTILOS CLAYMORFISMO & ACCESIBILIDAD — ERP DISTRIBUIDORA JUAN XXIII
+   Cumple con 04-prototipo-frontend.md:
+   - Paleta: #EBF4FC, #1E40AF, #0D6EFD
+   - Targets mínimos: 48px
+   - Tipografía grande legible (Inter 18px base)
+   - Foco ultra-visible para accesibilidad de adultos mayores
+   ==================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+:root {
+    --bg-main: #EBF4FC;
+    --sidebar-grad: linear-gradient(135deg, #1E40AF 0%, #1D4ED8 50%, #1E3A8A 100%);
+    --primary: #0D6EFD;
+    --primary-hover: #0B5ED7;
+    --success: #198754;
+    --success-hover: #157347;
+    --warning: #D97706;
+    --danger: #DC3545;
+    --text-main: #1E293B;
+    --text-muted: #64748B;
+    --card-bg: rgba(255, 255, 255, 0.90);
+    --border-radius-card: 24px;
+    --border-radius-btn: 16px;
+    --shadow-clay: 8px 8px 16px rgba(166, 180, 200, 0.4), -8px -8px 16px rgba(255, 255, 255, 0.9);
+    --shadow-clay-inset: inset 2px 2px 4px rgba(255, 255, 255, 0.8), inset -2px -2px 4px rgba(166, 180, 200, 0.3);
+    --shadow-clay-btn: 5px 5px 10px rgba(13, 110, 253, 0.35), -3px -3px 8px rgba(255, 255, 255, 0.8);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-size: 1.125rem; /* 18px */
+    color: var(--text-main);
+    background-color: var(--bg-main);
+    min-height: 100vh;
+    display: flex;
+}
+
+/* Foco ultra-visible para accesibilidad */
+*:focus-visible {
+    outline: 4px solid var(--primary) !important;
+    outline-offset: 3px !important;
+}
+
+/* ================= LAYOUT ================= */
+.sidebar {
+    width: 280px;
+    background: var(--sidebar-grad);
+    color: white;
+    padding: 2rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 4px 0 20px rgba(0, 0, 0, 0.1);
+    flex-shrink: 0;
+}
+
+.sidebar-logo {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 2.5rem;
+}
+
+.sidebar-logo h1 {
+    font-size: 1.35rem;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+}
+
+.sidebar-menu {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.sidebar-item a {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    color: rgba(255, 255, 255, 0.85);
+    text-decoration: none;
+    font-size: 1.1rem;
+    font-weight: 600;
+    padding: 0.85rem 1.25rem;
+    border-radius: var(--border-radius-btn);
+    min-height: 52px;
+    transition: all 0.2s ease;
+}
+
+.sidebar-item a:hover, .sidebar-item.active a {
+    background: rgba(255, 255, 255, 0.18);
+    color: #FFFFFF;
+    backdrop-filter: blur(8px);
+}
+
+.sidebar-footer {
+    margin-top: auto;
+    padding-top: 1.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.15);
+    font-size: 0.95rem;
+    opacity: 0.8;
+}
+
+.main-content {
+    flex: 1;
+    padding: 2.5rem;
+    overflow-y: auto;
+}
+
+/* ================= CLAY CARDS ================= */
+.clay-card {
+    background: var(--card-bg);
+    backdrop-filter: blur(16px);
+    border-radius: var(--border-radius-card);
+    padding: 2rem;
+    box-shadow: var(--shadow-clay);
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    margin-bottom: 2rem;
+}
+
+.header-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.header-title h2 {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: #1E3A8A;
+}
+
+/* ================= CONTROLES Y BOTONES ACCESIBLES ================= */
+.clay-input, .clay-select {
+    min-height: 50px;
+    padding: 0.6rem 1.2rem;
+    font-size: 1.1rem;
+    font-family: inherit;
+    color: var(--text-main);
+    background: #FFFFFF;
+    border: 2px solid #CBD5E1;
+    border-radius: var(--border-radius-btn);
+    box-shadow: inset 1px 1px 3px rgba(0,0,0,0.06);
+    transition: border-color 0.2s;
+    width: 100%;
+}
+
+.clay-input:focus, .clay-select:focus {
+    border-color: var(--primary);
+}
+
+.clay-btn {
+    min-height: 48px;
+    padding: 0.65rem 1.5rem;
+    font-size: 1.05rem;
+    font-weight: 600;
+    font-family: inherit;
+    border: none;
+    border-radius: var(--border-radius-btn);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    transition: all 0.2s ease;
+}
+
+.icon-svg {
+    width: 18px;
+    height: 18px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition: transform 0.3s ease;
+}
+
+.clay-btn-secondary:hover .icon-svg {
+    transform: rotate(180deg);
+}
+
+.clay-btn-primary {
+    background: var(--primary);
+    color: white;
+    box-shadow: var(--shadow-clay-btn);
+}
+
+.clay-btn-primary:hover {
+    background: var(--primary-hover);
+    transform: translateY(-2px);
+}
+
+.clay-btn-success {
+    background: var(--success);
+    color: white;
+    box-shadow: 5px 5px 10px rgba(25, 135, 84, 0.3);
+}
+
+.clay-btn-success:hover {
+    background: var(--success-hover);
+    transform: translateY(-2px);
+}
+
+.clay-btn-secondary {
+    background: #FFFFFF;
+    color: #334155;
+    border: 1px solid #CBD5E1;
+    box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+.clay-btn-secondary:hover {
+    background: #F8FAFC;
+    border-color: #94A3B8;
+}
+
+/* ================= TABLA DE PEDIDOS PENDIENTES ================= */
+.table-responsive {
+    overflow-x: auto;
+    border-radius: 16px;
+    background: white;
+    box-shadow: inset 0 0 4px rgba(0,0,0,0.04);
+}
+
+table.clay-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+}
+
+table.clay-table th {
+    background: #F1F5F9;
+    color: #334155;
+    font-weight: 700;
+    padding: 1.1rem 1rem;
+    border-bottom: 2px solid #E2E8F0;
+    font-size: 1.05rem;
+}
+
+table.clay-table td {
+    padding: 1.1rem 1rem;
+    border-bottom: 1px solid #F1F5F9;
+    vertical-align: middle;
+}
+
+table.clay-table tr:hover {
+    background-color: #F8FAFC;
+}
+
+.badge-zona {
+    background: #E0E7FF;
+    color: #3730A3;
+    font-weight: 700;
+    padding: 0.35rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.95rem;
+    display: inline-block;
+}
+
+.badge-bultos {
+    background: #FEF3C7;
+    color: #92400E;
+    font-weight: 800;
+    padding: 0.35rem 0.85rem;
+    border-radius: 20px;
+    font-size: 1rem;
+    display: inline-block;
+}
+
+.badge-sueltos {
+    background: #E0F2FE;
+    color: #0369A1;
+    font-weight: 700;
+    padding: 0.35rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.95rem;
+    display: inline-block;
+    margin-left: 4px;
+}
+
+.badge-estado {
+    padding: 0.35rem 0.85rem;
+    border-radius: 20px;
+    font-weight: 700;
+    font-size: 0.95rem;
+}
+.badge-en_preparacion { background: #DBEAFE; color: #1E40AF; }
+.badge-en_camino { background: #FEF08A; color: #854D0E; }
+.badge-finalizada { background: #DCFCE7; color: #166534; }
+
+/* Custom Checkbox accesible */
+.custom-checkbox {
+    width: 26px;
+    height: 26px;
+    cursor: pointer;
+    accent-color: var(--primary);
+}
+
+/* ================= MODAL DE REMITO ================= */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(6px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 1.5rem;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 24px;
+    max-width: 800px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 2.5rem;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+}
+
+/* Estilo de Remito Imprimible */
+.remito-box {
+    border: 2px solid #334155;
+    padding: 2rem;
+    border-radius: 12px;
+    background: white;
+}
+
+.remito-header {
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 2px solid #334155;
+    padding-bottom: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.remito-letra {
+    border: 2px solid #334155;
+    padding: 0.5rem 1.2rem;
+    font-size: 2.2rem;
+    font-weight: 900;
+    display: inline-block;
+    text-align: center;
+}
+
+.remito-firma-box {
+    margin-top: 3rem;
+    display: flex;
+    justify-content: space-between;
+}
+
+.firma-linea {
+    width: 45%;
+    border-top: 1px dashed #334155;
+    text-align: center;
+    padding-top: 0.5rem;
+    font-size: 0.95rem;
+    color: var(--text-muted);
+}
+
+@media print {
+    body * {
+        visibility: hidden;
+    }
+    .modal-content, .modal-content * {
+        visibility: visible;
+    }
+    .modal-content {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        box-shadow: none;
+        padding: 0;
+    }
+    .no-print {
+        display: none !important;
+    }
+}

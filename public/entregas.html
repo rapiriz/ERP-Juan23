@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ERP Distribuidora Juan XXIII — Módulo de Entregas</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+        <div class="sidebar-logo">
+            <span style="font-size: 2rem;">📦</span>
+            <div>
+                <h1>ERP Distribuidora</h1>
+                <small style="opacity: 0.8; font-size: 0.85rem;">Pigüé — Grupo 2</small>
+            </div>
+        </div>
+
+        <ul class="sidebar-menu">
+            <li class="sidebar-item active">
+                <a href="entregas.html">
+                    <span>🚚</span> Entregas & Despacho
+                </a>
+            </li>
+            <li class="sidebar-item">
+                <a href="facturacion.html">
+                    <span>🧾</span> Facturación
+                </a>
+            </li>
+            <li class="sidebar-item">
+                <a href="rendiciones.php">
+                    <span>📋</span> Rendiciones
+                </a>
+            </li>
+        </ul>
+
+        <div class="sidebar-footer">
+            <p><strong>Usuario:</strong> Diego (Admin)</p>
+            <p style="margin-top: 4px;">Modo Accesible Activado</p>
+        </div>
+    </aside>
+
+    <!-- CONTENIDO PRINCIPAL -->
+    <main class="main-content">
+        
+        <!-- ENCABEZADO -->
+        <header class="header-title">
+            <div>
+                <h2>Logística y Despacho de Pedidos</h2>
+                <p style="color: var(--text-muted); font-size: 1.05rem; margin-top: 4px;">
+                    Gestión de Hojas de Ruta y Emisión de Remitos de Transporte (H.U. 1 y 2)
+                </p>
+            </div>
+            <div>
+                <button class="clay-btn clay-btn-secondary" onclick="cargarPedidosPendientes()" title="Actualizar lista">
+                    <svg class="icon-svg" viewBox="0 0 24 24">
+                        <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+                    </svg>
+                    <span>Actualizar</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- SECCIÓN 1: PEDIDOS PENDIENTES DE DESPACHO (HU #1) -->
+        <section class="clay-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+                <div>
+                    <h3 style="font-size: 1.35rem; color: #1E3A8A;">1. Pedidos Confirmados por Ventas (HU #1)</h3>
+                    <p style="color: var(--text-muted); font-size: 1rem;">Seleccioná los pedidos que saldrán en el próximo reparto:</p>
+                </div>
+                <div style="display: flex; gap: 1rem; align-items: center;">
+                    <label for="filtroZona" style="font-weight: 700;">Filtrar por Zona:</label>
+                    <select id="filtroZona" class="clay-select" style="min-width: 220px;" onchange="cargarPedidosPendientes()">
+                        <option value="">Todas las Zonas</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- TABLA DE PEDIDOS -->
+            <div class="table-responsive">
+                <table class="clay-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 50px; text-align: center;">
+                                <input type="checkbox" id="selectAll" class="custom-checkbox" onchange="toggleSelectAll(this)" title="Seleccionar todos">
+                            </th>
+                            <th>Nº Pedido</th>
+                            <th>Cliente / Razón Social</th>
+                            <th>Zona / Localidad</th>
+                            <th>Dirección</th>
+                            <th style="text-align: center;">Carga Física</th>
+                            <th style="text-align: center;">Artículos</th>
+                            <th style="text-align: right;">Total $</th>
+                            <th>Observaciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaPedidosBody">
+                        <tr>
+                            <td colspan="9" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                                Cargando pedidos confirmados...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- RESUMEN DE SELECCIÓN -->
+            <div style="margin-top: 1.25rem; display: flex; justify-content: space-between; align-items: center; background: #F8FAFC; padding: 1rem 1.5rem; border-radius: 16px;">
+                <div style="font-size: 1.15rem;">
+                    <strong>Seleccionados:</strong> <span id="contadorSeleccionados" style="color: var(--primary); font-weight: 800;">0</span> pedidos 
+                    (<span id="contadorBultos" style="color: var(--warning); font-weight: 800;">0</span> bultos + 
+                     <span id="contadorSueltos" style="color: #0284C7; font-weight: 800;">0</span> artículos sueltos)
+                </div>
+                <button class="clay-btn clay-btn-secondary" onclick="limpiarSeleccion()">Desmarcar Todos</button>
+            </div>
+        </section>
+
+        <!-- SECCIÓN 2: ARMADO DE ENTREGA Y EMISIÓN DE REMITOS (HU #2) -->
+        <section class="clay-card">
+            <h3 style="font-size: 1.35rem; color: #1E3A8A; margin-bottom: 1rem;">2. Armar Entrega y Emitir Remitos (HU #2)</h3>
+            
+            <form id="formArmarEntrega" onsubmit="armarEntrega(event)">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-bottom: 1.5rem;">
+                    <div>
+                        <label for="repartidorSelect" style="display: block; font-weight: 700; margin-bottom: 0.5rem;">
+                            Chofer / Repartidor Asignado:
+                        </label>
+                        <select id="repartidorSelect" class="clay-select" required>
+                            <option value="">Seleccionar Repartidor...</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="fechaSalida" style="display: block; font-weight: 700; margin-bottom: 0.5rem;">
+                            Fecha de Salida a Ruta:
+                        </label>
+                        <input type="date" id="fechaSalida" class="clay-input" required>
+                    </div>
+
+                    <div>
+                        <label for="observacionesEntrega" style="display: block; font-weight: 700; margin-bottom: 0.5rem;">
+                            Observaciones de la Carga:
+                        </label>
+                        <input type="text" id="observacionesEntrega" class="clay-input" placeholder="Ej: Llevar carro de carga / Revisar bultos frágiles">
+                    </div>
+                </div>
+
+                <div style="text-align: right;">
+                    <button type="submit" class="clay-btn clay-btn-success" style="font-size: 1.15rem; min-height: 52px;">
+                        <span>Armar Entrega y Generar Remitos Oficiales</span>
+                    </button>
+                </div>
+            </form>
+        </section>
+
+        <!-- SECCIÓN 3: HISTORIAL DE ENTREGAS Y HOJAS DE RUTA -->
+        <section class="clay-card">
+            <h3 style="font-size: 1.35rem; color: #1E3A8A; margin-bottom: 1.25rem;">3. Viajes de Reparto Creados</h3>
+            <div class="table-responsive">
+                <table class="clay-table">
+                    <thead>
+                        <tr>
+                            <th>Nº Entrega</th>
+                            <th>Fecha Salida</th>
+                            <th>Chofer</th>
+                            <th>Pedidos</th>
+                            <th>Total Bultos</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaEntregasBody">
+                        <tr>
+                            <td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                                Cargando viajes...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- MODAL DE DETALLE DE ARTÍCULOS (PICKING LIST SIN SER REMITO) -->
+    <div id="modalArticulos" class="modal-overlay">
+        <div class="modal-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <div>
+                    <h3 style="color: #1E3A8A; font-size: 1.4rem;">Contenido Detallado del Pedido</h3>
+                    <p id="articulosPedidoSubtitulo" style="color: var(--text-muted); font-size: 1rem; margin-top: 4px;">--</p>
+                </div>
+                <button class="clay-btn clay-btn-secondary" onclick="cerrarModalArticulos()">Cerrar</button>
+            </div>
+
+            <div style="background: #F8FAFC; padding: 1.25rem; border-radius: 12px; margin-bottom: 1.5rem; border: 1px solid #E2E8F0;">
+                <p><strong>Cliente:</strong> <span id="articulosClienteNombre">--</span></p>
+                <p><strong>Destino:</strong> <span id="articulosDireccion">--</span> (<span id="articulosZona">--</span>)</p>
+                <p><strong>Nota de entrega:</strong> <span id="articulosObservaciones" style="font-style: italic; color: #475569;">--</span></p>
+            </div>
+
+            <table class="clay-table" style="background: white;">
+                <thead>
+                    <tr style="background: #F1F5F9;">
+                        <th>Código</th>
+                        <th>Producto</th>
+                        <th style="text-align: center;">Cantidad Total</th>
+                        <th style="text-align: center;">Bultos Cerrados</th>
+                        <th style="text-align: center;">Artículos Sueltos</th>
+                    </tr>
+                </thead>
+                <tbody id="articulosDetalleBody">
+                    <!-- Filas inyectadas por JS -->
+                </tbody>
+            </table>
+
+            <div style="margin-top: 1.5rem; text-align: right;">
+                <button class="clay-btn clay-btn-primary" onclick="cerrarModalArticulos()">Aceptar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE REMITO OFICIAL (VISUALIZACIÓN E IMPRESIÓN) -->
+    <div id="modalRemito" class="modal-overlay">
+        <div class="modal-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;" class="no-print">
+                <h3 style="color: #1E3A8A; font-size: 1.4rem;">Comprobante de Remito</h3>
+                <div style="display: flex; gap: 0.75rem;">
+                    <button class="clay-btn clay-btn-primary" onclick="window.print()">
+                        <svg class="icon-svg" viewBox="0 0 24 24">
+                            <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                            <rect x="6" y="14" width="12" height="8"></rect>
+                        </svg>
+                        <span>Imprimir Remito</span>
+                    </button>
+                    <button class="clay-btn clay-btn-secondary" onclick="cerrarModalRemito()">Cerrar</button>
+                </div>
+            </div>
+
+            <!-- COMPROBANTE REMITO FISCAL/INTERNO -->
+            <div class="remito-box" id="remitoImprimible">
+                <div class="remito-header">
+                    <div>
+                        <h2 style="font-size: 1.5rem; font-weight: 800; color: #1E3A8A;">DISTRIBUIDORA JUAN XXIII</h2>
+                        <p style="font-size: 0.95rem; color: var(--text-muted);">Pigüé — Buenos Aires — Tel: (02923) 45-0000</p>
+                        <p style="font-size: 0.95rem; color: var(--text-muted);">Distribución Mayorista de Alimentos</p>
+                    </div>
+                    <div style="text-align: center;">
+                        <div class="remito-letra">R</div>
+                        <p style="font-size: 0.85rem; font-weight: 700; margin-top: 4px;">DOCUMENTO NO VÁLIDO COMO FACTURA</p>
+                    </div>
+                    <div style="text-align: right;">
+                        <h3 id="remitoNumero" style="font-size: 1.35rem; color: #0D6EFD; font-weight: 800;">R-0001-00000001</h3>
+                        <p><strong>Fecha Emisión:</strong> <span id="remitoFecha">--/--/----</span></p>
+                        <p><strong>Chofer:</strong> <span id="remitoChofer">Matías</span></p>
+                    </div>
+                </div>
+
+                <div style="background: #F8FAFC; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; border: 1px solid #E2E8F0;">
+                    <p><strong>Destinatario:</strong> <span id="remitoClienteNombre">--</span> (<span id="remitoClienteRazon">--</span>)</p>
+                    <p><strong>CUIT / DNI:</strong> <span id="remitoClienteCuit">--</span></p>
+                    <p><strong>Domicilio de Entrega:</strong> <span id="remitoClienteDireccion">--</span>, <span id="remitoClienteLocalidad">--</span> (<span id="remitoClienteZona">--</span>)</p>
+                </div>
+
+                <h4 style="margin-bottom: 0.75rem; color: #334155;">Detalle de Mercadería Transportada:</h4>
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 1.5rem;">
+                    <thead>
+                        <tr style="background: #F1F5F9; border-bottom: 2px solid #CBD5E1;">
+                            <th style="padding: 0.6rem; text-align: left;">Código</th>
+                            <th style="padding: 0.6rem; text-align: left;">Descripción del Artículo</th>
+                            <th style="padding: 0.6rem; text-align: center;">Cantidad</th>
+                            <th style="padding: 0.6rem; text-align: center;">Bultos</th>
+                        </tr>
+                    </thead>
+                    <tbody id="remitoDetalleBody">
+                        <!-- Líneas inyectadas por JS -->
+                    </tbody>
+                </table>
+
+                <div class="remito-firma-box">
+                    <div class="firma-linea">
+                        Firma y Aclaración del Chofer (Entrega)
+                    </div>
+                    <div class="firma-linea">
+                        Firma y Sello del Cliente (Recepción Conforme)
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCRIPT JS -->
+    <script src="js/entregas.js"></script>
+</body>
+</html>
