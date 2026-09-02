@@ -9,5 +9,5 @@ return [
     'host' => 'localhost',
     'dbname' => 'erp_distribuidora',
     'user' => 'root',
-    'pass' => '',
+    'pass' => 'MisionMascotas2025!',
 ];
