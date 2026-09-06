@@ -1,0 +1,3 @@
+# Ignorar carpeta de contexto y notas locales
+context/
+.context/
