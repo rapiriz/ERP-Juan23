@@ -4,21 +4,18 @@ namespace App\ConciliacionBancaria\Repositories;
 
 use App\ConciliacionBancaria\Models\PeriodoConciliacion;
 use App\ConciliacionBancaria\Models\MovimientoBancario;
+use App\ConciliacionBancaria\Models\AjusteBancario;
+use App\ConciliacionBancaria\Models\Cheque;
 use App\ConciliacionBancaria\Models\ConciliacionDetalle;
+use App\Cobros\Models\Cobro;
+use App\Caja\Models\CajaMovimiento;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Carbon;
 
-/**
- * Encapsula todo el acceso a datos (Eloquent) del módulo de Conciliación
- * Bancaria. El Service llama a este Repository en vez de usar los Models
- * directamente — así, si el día de mañana cambia la forma de consultar
- * (por ejemplo, se agrega caché, o se cambia algún criterio de búsqueda),
- * se toca solo este archivo y no el Service.
- *
- * Devuelve directamente instancias/colecciones de Eloquent (no arrays) —
- * es el Service quien decide cuándo convertir a array para la respuesta.
- */
 class ConciliacionRepository
 {
+    private const MARGEN_HORAS = 48;
+
     // --- PeriodoConciliacion ---
 
     public function buscarPeriodo(int $idPeriodo): ?PeriodoConciliacion
@@ -94,4 +91,24 @@ class ConciliacionRepository
             'id_usuario' => $datos['id_usuario'],
         ]);
     }
-}
+
+    // --- Búsqueda de candidatos para conciliación automática ---
+
+    /**
+     * Candidatos para un movimiento bancario de tipo 'credito':
+     * Cobro, CajaMovimiento (ingreso) y Cheque.
+     *
+     * Supuesto (a confirmar con el equipo): un Cobro no tiene campo propio
+     * de "ya conciliado" — se considera ya usado si existe una fila en
+     * CONCILIACION_DETALLE apuntándolo. Lo mismo para caja/ajuste/cheque.
+     *
+     * Supuesto: el monto de un Cheque es el monto total de su Cobro asociado
+     * (se asume que el cobro se paga 100% con ese cheque, no combinado).
+     *
+     * @return array<int, array{origen: string, id: int, monto: float, fecha: mixed}>
+     */
+    public function buscarCandidatosCredito(MovimientoBancario $movimiento): array
+    {
+        $candidatos = [];
+
+        $idsCobroYaConciliados = ConciliacionDetalle::whereNotNull('id_cobro'
