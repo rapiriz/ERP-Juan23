@@ -1,13 +1,11 @@
 <?php
 /**
- * Credenciales de conexión a la base de datos.
- * Separado del código para no versionar credenciales reales en Git.
- * Sugerencia: usar variables de entorno (.env) en vez de hardcodear acá.
+ * Credenciales de conexión a la base de datos MySQL local.
  */
 
 return [
-    'host' => 'localhost',
+    'host' => '127.0.0.1',
     'dbname' => 'erp_distribuidora',
     'user' => 'root',
-    'pass' => '',
+    'pass' => '<4zD&cSJvoB6SHPG',
 ];

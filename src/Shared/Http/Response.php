@@ -1,23 +1,35 @@
 <?php
-namespace Shared\Http;
+namespace App\Shared\Http;
 
 /**
- * Helper para responder en el formato JSON estándar acordado:
- * { "data": ..., "error": bool, "mensaje": "..." }
+ * Helper para responder en formato JSON estándar:
+ * { "data": ..., "error": bool, "mensaje": "...", "codigo": int }
  */
 class Response
 {
-    public static function json(array $data, int $status = 200): void
+    public static function json($data, int $status = 200, ?string $mensaje = null): void
     {
         http_response_code($status);
-        header('Content-Type: application/json');
-        echo json_encode(['data' => $data, 'error' => false]);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode([
+            'error' => false,
+            'codigo' => $status,
+            'mensaje' => $mensaje ?? 'Operación exitosa',
+            'data' => $data
+        ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+        exit;
     }
 
-    public static function error(string $mensaje, int $status = 400): void
+    public static function error(string $mensaje, int $status = 400, $detalles = null): void
     {
         http_response_code($status);
-        header('Content-Type: application/json');
-        echo json_encode(['error' => true, 'codigo' => $status, 'mensaje' => $mensaje]);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode([
+            'error' => true,
+            'codigo' => $status,
+            'mensaje' => $mensaje,
+            'detalles' => $detalles
+        ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+        exit;
     }
 }

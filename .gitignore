@@ -1,0 +1,13 @@
+# Entornos y dependencias
+.env
+vendor/
+node_modules/
+
+# Logs y temporales
+*.log
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
