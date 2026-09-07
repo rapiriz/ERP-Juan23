@@ -180,7 +180,7 @@ class VentaController extends Controller {
 
 Ventaja de este patrón: la lógica de negocio queda testeable sin necesitar que Laravel esté corriendo, portable a otro proyecto, y resistente a un futuro cambio de framework.
 
-✅ **Bandera roja resuelta (confirmado por el equipo):** se usa **Laravel de punta a punta**, no PDO plano. El patrón de capas descripto arriba (Controller de Laravel liviano delegando a clases de dominio en PHP puro) sigue siendo válido como buena práctica dentro de Laravel — lo que se descartó fue la alternativa de escribir router y conexión a BD a mano en vez de usar lo que Laravel ya trae resuelto. Ver detalle completo en "Estructura de carpetas del backend" más abajo.
+🚩 Bandera roja pendiente de precisar (prioridad alta, aclarar con el profesor o releyendo el material de esa clase): esto explica cómo pueden convivir Laravel y PHP puro *dentro* de un mismo módulo, pero no confirma si la intención es "todos los módulos usan Laravel como capa externa + PHP puro adentro" o si cada módulo puede elegir su stack libremente (lo cual sí volvería a ser incompatible *entre* módulos, como se documentó originalmente). Mientras no se confirme, se sigue avanzando con PDO plano por ser lo más simple y no depender de instalar/configurar Laravel todavía.
 
 **Autenticación:** sesiones de servidor (no JWT), como apuesta informada. 🚩 A diferencia de Laravel/PHP (que son compatibles porque resuelven cosas distintas y se combinan por capas), JWT y sesiones compiten por resolver lo mismo — "¿cómo sabe el servidor si el usuario sigue logueado?" — con una decisión de fondo mutuamente excluyente: sesiones implican que el servidor consulta una tabla en cada request; JWT puro/stateless implica que el servidor no consulta nada, solo verifica la firma del token. Existe un patrón híbrido real (JWT + tabla de blacklist/whitelist para poder invalidar tokens), pero le saca la ventaja principal a JWT y probablemente no aplique acá. Se elige sesiones porque el endpoint real definido por Grupo 1 (POST /auth/login) devuelve token_sesion y permisos en la respuesta — patrón típico de sesiones, no de JWT. Además coincide con el contexto (usuarios internos, no app pública masiva). No hay apuro por resolver esto — el equipo no lo va a decidir formalmente hasta que se llegue a programar la autenticación. Si se programa con capas separadas (Controllers/Services/Repositories), el cambio a JWT más adelante debería afectar solo la capa de autenticación, no la lógica de negocio.
 
@@ -192,38 +192,10 @@ Ventaja de este patrón: la lógica de negocio queda testeable sin necesitar que
 - **Prueba de API (uso personal, Estefania):** REST Client (extensión de VS Code) — peticiones HTTP en archivos `.http`, versionables en Git junto con el código. No reemplaza a Postman como documentación de equipo, pero sirve perfecto para el testeo individual del día a día.
 - [resto pendiente — librerías específicas de negocio (ej: generación de PDFs para reportes, manejo de fechas/vencimientos) se definen cuando se resuelva la lógica puntual de cada módulo, no antes]
 
-**Estructura de carpetas del backend:** ✅ Ya no es una decisión temporal — Laravel está instalado y funcionando en el repo (rama `feature/g2-sofia-laravel-scaffold`, basada en `develop-g2`). Se mantuvo el espíritu de "módulo primero, capa después" que el equipo ya había definido, pero ahora dentro del scaffold real de Laravel — no reemplaza la organización modular, la combina con ella.
+**Estructura de carpetas del backend:** 🚩 Decisión de emergencia (temporal, no acordada formalmente por el equipo): organización por módulo primero, capa después — cada módulo (Entregas, Facturación, Caja, Cobros, ConciliacionBancaria, Rendiciones) tiene sus propias subcarpetas Controllers/Services/Repositories/Models, más una carpeta Shared para lo transversal (conexión PDO, router, formato de respuesta estándar, validación de sesión).
 
 ```
-/artisan                     ← CLI de Laravel
-/bootstrap
-  app.php                     ← arranque de la aplicación
-  providers.php                ← registro de Service Providers
-  /cache                       ← archivos de caché compilados (no se versionan)
-
-/config                      ← configuración estándar de Laravel (app, database, session, etc.)
-  database.php                 ← conexión a MySQL vía variables de entorno (.env), ya NO es un array hardcodeado
-
-/database
-  /migrations                  ← acá van a vivir las migraciones de las tablas de cada módulo
-  /factories
-  /seeders
-
-/public
-  index.php                    ← punto de entrada único, ahora es el de Laravel (reemplaza al router manual)
-
-/resources
-  /views                       ← vistas Blade (uso mínimo, el backend es principalmente API)
-
-/routes
-  web.php
-  console.php
-
-/storage                     ← logs, cache de vistas, sesiones (si se usan)
-
-/tests
-
-/src                          ← el código de dominio del equipo, con el autoload psr-4 App\ → src/
+/src
   /Entregas
     /Controllers
     /Services
@@ -231,7 +203,11 @@ Ventaja de este patrón: la lógica de negocio queda testeable sin necesitar que
     /Models
 
   /Facturacion
-    ...
+    /Controllers
+    /Services
+    /Repositories
+    /Models
+
   /Caja
     ...
   /Cobros
@@ -241,32 +217,30 @@ Ventaja de este patrón: la lógica de negocio queda testeable sin necesitar que
   /Rendiciones
     ...
 
-  /Providers
-    AppServiceProvider.php     ← única clase de arranque de Laravel que vive en src/, no en app/
-
   /Shared
     /Database
-      Conexion.php             ← 🚩 quedó sin uso tras la migración a Laravel, pendiente de eliminar en un PR aparte
+      Conexion.php          ← configuración PDO, un solo lugar
     /Http
-      Response.php              ← 🚩 formato de respuesta JSON acordado {data, error, mensaje}; se conserva como referencia, pendiente de que su namespace pase de Shared\Http a App\Shared\Http para que autoload-ee bien
-      /Controllers
-        Controller.php          ← clase base de la que heredan todos los Controllers del proyecto
+      Router.php             ← enrutamiento simple hecho a mano
+      Response.php            ← helper para responder JSON estándar {data, error, mensaje}
     /Auth
-      (SesionMiddleware.php eliminado — estaba sin implementar, Laravel resuelve sesión/auth de forma nativa)
+      SesionMiddleware.php    ← validación de sesión, reutilizable por todos los módulos
+
+/public
+  index.php                  ← punto de entrada único
+
+/config
+  database.php                ← credenciales, separado del código
 ```
 
-Qué se eliminó en la migración (ambos sin implementación real, solo un `TODO` sin código): `src/Shared/Http/Router.php` (Laravel trae su propio sistema de rutas) y `src/Shared/Auth/SesionMiddleware.php` (Laravel resuelve sesión de forma nativa).
-
-**Nota sobre el historial de la rama:** al intentar abrir el Pull Request de este cambio desde la rama `sofi-grupo2`, GitHub devolvió error de "historiales no relacionados" — se confirmó con `git merge-base` que esa rama nunca compartió un commit ancestro con `develop-g2`/`main`. El trabajo se rehizo en una rama nueva (`feature/g2-sofia-laravel-scaffold`) partiendo del estado real de `develop-g2`, para que el PR pudiera mergearse sin forzar un merge de historiales no relacionados. `sofi-grupo2` queda sin tocar, pendiente de que el equipo decida qué hacer con ella.
+Razón de la elección: coherente con la arquitectura "monolito modular con enfoque de microservicios" — cada carpeta de módulo funciona como un microservicio en potencia (bajo acoplamiento, fácil de separar a futuro), en vez de mezclar los 6 módulos dentro de las mismas carpetas de Controllers/Services/etc. Si se confirma el uso de Laravel más adelante, esta estructura queda obsoleta (el framework impone la suya propia).
 
 ## Notas y dudas pendientes
 
 **Sobre arquitectura y autenticación:**
-- ✅ Resuelto: el equipo confirmó Laravel de punta a punta (no PDO plano). Scaffold instalado y funcionando en `feature/g2-sofia-laravel-scaffold` (PR abierto hacia `develop-g2`).
-- 🚩 Nuevo pendiente: `src/Shared/Database/Conexion.php` quedó sin uso tras la migración — eliminar en un PR aparte una vez confirmado que ningún otro grupo la referencia.
-- 🚩 Nuevo pendiente: `src/Shared/Http/Response.php` conserva el namespace viejo (`Shared\Http` en vez de `App\Shared\Http`) — ajustar antes de usarla desde un Controller de Laravel, o no va a autoload-ear.
+- Laravel y PHP OOP plano NO son incompatibles entre sí (aclarado en clase, ver detalle en "Stack técnico" → Backend) — pero falta confirmar si TODOS los módulos deben seguir ese patrón de capas (Laravel externo + PHP puro adentro) o si cada módulo elige libremente, lo cual sí volvería a generar incompatibilidad *entre* módulos. Mientras tanto, se sigue avanzando con PDO plano.
 - ¿Autenticación vía JWT o sesiones de servidor? A diferencia de Laravel/PHP, esto sí es una decisión de fondo mutuamente excluyente (ver detalle en "Stack técnico" → Autenticación). Se decidió avanzar con sesiones como apuesta informada. Sin apuro — el equipo no lo definiría formalmente hasta llegar a programar la autenticación.
-- ✅ Resuelto: estructura de carpetas del backend, ahora sobre el scaffold real de Laravel (ver detalle en "Stack técnico" → Backend).
+- Estructura de carpetas del backend (módulo primero, capa después) — no está acordada formalmente por el equipo, es solo una decisión temporal para no frenar el desarrollo. Confirmar con los 4 grupos, ya que afecta la integración en develop. Si se confirma Laravel, esta estructura queda obsoleta.
 
 **Sobre base de datos:**
 - No hay tablas modeladas para Facturación, Caja, Cobros, Conciliación Bancaria y Rendiciones — solo Entregas está modelada hasta ahora, a pesar de que sí existen endpoints definidos para esos módulos. Hay que diseñar esas tablas.
