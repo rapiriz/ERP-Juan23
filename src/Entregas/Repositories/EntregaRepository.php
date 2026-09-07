@@ -1,9 +1,9 @@
 <?php
-namespace Entregas\Repositories;
+namespace App\Entregas\Repositories;
 
 use PDO;
-use Shared\Database\Conexion;
-use Entregas\Models\Entrega;
+use App\Shared\Database\Conexion;
+use App\Entregas\Models\Entrega;
 
 class EntregaRepository
 {
@@ -143,7 +143,7 @@ class EntregaRepository
     }
 
     /**
-     * Actualizar estado de una venta (ej. 'en_preparacion', 'en_camino')
+     * Actualizar estado de una venta
      */
     public function actualizarEstadoVenta(int $idVenta, string $nuevoEstado): void
     {
@@ -229,6 +229,7 @@ class EntregaRepository
                 v.fecha AS fecha_venta,
                 v.total,
                 v.total_bultos,
+                v.total_sueltos,
                 v.observaciones AS observaciones_venta,
                 ep.estado_pedido_entrega,
                 ep.motivo_rechazo,

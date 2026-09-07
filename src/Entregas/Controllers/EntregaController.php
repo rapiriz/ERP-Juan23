@@ -1,11 +1,12 @@
 <?php
-namespace Entregas\Controllers;
+namespace App\Entregas\Controllers;
 
 use Exception;
-use Shared\Http\Response;
-use Entregas\Services\EntregaService;
+use App\Shared\Http\Controllers\Controller;
+use App\Shared\Http\Response;
+use App\Entregas\Services\EntregaService;
 
-class EntregaController
+class EntregaController extends Controller
 {
     private EntregaService $service;
 

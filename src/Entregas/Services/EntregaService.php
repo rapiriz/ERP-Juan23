@@ -1,12 +1,12 @@
 <?php
-namespace Entregas\Services;
+namespace App\Entregas\Services;
 
 use Exception;
-use Shared\Database\Conexion;
-use Entregas\Models\Entrega;
-use Entregas\Models\Remito;
-use Entregas\Repositories\EntregaRepository;
-use Entregas\Repositories\RemitoRepository;
+use App\Shared\Database\Conexion;
+use App\Entregas\Models\Entrega;
+use App\Entregas\Models\Remito;
+use App\Entregas\Repositories\EntregaRepository;
+use App\Entregas\Repositories\RemitoRepository;
 
 /**
  * Servicio de Negocio: Entregas y Remitos
@@ -128,7 +128,6 @@ class EntregaService
                 'mensaje' => "Entrega #{$idEntrega} creada con éxito y " . count($remitosCreados) . " remitos emitidos."
             ];
         } catch (Exception $e) {
-            // Si algo falla, se cancela todo
             Conexion::revertir();
             throw new Exception("Error al armar la entrega: " . $e->getMessage());
         }

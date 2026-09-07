@@ -1,8 +1,9 @@
 <?php
-namespace Shared\Database;
+namespace App\Shared\Database;
 
 use PDO;
 use PDOException;
+use Exception;
 
 /**
  * Conexión PDO Singleton centralizada con soporte para Transacciones.
@@ -28,15 +29,14 @@ class Conexion
                     ]
                 );
             } catch (PDOException $e) {
-                // Si falla la conexión a MySQL, se devuelve un error descriptivo
-                throw new \Exception("Error al conectar a la base de datos MySQL: " . $e->getMessage());
+                throw new Exception("Error al conectar a la base de datos MySQL: " . $e->getMessage());
             }
         }
         return self::$instancia;
     }
 
     /**
-     * Iniciar una transacción atómica (todo o nada)
+     * Iniciar una transacción atómica
      */
     public static function iniciarTransaccion(): void
     {

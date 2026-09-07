@@ -1,5 +1,5 @@
 <?php
-namespace Shared\Http;
+namespace App\Shared\Http;
 
 /**
  * Helper para responder en formato JSON estándar:

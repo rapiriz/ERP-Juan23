@@ -1,9 +1,9 @@
 <?php
-namespace Entregas\Repositories;
+namespace App\Entregas\Repositories;
 
 use PDO;
-use Shared\Database\Conexion;
-use Entregas\Models\Remito;
+use App\Shared\Database\Conexion;
+use App\Entregas\Models\Remito;
 
 class RemitoRepository
 {
@@ -119,6 +119,7 @@ class RemitoRepository
                 v.fecha AS fecha_venta,
                 v.total AS total_venta,
                 v.total_bultos,
+                v.total_sueltos,
                 c.nombre AS cliente_nombre,
                 c.razon_social,
                 c.cuit,

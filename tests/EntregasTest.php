@@ -1,21 +1,30 @@
 <?php
 /**
  * Test Suite de Unidad: Módulo de Entregas (HU #1 y HU #2)
- * Ejecutable directamente con: php tests/EntregasTest.php
+ * Compatible con namespaces App\ (Laravel / PSR-4)
  */
 
-require_once __DIR__ . '/../src/Shared/Database/Conexion.php';
-require_once __DIR__ . '/../src/Shared/Http/Response.php';
-require_once __DIR__ . '/../src/Entregas/Models/Entrega.php';
-require_once __DIR__ . '/../src/Entregas/Models/Remito.php';
-require_once __DIR__ . '/../src/Entregas/Repositories/EntregaRepository.php';
-require_once __DIR__ . '/../src/Entregas/Repositories/RemitoRepository.php';
-require_once __DIR__ . '/../src/Entregas/Services/EntregaService.php';
+spl_autoload_register(function ($class) {
+    $prefix = 'App\\';
+    $baseDir = __DIR__ . '/../src/';
 
-use Shared\Database\Conexion;
-use Entregas\Services\EntregaService;
-use Entregas\Repositories\EntregaRepository;
-use Entregas\Repositories\RemitoRepository;
+    $len = strlen($prefix);
+    if (strncmp($prefix, $class, $len) !== 0) {
+        return;
+    }
+
+    $relativeClass = substr($class, $len);
+    $file = $baseDir . str_replace('\\', '/', $relativeClass) . '.php';
+
+    if (file_exists($file)) {
+        require_once $file;
+    }
+});
+
+use App\Shared\Database\Conexion;
+use App\Entregas\Services\EntregaService;
+use App\Entregas\Repositories\EntregaRepository;
+use App\Entregas\Repositories\RemitoRepository;
 
 echo "====================================================\n";
 echo "🧪 INICIANDO TEST SUITE: MÓDULO ENTREGAS (HU #1 & #2)\n";

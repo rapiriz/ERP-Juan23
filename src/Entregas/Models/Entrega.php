@@ -1,5 +1,5 @@
 <?php
-namespace Entregas\Models;
+namespace App\Entregas\Models;
 
 /**
  * Modelo de Dominio: Entrega (Hoja de Ruta / Viaje de Reparto)

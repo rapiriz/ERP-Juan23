@@ -1,5 +1,5 @@
 <?php
-namespace Entregas\Models;
+namespace App\Entregas\Models;
 
 /**
  * Modelo de Dominio: Remito (Comprobante legal de traslado de mercadería)
