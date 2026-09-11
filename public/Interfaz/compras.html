@@ -464,6 +464,7 @@
           <h4 style="margin:0; font-size:14px;">Recepciones (C06)</h4>
           <div class="btn-row">
             <button class="btn primary" id="btnRegistrarRecepcion"><span class="mini-icon">＋</span> Registrar recepción</button>
+            <button class="btn success" id="btnRegistrarPagos">$ Registrar pagos</button>
             <button class="btn" id="btnEditarCompra">✎ Modificar</button>
             <button class="btn danger" id="btnCancelarCompra">Cancelar compra</button>
           </div>
@@ -472,6 +473,14 @@
           <table aria-label="Historial de recepciones" style="min-width:560px;">
             <thead><tr><th>N° Recepción</th><th>Fecha</th><th>Productos</th><th>Total recibido</th></tr></thead>
             <tbody id="tbodyRecepciones"></tbody>
+          </table>
+        </div>
+        <div class="divider"></div>
+        <h4 style="margin:0 0 8px; font-size:14px;">Historial de pagos (C08)</h4>
+        <div style="overflow:auto; border:1px solid var(--border); border-radius:10px; max-height:180px;">
+          <table aria-label="Historial de pagos" style="min-width:560px;">
+            <thead><tr><th>Fecha</th><th>Método</th><th>Referencia</th><th>Importe</th></tr></thead>
+            <tbody id="tbodyPagosHistorial"></tbody>
           </table>
         </div>
       </div>
@@ -510,6 +519,40 @@
     </div>
   </div>
 
+  <!-- MODAL: Registrar múltiples métodos de pago (C08) -->
+  <div class="modal-backdrop" id="modalPagos">
+    <div class="modal-content" style="max-width:720px;">
+      <div class="modal-header">
+        <h3>Registrar pagos (C08)</h3>
+        <button class="modal-close" onclick="closeModal('modalPagos')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="error-box" id="errorBoxPagos"></div>
+        <div class="help" id="pagosInfo" style="margin-bottom:10px;"></div>
+        <div class="field">
+          <label for="pagoFecha">Fecha predeterminada para nuevos pagos</label>
+          <input class="control" type="date" id="pagoFecha" />
+        </div>
+        <div class="divider"></div>
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px;">
+          <h4 style="margin:0; font-size:14px;">Medios de pago</h4>
+          <button class="btn primary" id="btnAgregarPago">＋ Agregar medio</button>
+        </div>
+        <div style="overflow:auto; border:1px solid var(--border); border-radius:10px;">
+          <table class="items-table" aria-label="Medios de pago">
+            <thead><tr><th>Método</th><th>Fecha</th><th>Importe</th><th>Referencia</th><th></th></tr></thead>
+            <tbody id="tbodyPagos"></tbody>
+          </table>
+        </div>
+        <div class="help" id="pagosResumen" style="margin-top:10px;"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeModal('modalPagos')">Cancelar</button>
+        <button class="btn primary-solid" id="btnGuardarPagos">Registrar pagos</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Container -->
   <div class="toast-container" id="toastContainer"></div>
 
@@ -523,6 +566,7 @@
     let compraEnEdicion = null;      // compra en edición (C04)
     let itemsCompra = [];            // items del modal alta/edición
     let recepcionActual = null;      // datos del detalle para la recepción
+    let pagosActuales = [];
 
     function showToast(message, type = 'info') {
       const container = document.getElementById('toastContainer');
@@ -827,10 +871,12 @@
       const info = document.getElementById('detalleInfo');
       const tbodyD = document.getElementById('tbodyDetalle');
       const tbodyR = document.getElementById('tbodyRecepciones');
+      const tbodyP = document.getElementById('tbodyPagosHistorial');
       const titulo = document.getElementById('detalleTitulo');
       info.innerHTML = 'Cargando detalle...';
       tbodyD.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:16px; color:var(--muted);">Cargando...</td></tr>`;
       tbodyR.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:16px; color:var(--muted);">Cargando...</td></tr>`;
+      tbodyP.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:16px; color:var(--muted);">Cargando...</td></tr>`;
       titulo.textContent = 'Detalle de la Compra (C03)';
       openModal('modalDetalle');
       compraActual = idCompra;
@@ -852,16 +898,20 @@
             <div><span style="color:var(--muted); font-size:11px; font-weight:800;">IMPORTE TOTAL:</span><br><strong>$${Number(c.importe_total).toFixed(2)}</strong></div>
             <div><span style="color:var(--muted); font-size:11px; font-weight:800;">ESTADO:</span><br><span class="tag ${c.estado}"><span class="s"></span>${ETIQUETAS_ESTADO[c.estado] || c.estado}</span></div>
             <div><span style="color:var(--muted); font-size:11px; font-weight:800;">RECIBIDO:</span><br>${d.total_recibido}/${d.total_comprado} unidades</div>
+            <div><span style="color:var(--muted); font-size:11px; font-weight:800;">ESTADO DE PAGO:</span><br>${d.estado_pago === 'pagada' ? 'Pagada' : (d.estado_pago === 'parcialmente_pagada' ? 'Parcialmente pagada' : 'Pendiente')}</div>
+            <div><span style="color:var(--muted); font-size:11px; font-weight:800;">SALDO DE PAGO:</span><br><strong>$${Number(d.saldo_pago_pendiente || 0).toFixed(2)}</strong></div>
           </div>`;
 
         renderDetalleProductos(d.detalles || []);
         renderRecepciones(d.recepciones || []);
+        renderHistorialPagos(d.pagos || []);
 
         // Botones del detalle según estado (C04 requieren pendiente, C05 pendiente, C06 no cancelada/completada)
         const cancelada = c.estado === 'cancelada';
         document.getElementById('btnCancelarCompra').disabled = c.estado !== 'pendiente';
         document.getElementById('btnEditarCompra').disabled = c.estado !== 'pendiente';
         document.getElementById('btnRegistrarRecepcion').disabled = (cancelada || c.estado === 'completada');
+        document.getElementById('btnRegistrarPagos').disabled = cancelada || Number(d.saldo_pago_pendiente) <= 0;
       } catch (err){
         info.innerHTML = '<div class="error-box show">Error de conexión con el servidor.</div>';
       }
@@ -901,6 +951,22 @@
             <td data-label="Total recibido">${r.total_recibido || 0} u.</td>
           </tr>`;
       }).join('');
+    }
+
+    function renderHistorialPagos(pagos){
+      const tbody = document.getElementById('tbodyPagosHistorial');
+      if (!pagos || pagos.length === 0){
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:16px; color:var(--muted);">Sin pagos registrados.</td></tr>`;
+        return;
+      }
+      const etiquetas = {efectivo:'Efectivo', transferencia:'Transferencia', tarjeta_debito:'Tarjeta de débito', tarjeta_credito:'Tarjeta de crédito', cheque:'Cheque', otro:'Otro'};
+      tbody.innerHTML = pagos.map(p => `
+        <tr>
+          <td data-label="Fecha">${p.fecha_pago || '—'}</td>
+          <td data-label="Método">${etiquetas[p.metodo] || p.metodo}</td>
+          <td data-label="Referencia">${p.referencia || '—'}</td>
+          <td data-label="Importe"><strong>$${Number(p.importe).toFixed(2)}</strong></td>
+        </tr>`).join('');
     }
 
     function reiniciarBotonesDetalle(){
@@ -993,6 +1059,70 @@
         }
       } catch (err){ errorBox.textContent = 'Error de conexión.'; errorBox.classList.add('show'); }
       finally { document.getElementById('btnGuardarRecepcion').disabled = false; }
+    });
+
+    // ==========================================
+    // C08: Pagos múltiples
+    // ==========================================
+
+    function renderPagosForm(){
+      const tbody = document.getElementById('tbodyPagos');
+      if (!pagosActuales.length){
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:16px; color:var(--muted);">Agregue al menos un medio de pago.</td></tr>';
+        document.getElementById('pagosResumen').textContent = '';
+        return;
+      }
+      const metodos = [['efectivo','Efectivo'],['transferencia','Transferencia'],['tarjeta_debito','Tarjeta de débito'],['tarjeta_credito','Tarjeta de crédito'],['cheque','Cheque'],['otro','Otro']];
+      tbody.innerHTML = pagosActuales.map((p, i) => `
+        <tr>
+          <td><select class="control" onchange="cambiarPago(${i}, 'metodo', this.value)">${metodos.map(([v,l]) => `<option value="${v}" ${p.metodo === v ? 'selected' : ''}>${l}</option>`).join('')}</select></td>
+          <td><input class="control" type="date" value="${p.fecha_pago || ''}" onchange="cambiarPago(${i}, 'fecha_pago', this.value)" /></td>
+          <td><input class="control" type="number" min="0.01" step="0.01" value="${p.importe}" oninput="cambiarPago(${i}, 'importe', this.value)" /></td>
+          <td><input class="control" maxlength="100" value="${p.referencia || ''}" placeholder="Opcional" oninput="cambiarPago(${i}, 'referencia', this.value)" /></td>
+          <td><button class="icon-btn" onclick="quitarPago(${i})" aria-label="Quitar pago">×</button></td>
+        </tr>`).join('');
+      const total = pagosActuales.reduce((s, p) => s + (parseFloat(p.importe) || 0), 0);
+      const saldo = Number(document.getElementById('modalPagos').dataset.saldo || 0);
+      document.getElementById('pagosResumen').textContent = `Total a registrar: $${total.toFixed(2)} · Saldo disponible: $${saldo.toFixed(2)}`;
+    }
+
+    function cambiarPago(indice, campo, valor){ pagosActuales[indice][campo] = valor; renderPagosForm(); }
+    function quitarPago(indice){ pagosActuales.splice(indice, 1); renderPagosForm(); }
+    document.getElementById('btnAgregarPago').addEventListener('click', () => { pagosActuales.push({metodo:'efectivo', fecha_pago:document.getElementById('pagoFecha').value, importe:'', referencia:''}); renderPagosForm(); });
+
+    document.getElementById('btnRegistrarPagos').addEventListener('click', async () => {
+      if (compraActual == null) return;
+      try {
+        const res = await fetch(`${API_BASE}/compras/${compraActual}`, { headers:{'Accept':'application/json'} });
+        const json = await res.json();
+        if (json.status !== 'success'){ showToast(json.message || 'No se pudo consultar el estado.', 'error'); return; }
+        const d = json.data;
+        if (Number(d.saldo_pago_pendiente) <= 0){ showToast('La compra ya está pagada.', 'info'); return; }
+        pagosActuales = [{metodo:'efectivo', fecha_pago:new Date().toISOString().slice(0,10), importe:'', referencia:''}];
+        document.getElementById('modalPagos').dataset.saldo = d.saldo_pago_pendiente;
+        document.getElementById('pagosInfo').textContent = `Compra #${d.id_compra}. Total: $${Number(d.importe_total).toFixed(2)} · Saldo pendiente: $${Number(d.saldo_pago_pendiente).toFixed(2)}`;
+        document.getElementById('pagoFecha').value = new Date().toISOString().slice(0,10);
+        renderPagosForm();
+        openModal('modalPagos');
+      } catch (err) { showToast('Error de conexión.', 'error'); }
+    });
+
+    document.getElementById('btnGuardarPagos').addEventListener('click', async () => {
+      const errorBox = document.getElementById('errorBoxPagos');
+      errorBox.classList.remove('show');
+      const pagos = pagosActuales.map(p => ({metodo:p.metodo, fecha_pago:p.fecha_pago || document.getElementById('pagoFecha').value, importe:parseFloat(p.importe) || 0, referencia:p.referencia || null}));
+      const total = pagos.reduce((s,p) => s + p.importe, 0);
+      const saldo = Number(document.getElementById('modalPagos').dataset.saldo || 0);
+      if (!pagos.length || pagos.some(p => p.importe <= 0)){ errorBox.textContent = 'Cada medio de pago debe tener un importe mayor a cero.'; errorBox.classList.add('show'); return; }
+      if (total > saldo + 0.00001){ errorBox.textContent = 'El total supera el saldo pendiente.'; errorBox.classList.add('show'); return; }
+      document.getElementById('btnGuardarPagos').disabled = true;
+      try {
+        const res = await fetch(`${API_BASE}/compras/${compraActual}/pagos`, {method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json'}, body:JSON.stringify({id_usuario:1, fecha_pago:document.getElementById('pagoFecha').value, pagos})});
+        const json = await res.json();
+        if (json.status === 'success') { showToast(json.message, 'success'); closeModal('modalPagos'); loadCompras(); verDetalle(compraActual); }
+        else { errorBox.textContent = json.message || 'No se pudieron registrar los pagos.'; errorBox.classList.add('show'); }
+      } catch (err) { errorBox.textContent = 'Error de conexión.'; errorBox.classList.add('show'); }
+      finally { document.getElementById('btnGuardarPagos').disabled = false; }
     });
 
     // ==========================================

@@ -219,7 +219,7 @@ class CompraController extends Controller
      */
     public function show(int $id): JsonResponse
     {
-        $compra = Compra::with(['proveedor', 'detalles.producto', 'recepciones.detalles.producto'])->find($id);
+        $compra = Compra::with(['proveedor', 'detalles.producto', 'recepciones.detalles.producto', 'pagos'])->find($id);
         if (!$compra) {
             return response()->json(['status' => 'error', 'message' => 'La compra no existe.'], 404);
         }
@@ -255,6 +255,16 @@ class CompraController extends Controller
             ];
         });
 
+        $pagos = $compra->pagos->map(fn ($p) => [
+            'id_pago_compra' => $p->id_pago_compra,
+            'metodo' => $p->metodo,
+            'importe' => (float) $p->importe,
+            'fecha_pago' => $p->fecha_pago ? $p->fecha_pago->format('Y-m-d') : null,
+            'referencia' => $p->referencia,
+        ]);
+        $totalPagado = round((float) $pagos->sum('importe'), 2);
+        $saldoPago = max(0, round((float) $compra->importe_total - $totalPagado, 2));
+
         return response()->json([
             'status' => 'success',
             'data' => [
@@ -263,8 +273,35 @@ class CompraController extends Controller
                 'total_recibido' => (int) $totalRecibido,
                 'detalles' => $detalles,
                 'recepciones' => $recepciones,
+                'pagos' => $pagos,
+                'total_pagado' => $totalPagado,
+                'saldo_pago_pendiente' => $saldoPago,
+                'estado_pago' => $saldoPago <= 0 ? 'pagada' : ($totalPagado > 0 ? 'parcialmente_pagada' : 'pendiente'),
             ],
         ], 200);
+    }
+
+    public function estado(int $id): JsonResponse
+    {
+        $compra = Compra::with('detalles')->find($id);
+        if (!$compra) {
+            return response()->json(['status' => 'error', 'message' => 'La compra no existe.'], 404);
+        }
+
+        $totalUnidades = (int) $compra->detalles->sum('cantidad');
+        $unidadesRecibidas = (int) $compra->detalles->sum('cantidad_recibida');
+
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                'id_compra' => $compra->id_compra,
+                'estado' => $compra->estado,
+                'estado_recepcion' => $compra->estado,
+                'unidades_compradas' => $totalUnidades,
+                'unidades_recibidas' => $unidadesRecibidas,
+                'unidades_pendientes' => max(0, $totalUnidades - $unidadesRecibidas),
+            ],
+        ]);
     }
 
     /**
@@ -281,6 +318,12 @@ class CompraController extends Controller
             return response()->json([
                 'status' => 'error',
                 'message' => 'Solo se pueden modificar compras pendientes. (C04)',
+            ], 400);
+        }
+        if ($compra->pagos()->exists()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'No se puede modificar una compra que ya tiene pagos registrados.',
             ], 400);
         }
 

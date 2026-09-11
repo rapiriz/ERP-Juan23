@@ -16,6 +16,7 @@ use App\Modules\Stock\Controllers\UnidadController;
 use App\Modules\Proveedores\Controllers\ProveedorController;
 use App\Modules\Compras\Controllers\CompraController;
 use App\Modules\Compras\Controllers\RecepcionController;
+use App\Modules\Compras\Controllers\PagoCompraController;
 use App\Modules\PedidosDeCompra\Controllers\OrdenCompraController;
 
 Route::get('/', function (Request $request) {
@@ -48,10 +49,12 @@ Route::get('/', function (Request $request) {
             'DELETE /api/proveedores/productos/{id}',
             'GET /api/compras',
             'GET /api/compras/{id}',
+            'GET /api/compras/{id}/estado',
             'POST /api/compras',
             'PATCH /api/compras/{id}',
             'PATCH /api/compras/{id}/cancelar',
             'POST /api/compras/{id}/recepciones',
+            'POST /api/compras/{id}/pagos',
             'GET /api/ordenes-compra',
             'GET /api/ordenes-compra/{id}',
             'POST /api/ordenes-compra',
@@ -90,6 +93,8 @@ Route::apiResource('proveedores', ProveedorController::class);
 Route::patch('compras/{compra}/cancelar', [CompraController::class, 'cancelar']);
 // C06 - Registrar recepciones parciales de una compra
 Route::post('compras/{compra}/recepciones', [RecepcionController::class, 'store']);
+Route::get('compras/{compra}/estado', [CompraController::class, 'estado']);
+Route::post('compras/{compra}/pagos', [PagoCompraController::class, 'store']);
 // C01/C02/C03/C04 - Alta, listado, detalle y edición
 Route::apiResource('compras', CompraController::class);
 
