@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\ConciliacionBancaria\Controllers\ConciliacionController;
+use App\ConciliacionBancaria\Controllers\ChequeController;
 use App\Caja\Controllers\CajaController;
 
 Route::prefix('v1')->group(function () {
@@ -12,7 +13,12 @@ Route::prefix('v1')->group(function () {
     Route::post('/conciliacion/movimientos/{id}/conciliar-manual', [ConciliacionController::class, 'conciliarManual']);
     Route::patch('/conciliacion/{id}/cerrar', [ConciliacionController::class, 'cerrar']);
 
-    // --- Caja ---
+    Route::get('/cheques', [ChequeController::class, 'index']);
+    Route::get('/cheques/{id}', [ChequeController::class, 'show']);
+    Route::patch('/cheques/{id}/depositar', [ChequeController::class, 'depositar']);
+    Route::patch('/cheques/{id}/rechazar', [ChequeController::class, 'rechazar']);
+
+    // --- Caja --- protegidas con sesión real (Sanctum) ---
     // OJO con el orden: las rutas más específicas van antes de /caja/{fecha},
     // si no Laravel interpreta "cierres" o "movimiento" como un valor de {fecha}.
     Route::post('/caja/apertura', [CajaController::class, 'abrir']);
