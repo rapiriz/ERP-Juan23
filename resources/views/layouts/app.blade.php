@@ -14,6 +14,9 @@
         <a href="{{ route('conciliacion.index') }}" class="{{ request()->routeIs('conciliacion.*') ? 'activo' : '' }}">
             Conciliación Bancaria
         </a>
+        <a href="{{ route('caja.dia') }}" class="{{ request()->routeIs('caja.*') ? 'activo' : '' }}">
+            Caja
+        </a>
     </nav>
     <main>
         @if (session('mensaje'))
