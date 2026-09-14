@@ -3,16 +3,8 @@
 namespace App\ConciliacionBancaria\Services;
 
 use App\ConciliacionBancaria\Repositories\ConciliacionRepository;
+use Illuminate\Support\Carbon;
 
-/**
- * Logica de negocio del modulo de Conciliacion Bancaria.
- *
- * Convencion de retorno (sin excepciones propias):
- *   - array con los datos, si salio bien
- *   - null, si el registro buscado no existe
- *   - ['error' => true, 'mensaje' => '...'] si la operacion es invalida
- *     por una regla de negocio
- */
 class ConciliacionService
 {
     public function __construct(private ConciliacionRepository $repository)
@@ -31,22 +23,50 @@ class ConciliacionService
         return $periodo?->toArray();
     }
 
+    /**
+     * Crea un periodo manual. Bloquea si se superpone con uno existente
+     * (incluido el periodo automatico del mes, si ya se creo).
+     */
     public function crearPeriodo(array $datos): array
     {
+        if ($this->repository->existeSuperposicion($datos['fecha_desde'], $datos['fecha_hasta'])) {
+            return [
+                'error' => true,
+                'mensaje' => 'Ya existe un periodo que se superpone con esas fechas.',
+            ];
+        }
+
         $periodo = $this->repository->crearPeriodo($datos);
 
         return $periodo->toArray();
     }
 
     /**
-     * Motor de conciliacion automatica. Reglas acordadas con el equipo:
-     *   - Margen de fecha: hasta 48hs entre el movimiento bancario y el
-     *     registro candidato.
-     *   - Monto: coincidencia exacta, sin tolerancia.
-     *   - Relacion: siempre 1 a 1.
-     *   - Ambiguedad: si hay mas de un candidato valido, NO se concilia
-     *     automaticamente, queda pendiente para revision manual.
+     * Se llama cada vez que alguien entra al modulo. Si no existe todavia
+     * un periodo que cubra el dia de hoy, crea automaticamente uno para
+     * todo el mes calendario actual. Reemplaza la necesidad de un cron/
+     * scheduler: se crea "perezosamente" en el primer acceso del mes.
      */
+    public function asegurarPeriodoAutomaticoDelMes(int $idUsuarioSistema): array
+    {
+        $hoy = Carbon::now();
+        $periodoExistente = $this->repository->buscarPeriodoQueCubre($hoy->toDateString());
+
+        if ($periodoExistente !== null) {
+            return $periodoExistente->toArray();
+        }
+
+        $datos = [
+            'fecha_desde' => $hoy->copy()->startOfMonth()->toDateString(),
+            'fecha_hasta' => $hoy->copy()->endOfMonth()->toDateString(),
+            'id_usuario' => $idUsuarioSistema,
+        ];
+
+        $periodo = $this->repository->crearPeriodo($datos);
+
+        return $periodo->toArray();
+    }
+
     public function conciliarAutomatico(int $idPeriodo): ?array
     {
         $periodo = $this->repository->buscarPeriodo($idPeriodo);

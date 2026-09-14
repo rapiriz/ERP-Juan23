@@ -7,15 +7,6 @@ use App\Shared\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 
-/**
- * Controller para las VISTAS (Blade) del modulo Caja.
- * Distinto de CajaController (API con Sanctum) - usa el mismo CajaService,
- * pero via sesion web normal, sin token.
- *
- * TODO: reemplazar el id_usuario fijo por el usuario real de sesion cuando
- * el Login (G1) este integrado. Mismo criterio provisorio que se uso en
- * ConciliacionWebController.
- */
 class CajaWebController extends Controller
 {
     private const ID_USUARIO_PROVISORIO = 1;
@@ -33,7 +24,9 @@ class CajaWebController extends Controller
             return view('caja.abrir');
         }
 
-        return view('caja.dia', ['caja' => $caja]);
+        $montoActual = $this->service->obtenerMontoActual($caja['id_caja']);
+
+        return view('caja.dia', ['caja' => $caja, 'montoActual' => $montoActual]);
     }
 
     public function abrir(Request $request)
@@ -56,6 +49,12 @@ class CajaWebController extends Controller
         return redirect()->route('caja.dia')->with('mensaje', 'Caja abierta correctamente.');
     }
 
+    /**
+     * Si la request pide JSON (fetch con header Accept: application/json),
+     * responde con el movimiento creado y el monto actual recalculado, sin
+     * redirigir — así el frontend actualiza la pantalla sin recargar.
+     * Si no, se comporta como antes (redirect clásico, fallback sin JS).
+     */
     public function registrarMovimiento(Request $request, int $id)
     {
         $datos = $request->validate([
@@ -73,11 +72,24 @@ class CajaWebController extends Controller
         );
 
         if ($resultado === null) {
+            if ($request->wantsJson()) {
+                return response()->json(['error' => true, 'mensaje' => 'Caja no encontrada.'], 404);
+            }
             abort(404, 'Caja no encontrada');
         }
 
         if ($resultado['error'] ?? false) {
+            if ($request->wantsJson()) {
+                return response()->json(['error' => true, 'mensaje' => $resultado['mensaje']], 409);
+            }
             return back()->with('error', $resultado['mensaje']);
+        }
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'movimiento' => $resultado,
+                'monto_actual' => $this->service->obtenerMontoActual($id),
+            ]);
         }
 
         return redirect()->route('caja.dia')->with('mensaje', 'Movimiento registrado correctamente.');

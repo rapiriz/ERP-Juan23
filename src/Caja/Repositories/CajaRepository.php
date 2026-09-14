@@ -10,7 +10,7 @@ class CajaRepository
 {
     public function buscarPorId(int $idCaja): ?Caja
     {
-        return Caja::find($idCaja);
+        return Caja::with('movimientos')->find($idCaja);
     }
 
     public function buscarAbiertaDeUsuario(int $idUsuario, string $fecha): ?Caja
@@ -23,7 +23,8 @@ class CajaRepository
 
     public function buscarPorUsuarioYFecha(int $idUsuario, string $fecha): ?Caja
     {
-        return Caja::where('id_usuario', $idUsuario)
+        return Caja::with('movimientos')
+            ->where('id_usuario', $idUsuario)
             ->where('fecha', $fecha)
             ->first();
     }
@@ -44,10 +45,6 @@ class CajaRepository
         return $caja;
     }
 
-    /**
-     * Historial de cierres. $idUsuario opcional: si viene, filtra solo los
-     * cierres de ese usuario; si no, trae todos (vista admin).
-     */
     public function listarCierres(?int $idUsuario = null): Collection
     {
         $query = Caja::where('estado', Caja::ESTADO_CERRADA);
@@ -61,7 +58,8 @@ class CajaRepository
 
     public function buscarCierrePorId(int $idCaja): ?Caja
     {
-        return Caja::where('id_caja', $idCaja)
+        return Caja::with('movimientos')
+            ->where('id_caja', $idCaja)
             ->where('estado', Caja::ESTADO_CERRADA)
             ->first();
     }
@@ -87,10 +85,6 @@ class CajaRepository
         return CajaMovimiento::where('id_caja', $idCaja)->get();
     }
 
-    /**
-     * Suma neta de movimientos de una caja (ingresos - egresos), usada para
-     * calcular el saldo esperado al cerrar.
-     */
     public function calcularSaldoMovimientos(int $idCaja): float
     {
         return (float) $this->listarMovimientosDeCaja($idCaja)

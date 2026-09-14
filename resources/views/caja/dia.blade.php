@@ -10,6 +10,9 @@
                 <p class="subtitulo">
                     <span class="badge badge-{{ $caja['estado'] === 'abierta' ? 'abierto' : 'cerrado' }}">{{ ucfirst($caja['estado']) }}</span>
                     · Monto inicial: ${{ number_format($caja['monto_inicial'], 2, ',', '.') }}
+                    @if ($caja['estado'] === 'abierta')
+                        · Monto actual: <strong id="monto-actual">${{ number_format($montoActual, 2, ',', '.') }}</strong>
+                    @endif
                 </p>
             </div>
 
@@ -29,38 +32,37 @@
     <div class="clay-card">
         <h3>Movimientos de hoy</h3>
 
-        @if (empty($caja['movimientos']))
-            <div class="vacio">
-                <p>Todavia no registraste movimientos en esta caja.</p>
-            </div>
-        @else
-            <table>
-                <thead>
+        <div id="sin-movimientos" class="vacio" @if(!empty($caja['movimientos'])) style="display:none" @endif>
+            <p>Todavia no registraste movimientos en esta caja.</p>
+        </div>
+
+        <table id="tabla-movimientos" @if(empty($caja['movimientos'])) style="display:none" @endif>
+            <thead>
+                <tr>
+                    <th>Tipo</th>
+                    <th>Concepto</th>
+                    <th>Monto</th>
+                </tr>
+            </thead>
+            <tbody id="tabla-movimientos-body">
+                @foreach ($caja['movimientos'] ?? [] as $movimiento)
                     <tr>
-                        <th>Tipo</th>
-                        <th>Concepto</th>
-                        <th>Monto</th>
+                        <td>{{ ucfirst(str_replace('_', ' ', $movimiento['tipo'])) }}</td>
+                        <td>{{ $movimiento['concepto'] }}</td>
+                        <td>${{ number_format($movimiento['monto'], 2, ',', '.') }}</td>
                     </tr>
-                </thead>
-                <tbody>
-                    @foreach ($caja['movimientos'] as $movimiento)
-                        <tr>
-                            <td>{{ ucfirst(str_replace('_', ' ', $movimiento['tipo'])) }}</td>
-                            <td>{{ $movimiento['concepto'] }}</td>
-                            <td>${{ number_format($movimiento['monto'], 2, ',', '.') }}</td>
-                        </tr>
-                    @endforeach
-                </tbody>
-            </table>
-        @endif
+                @endforeach
+            </tbody>
+        </table>
     </div>
 
-    {{-- Modal: registrar movimiento --}}
     <div id="modal-movimiento" class="modal-overlay">
         <div class="clay-card modal-card">
             <h3>Registrar movimiento</h3>
 
-            <form method="POST" action="{{ route('caja.movimiento', $caja['id_caja']) }}">
+            <div id="error-movimiento" class="alerta alerta-error" style="display:none"></div>
+
+            <form id="form-movimiento" method="POST" action="{{ route('caja.movimiento', $caja['id_caja']) }}">
                 @csrf
 
                 <label for="tipo">Tipo</label>
@@ -81,7 +83,7 @@
 
                 <div class="fila-acciones">
                     <button type="submit" class="clay-btn-primary">Guardar movimiento</button>
-                    <button type="button" class="clay-btn-secondary" onclick="document.getElementById('modal-movimiento').classList.remove('visible')">
+                    <button type="button" class="clay-btn-secondary" onclick="cerrarModalMovimiento()">
                         Cancelar
                     </button>
                 </div>
@@ -89,7 +91,6 @@
         </div>
     </div>
 
-    {{-- Modal: cerrar caja --}}
     <div id="modal-cerrar" class="modal-overlay">
         <div class="clay-card modal-card">
             <h3>Cerrar caja</h3>
@@ -114,4 +115,72 @@
             </form>
         </div>
     </div>
+
+    <script>
+        function cerrarModalMovimiento() {
+            document.getElementById('modal-movimiento').classList.remove('visible');
+            document.getElementById('error-movimiento').style.display = 'none';
+            document.getElementById('form-movimiento').reset();
+        }
+
+        function formatearMonto(numero) {
+            return '$' + Number(numero).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        document.getElementById('form-movimiento').addEventListener('submit', function (evento) {
+            evento.preventDefault();
+
+            const form = evento.target;
+            const datos = new FormData(form);
+            const token = document.querySelector('meta[name="csrf-token"]').content;
+            const errorDiv = document.getElementById('error-movimiento');
+
+            fetch(form.action, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': token,
+                    'Accept': 'application/json',
+                },
+                body: datos,
+            })
+                .then(async (respuesta) => {
+                    const cuerpo = await respuesta.json();
+
+                    if (!respuesta.ok || cuerpo.error) {
+                        errorDiv.textContent = cuerpo.mensaje || 'Ocurrio un error al registrar el movimiento.';
+                        errorDiv.style.display = 'block';
+                        return;
+                    }
+
+                    // Actualizar monto actual arriba de todo.
+                    const montoActualEl = document.getElementById('monto-actual');
+                    if (montoActualEl) {
+                        montoActualEl.textContent = formatearMonto(cuerpo.monto_actual);
+                    }
+
+                    // Agregar la fila nueva a la tabla, y mostrar la tabla si estaba oculta.
+                    const tabla = document.getElementById('tabla-movimientos');
+                    const cuerpoTabla = document.getElementById('tabla-movimientos-body');
+                    const sinMovimientos = document.getElementById('sin-movimientos');
+
+                    tabla.style.display = 'table';
+                    sinMovimientos.style.display = 'none';
+
+                    const fila = document.createElement('tr');
+                    const tipoTexto = cuerpo.movimiento.tipo.replace('_', ' ');
+                    fila.innerHTML = `
+                        <td>${tipoTexto.charAt(0).toUpperCase() + tipoTexto.slice(1)}</td>
+                        <td>${cuerpo.movimiento.concepto}</td>
+                        <td>${formatearMonto(cuerpo.movimiento.monto)}</td>
+                    `;
+                    cuerpoTabla.appendChild(fila);
+
+                    cerrarModalMovimiento();
+                })
+                .catch(() => {
+                    errorDiv.textContent = 'No se pudo conectar con el servidor.';
+                    errorDiv.style.display = 'block';
+                });
+        });
+    </script>
 @endsection

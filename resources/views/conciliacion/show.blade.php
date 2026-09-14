@@ -128,7 +128,6 @@
                         <label for="id-origen-{{ $movimiento['id_movimiento_bancario'] }}">ID del registro de origen</label>
                         <input type="number" name="id_origen" id="id-origen-{{ $movimiento['id_movimiento_bancario'] }}" class="clay-input" required>
 
-                        <input type="hidden" name="id_usuario" value="1">
                         <input type="hidden" name="id_periodo_redirect" value="{{ $periodo['id_periodo'] }}">
 
                         <div class="fila-acciones">

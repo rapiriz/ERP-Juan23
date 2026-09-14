@@ -16,8 +16,6 @@ class ConciliacionRepository
 {
     private const MARGEN_HORAS = 48;
 
-    // --- PeriodoConciliacion ---
-
     public function buscarPeriodo(int $idPeriodo): ?PeriodoConciliacion
     {
         return PeriodoConciliacion::with('movimientosBancarios')->find($idPeriodo);
@@ -54,8 +52,6 @@ class ConciliacionRepository
         return $periodo;
     }
 
-    // --- MovimientoBancario ---
-
     public function buscarMovimiento(int $idMovimiento): ?MovimientoBancario
     {
         return MovimientoBancario::find($idMovimiento);
@@ -76,8 +72,6 @@ class ConciliacionRepository
         return $movimiento;
     }
 
-    // --- ConciliacionDetalle ---
-
     public function crearDetalle(array $datos): ConciliacionDetalle
     {
         return ConciliacionDetalle::create([
@@ -92,21 +86,6 @@ class ConciliacionRepository
         ]);
     }
 
-    // --- Busqueda de candidatos para conciliacion automatica ---
-
-    /**
-     * Candidatos para un movimiento bancario de tipo 'credito':
-     * Cobro, CajaMovimiento (ingreso) y Cheque.
-     *
-     * Supuesto (a confirmar con el equipo): un Cobro no tiene campo propio
-     * de "ya conciliado" - se considera ya usado si existe una fila en
-     * CONCILIACION_DETALLE apuntandolo. Lo mismo para caja/ajuste/cheque.
-     *
-     * Supuesto: el monto de un Cheque es el monto total de su Cobro asociado
-     * (se asume que el cobro se paga 100% con ese cheque, no combinado).
-     *
-     * @return array<int, array{origen: string, id: int, monto: float, fecha: mixed}>
-     */
     public function buscarCandidatosCredito(MovimientoBancario $movimiento): array
     {
         $candidatos = [];
@@ -151,12 +130,6 @@ class ConciliacionRepository
         return $candidatos;
     }
 
-    /**
-     * Candidatos para un movimiento bancario de tipo 'debito':
-     * AjusteBancario y CajaMovimiento (egreso).
-     *
-     * @return array<int, array{origen: string, id: int, monto: float, fecha: mixed}>
-     */
     public function buscarCandidatosDebito(MovimientoBancario $movimiento): array
     {
         $candidatos = [];
@@ -186,8 +159,29 @@ class ConciliacionRepository
     }
 
     /**
-     * True si la diferencia entre las dos fechas es <= 48hs.
+     * True si ya existe un periodo cuyo rango de fechas se superpone con el
+     * rango dado. Se usa tanto para bloquear creacion manual superpuesta
+     * como (indirectamente) para saber si ya existe el periodo del mes.
      */
+    public function existeSuperposicion(string $fechaDesde, string $fechaHasta): bool
+    {
+        return PeriodoConciliacion::where('fecha_desde', '<=', $fechaHasta)
+            ->where('fecha_hasta', '>=', $fechaDesde)
+            ->exists();
+    }
+
+    /**
+     * Busca el periodo (si existe) que cubre una fecha puntual, sin importar
+     * si es abierto o cerrado. Se usa para saber si ya existe el periodo
+     * automatico del mes antes de crear uno nuevo.
+     */
+    public function buscarPeriodoQueCubre(string $fecha): ?PeriodoConciliacion
+    {
+        return PeriodoConciliacion::where('fecha_desde', '<=', $fecha)
+            ->where('fecha_hasta', '>=', $fecha)
+            ->first();
+    }
+
     private function dentroDelMargen($fechaMovimiento, $fechaCandidato): bool
     {
         if ($fechaCandidato === null) {

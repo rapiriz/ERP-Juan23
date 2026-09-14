@@ -8,12 +8,17 @@ use Illuminate\Http\Request;
 
 class ConciliacionWebController extends Controller
 {
+    private const ID_USUARIO_PROVISORIO = 1;
+
     public function __construct(private ConciliacionService $service)
     {
     }
 
     public function index(Request $request)
     {
+        // Crea el periodo automatico del mes si todavia no existe.
+        $this->service->asegurarPeriodoAutomaticoDelMes(self::ID_USUARIO_PROVISORIO);
+
         $periodos = $this->service->listarPeriodos($request->query('estado'));
 
         return view('conciliacion.index', compact('periodos'));
@@ -29,13 +34,18 @@ class ConciliacionWebController extends Controller
         $datos = $request->validate([
             'fecha_desde' => ['required', 'date'],
             'fecha_hasta' => ['required', 'date', 'after_or_equal:fecha_desde'],
-            'id_usuario' => ['required', 'integer'],
         ]);
 
-        $periodo = $this->service->crearPeriodo($datos);
+        $datos['id_usuario'] = self::ID_USUARIO_PROVISORIO;
+
+        $resultado = $this->service->crearPeriodo($datos);
+
+        if ($resultado['error'] ?? false) {
+            return back()->withInput()->with('error', $resultado['mensaje']);
+        }
 
         return redirect()
-            ->route('conciliacion.show', $periodo['id_periodo'])
+            ->route('conciliacion.show', $resultado['id_periodo'])
             ->with('mensaje', 'Periodo de conciliacion creado correctamente.');
     }
 
@@ -77,7 +87,6 @@ class ConciliacionWebController extends Controller
         $datos = $request->validate([
             'tipo_origen' => ['required', 'in:cobro,caja,ajuste,cheque'],
             'id_origen' => ['required', 'integer'],
-            'id_usuario' => ['required', 'integer'],
             'id_periodo_redirect' => ['required', 'integer'],
         ]);
 
@@ -90,7 +99,7 @@ class ConciliacionWebController extends Controller
 
         $payload = [
             $mapaCampos[$datos['tipo_origen']] => $datos['id_origen'],
-            'id_usuario' => $datos['id_usuario'],
+            'id_usuario' => self::ID_USUARIO_PROVISORIO,
         ];
 
         $resultado = $this->service->conciliarManual($id, $payload);

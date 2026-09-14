@@ -7,16 +7,6 @@ use App\Caja\Models\CajaMovimiento;
 use App\Caja\Repositories\CajaRepository;
 use Illuminate\Support\Carbon;
 
-/**
- * Reglas de negocio confirmadas con el equipo (ver 06-diseno-modulo-caja.md):
- * - Una caja por usuario por día.
- * - Cada usuario gestiona ÚNICAMENTE su propia caja (sin excepción de admin).
- *
- * Los errores de negocio se devuelven como array ['error' => true, 'mensaje' => ...]
- * en vez de excepciones, siguiendo el mismo patrón que ConciliacionService (ver
- * conciliarAutomatico/conciliarManual/cerrarPeriodo), para que el Controller
- * los traduzca a Response::error() de la misma forma en todos los módulos.
- */
 class CajaService
 {
     public function __construct(private CajaRepository $repositorio)
@@ -47,7 +37,6 @@ class CajaService
         return $caja->toArray();
     }
 
-    /** Vista admin: todas las cajas (de todo el personal) de una fecha. */
     public function obtenerCajasDeFecha(string $fecha): array
     {
         return $this->repositorio->listarPorFecha($fecha)->toArray();
@@ -60,6 +49,21 @@ class CajaService
         return $caja?->toArray();
     }
 
+    /**
+     * Monto inicial + saldo neto de movimientos (ingresos - egresos).
+     * Devuelve null si la caja no existe.
+     */
+    public function obtenerMontoActual(int $idCaja): ?float
+    {
+        $caja = $this->repositorio->buscarPorId($idCaja);
+
+        if ($caja === null) {
+            return null;
+        }
+
+        return (float) $caja->monto_inicial + $this->repositorio->calcularSaldoMovimientos($idCaja);
+    }
+
     public function cerrarCaja(int $idCaja, int $idUsuarioSesion, float $montoFinal, ?string $observaciones = null): ?array
     {
         $caja = $this->repositorio->buscarPorId($idCaja);
@@ -68,8 +72,6 @@ class CajaService
             return null;
         }
 
-        // Regla confirmada por el equipo: cada usuario gestiona únicamente su
-        // propia caja. Un admin NO puede cerrar la caja de otro usuario.
         if (!$caja->perteneceA($idUsuarioSesion)) {
             return ['error' => true, 'mensaje' => 'No podés cerrar la caja de otro usuario.'];
         }
@@ -105,15 +107,6 @@ class CajaService
         return $this->repositorio->buscarCierrePorId($idCaja)?->toArray();
     }
 
-    /**
-     * Registrar movimiento manual (ingreso/egreso) — HU CAJ-02.
-     *
-     * NOTA (no confirmado por el equipo): asumo que solo el dueño de la caja
-     * puede cargar movimientos manuales en ella. Un movimiento tipo 'cobro'
-     * probablemente lo va a generar el módulo de Cobros vía integración
-     * interna, no un usuario tipeando un form — ese caso puede necesitar otro
-     * camino más adelante. TODO: confirmar con el equipo.
-     */
     public function registrarMovimiento(
         int $idCaja,
         int $idUsuarioSesion,
@@ -132,7 +125,10 @@ class CajaService
         }
 
         if (!$caja->estaAbierta()) {
-            return ['error' => true, 'mensaje' => 'No se pueden registrar movimientos en una caja cerrada.'];
+            return [
+                'error' => true,
+                'mensaje' => 'No se pueden registrar movimientos en una caja cerrada. Los movimientos pendientes se cargan en la caja del día siguiente.',
+            ];
         }
 
         if (!in_array($tipo, CajaMovimiento::TIPOS_VALIDOS, true)) {
@@ -160,10 +156,6 @@ class CajaService
         return $this->repositorio->buscarMovimientoPorId($idMovimiento)?->toArray();
     }
 
-    /**
-     * Modificar movimiento manual — "solo admin" según el endpoint original.
-     * La verificación de rol admin se hace en el Controller, no acá.
-     */
     public function modificarMovimiento(int $idMovimiento, string $concepto, float $monto): ?array
     {
         $movimiento = $this->repositorio->buscarMovimientoPorId($idMovimiento);

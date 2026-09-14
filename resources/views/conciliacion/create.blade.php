@@ -3,7 +3,7 @@
 @section('titulo', 'Nuevo período de conciliación')
 
 @section('contenido')
-    <div class="clay-card" style="max-width: 480px;">
+    <div class="clay-card card-angosta">
         <h2>Nuevo período de conciliación</h2>
         <p class="subtitulo">Definí el rango de fechas que vas a conciliar contra el extracto bancario.</p>
 
@@ -21,10 +21,6 @@
 
             <label for="fecha_hasta">Hasta</label>
             <input type="date" name="fecha_hasta" id="fecha_hasta" class="clay-input" value="{{ old('fecha_hasta') }}" required>
-
-            {{-- TODO: reemplazar por el usuario autenticado real cuando Login (G1) esté integrado --}}
-            <label for="id_usuario">Usuario (provisorio)</label>
-            <input type="number" name="id_usuario" id="id_usuario" class="clay-input" value="{{ old('id_usuario', 1) }}" required>
 
             <div class="fila-acciones">
                 <button type="submit" class="clay-btn-primary">Crear período</button>
