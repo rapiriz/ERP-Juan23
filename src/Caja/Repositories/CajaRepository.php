@@ -21,6 +21,19 @@ class CajaRepository
             ->first();
     }
 
+    /**
+     * Busca CUALQUIER caja abierta del usuario, sin importar la fecha.
+     * Usado por CAJ-01: si hay una caja de un dia anterior sin cerrar, hay
+     * que avisar y pedir que se cierre antes de abrir una nueva.
+     */
+    public function buscarCualquierAbiertaDeUsuario(int $idUsuario): ?Caja
+    {
+        return Caja::where('id_usuario', $idUsuario)
+            ->where('estado', Caja::ESTADO_ABIERTA)
+            ->orderByDesc('fecha')
+            ->first();
+    }
+
     public function buscarPorUsuarioYFecha(int $idUsuario, string $fecha): ?Caja
     {
         return Caja::with('movimientos')
@@ -45,12 +58,24 @@ class CajaRepository
         return $caja;
     }
 
-    public function listarCierres(?int $idUsuario = null): Collection
+    /**
+     * Historial de cierres (CAJ-04). Filtros opcionales: usuario y rango de
+     * fechas (desde/hasta, sobre el campo 'fecha' de la caja).
+     */
+    public function listarCierres(?int $idUsuario = null, ?string $desde = null, ?string $hasta = null): Collection
     {
         $query = Caja::where('estado', Caja::ESTADO_CERRADA);
 
         if ($idUsuario !== null) {
             $query->where('id_usuario', $idUsuario);
+        }
+
+        if ($desde !== null) {
+            $query->where('fecha', '>=', $desde);
+        }
+
+        if ($hasta !== null) {
+            $query->where('fecha', '<=', $hasta);
         }
 
         return $query->orderByDesc('fecha_hora_cierre')->get();

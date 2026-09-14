@@ -25,4 +25,5 @@ Route::prefix('caja')->name('caja.')->group(function () {
     Route::patch('/{id}/cerrar', [CajaWebController::class, 'cerrar'])->name('cerrar');
     Route::get('/cierres', [CajaWebController::class, 'cierresIndex'])->name('cierres.index');
     Route::get('/cierres/{id}', [CajaWebController::class, 'cierresShow'])->name('cierres.show');
+    Route::get('/pendiente/{id}', [CajaWebController::class, 'mostrarCaja'])->name('pendiente');
 });

@@ -13,12 +13,30 @@ class CajaService
     {
     }
 
+    /**
+     * CAJ-01: solo se puede abrir si no hay NINGUNA caja abierta del
+     * usuario (sin importar el dia). Si hay una de un dia anterior sin
+     * cerrar, se avisa con el id de esa caja para que el usuario vaya a
+     * cerrarla primero (no se cierra sola).
+     */
     public function abrirCaja(int $idUsuarioSesion, float $montoInicial, ?string $observaciones = null): array
     {
         $hoy = Carbon::now()->toDateString();
 
-        if ($this->repositorio->buscarAbiertaDeUsuario($idUsuarioSesion, $hoy) !== null) {
-            return ['error' => true, 'mensaje' => 'Ya existe una caja abierta hoy para este usuario.'];
+        $cajaAbierta = $this->repositorio->buscarCualquierAbiertaDeUsuario($idUsuarioSesion);
+
+        if ($cajaAbierta !== null) {
+            $fechaCajaAbierta = $cajaAbierta->fecha->toDateString();
+
+            if ($fechaCajaAbierta === $hoy) {
+                return ['error' => true, 'mensaje' => 'Ya existe una caja abierta hoy para este usuario.'];
+            }
+
+            return [
+                'error' => true,
+                'mensaje' => 'Tenés una caja sin cerrar del ' . $cajaAbierta->fecha->format('d/m/Y') . '. Cerrala antes de abrir una nueva.',
+                'id_caja_pendiente' => $cajaAbierta->id_caja,
+            ];
         }
 
         if ($montoInicial < 0) {
@@ -49,10 +67,11 @@ class CajaService
         return $caja?->toArray();
     }
 
-    /**
-     * Monto inicial + saldo neto de movimientos (ingresos - egresos).
-     * Devuelve null si la caja no existe.
-     */
+    public function obtenerCaja(int $idCaja): ?array
+    {
+        return $this->repositorio->buscarPorId($idCaja)?->toArray();
+    }
+
     public function obtenerMontoActual(int $idCaja): ?float
     {
         $caja = $this->repositorio->buscarPorId($idCaja);
@@ -97,9 +116,9 @@ class CajaService
         return $this->repositorio->guardar($caja)->toArray();
     }
 
-    public function obtenerHistorialCierres(?int $idUsuario = null): array
+    public function obtenerHistorialCierres(?int $idUsuario = null, ?string $desde = null, ?string $hasta = null): array
     {
-        return $this->repositorio->listarCierres($idUsuario)->toArray();
+        return $this->repositorio->listarCierres($idUsuario, $desde, $hasta)->toArray();
     }
 
     public function obtenerDetalleCierre(int $idCaja): ?array

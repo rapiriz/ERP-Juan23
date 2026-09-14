@@ -29,6 +29,23 @@ class CajaWebController extends Controller
         return view('caja.dia', ['caja' => $caja, 'montoActual' => $montoActual]);
     }
 
+    /**
+     * Muestra una caja puntual por id (usado, por ejemplo, para ir a cerrar
+     * una caja de un dia anterior que quedo sin cerrar - CAJ-01).
+     */
+    public function mostrarCaja(int $id)
+    {
+        $caja = $this->service->obtenerCaja($id);
+
+        if ($caja === null) {
+            abort(404, 'Caja no encontrada');
+        }
+
+        $montoActual = $caja['estado'] === 'abierta' ? $this->service->obtenerMontoActual($id) : null;
+
+        return view('caja.dia', ['caja' => $caja, 'montoActual' => $montoActual]);
+    }
+
     public function abrir(Request $request)
     {
         $datos = $request->validate([
@@ -43,18 +60,18 @@ class CajaWebController extends Controller
         );
 
         if ($resultado['error'] ?? false) {
-            return back()->with('error', $resultado['mensaje']);
+            return back()
+                ->with('error', $resultado['mensaje'])
+                ->with('id_caja_pendiente', $resultado['id_caja_pendiente'] ?? null);
         }
 
-        return redirect()->route('caja.dia')->with('mensaje', 'Caja abierta correctamente.');
+        $montoFormateado = number_format($resultado['monto_inicial'], 2, ',', '.');
+
+        return redirect()
+            ->route('caja.dia')
+            ->with('mensaje', "Caja abierta correctamente con monto inicial \${$montoFormateado}.");
     }
 
-    /**
-     * Si la request pide JSON (fetch con header Accept: application/json),
-     * responde con el movimiento creado y el monto actual recalculado, sin
-     * redirigir — así el frontend actualiza la pantalla sin recargar.
-     * Si no, se comporta como antes (redirect clásico, fallback sin JS).
-     */
     public function registrarMovimiento(Request $request, int $id)
     {
         $datos = $request->validate([
@@ -125,9 +142,20 @@ class CajaWebController extends Controller
     public function cierresIndex(Request $request)
     {
         $idUsuario = $request->query('id_usuario');
-        $cierres = $this->service->obtenerHistorialCierres($idUsuario !== null ? (int) $idUsuario : null);
+        $desde = $request->query('desde');
+        $hasta = $request->query('hasta');
 
-        return view('caja.cierres', ['cierres' => $cierres]);
+        $cierres = $this->service->obtenerHistorialCierres(
+            $idUsuario !== null ? (int) $idUsuario : null,
+            $desde ?: null,
+            $hasta ?: null
+        );
+
+        return view('caja.cierres', [
+            'cierres' => $cierres,
+            'desde' => $desde,
+            'hasta' => $hasta,
+        ]);
     }
 
     public function cierresShow(int $id)

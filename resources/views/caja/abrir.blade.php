@@ -11,6 +11,16 @@
             <div class="alerta alerta-error">{{ $errors->first() }}</div>
         @endif
 
+        @if (session('id_caja_pendiente'))
+            <div class="alerta alerta-error">
+                {{ session('error') }}
+                <br>
+                <a href="{{ route('caja.pendiente', session('id_caja_pendiente')) }}" class="clay-btn-secondary" style="margin-top: 0.75rem;">
+                    Ir a cerrar esa caja
+                </a>
+            </div>
+        @endif
+
         <form method="POST" action="{{ route('caja.abrir') }}">
             @csrf
 
