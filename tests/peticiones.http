@@ -1,0 +1,47 @@
+### ====================================================================
+### PETICIONES REST CLIENT (VS CODE) — MÓDULO DE ENTREGAS (GRUPO 2)
+### Servidor local: php -S localhost:8000 -t public
+### ====================================================================
+
+@baseUrl = http://localhost:8000/api/v1
+
+### 1. ZONAS: Listar todas las zonas de reparto
+GET {{baseUrl}}/zonas
+Accept: application/json
+
+### 2. REPARTIDORES: Listar choferes disponibles
+GET {{baseUrl}}/repartidores
+Accept: application/json
+
+### 3. HU #1: Listar pedidos confirmados pendientes de despacho (Todas las zonas)
+GET {{baseUrl}}/entregas/pendientes-despacho
+Accept: application/json
+
+### 4. HU #1: Listar pedidos confirmados pendientes filtrando por Zona (Ej: Zona 1 - Saavedra)
+GET {{baseUrl}}/entregas/pendientes-despacho?zona_id=1
+Accept: application/json
+
+### 5. HU #2: Crear Entrega / Hoja de Ruta y Generar Remitos Oficiales
+POST {{baseUrl}}/entregas
+Content-Type: application/json
+Accept: application/json
+
+{
+  "repartidor_id": 3,
+  "pedidos_ids": [1, 2],
+  "fecha_salida": "2026-08-31",
+  "observaciones": "Cargar bultos pesados primero. Viaje Ruta Saavedra.",
+  "usuario_id": 1
+}
+
+### 6. Listar todas las entregas / viajes creados
+GET {{baseUrl}}/entregas
+Accept: application/json
+
+### 7. Ver detalle completo de una entrega (Reemplazar 1 por el ID de entrega)
+GET {{baseUrl}}/entregas/1
+Accept: application/json
+
+### 8. Ver comprobante de Remito oficial (Reemplazar 1 por el ID de remito)
+GET {{baseUrl}}/remitos/1
+Accept: application/json
