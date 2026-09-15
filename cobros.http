@@ -1,0 +1,99 @@
+### Variables de entorno
+@baseUrl = http://localhost:8000/api/v1
+
+### 1. Consultar saldo pendiente del Cliente 1 antes de cobrar
+GET {{baseUrl}}/cobros/clientes/1/saldo
+Accept: application/json
+
+### 2. Registrar cobro exitoso en EFECTIVO (impacta en Caja y amortiza ventas)
+POST {{baseUrl}}/cobros
+Content-Type: application/json
+Accept: application/json
+
+{
+    "id_cliente": 1,
+    "id_usuario": 1,
+    "monto_total": 5000.00,
+    "medio_pago": "efectivo",
+    "observaciones": "Cobro de prueba en efectivo"
+}
+
+### 3. Registrar cobro con TRANSFERENCIA indicando nro de comprobante
+POST {{baseUrl}}/cobros
+Content-Type: application/json
+Accept: application/json
+
+{
+    "id_cliente": 1,
+    "id_usuario": 1,
+    "monto_total": 12500.50,
+    "medio_pago": "transferencia",
+    "comprobante_nro": "TRANSF-BANCO-998877",
+    "observaciones": "Transferencia bancaria validada"
+}
+
+### 4. Prueba de validación: Rechazar cobro con monto 0 o negativo (Criterio de Aceptación)
+POST {{baseUrl}}/cobros
+Content-Type: application/json
+Accept: application/json
+
+{
+    "id_cliente": 1,
+    "id_usuario": 1,
+    "monto_total": 0,
+    "medio_pago": "efectivo"
+}
+
+### 5. Prueba de validación: Rechazar cobro a cliente inexistente/inactivo
+POST {{baseUrl}}/cobros
+Content-Type: application/json
+Accept: application/json
+
+{
+    "id_cliente": 99999,
+    "id_usuario": 1,
+    "monto_total": 1000.00,
+    "medio_pago": "efectivo"
+}
+
+### 6. Prueba de validación: Rechazar cobro con medio de pago inválido
+POST {{baseUrl}}/cobros
+Content-Type: application/json
+Accept: application/json
+
+{
+    "id_cliente": 1,
+    "id_usuario": 1,
+    "monto_total": 100.00,
+    "medio_pago": "tarjeta"
+}
+
+### 7. Registrar cobro con CHEQUE y verificar que NO impacta en Caja
+POST {{baseUrl}}/cobros
+Content-Type: application/json
+Accept: application/json
+
+{
+    "id_cliente": 1,
+    "id_usuario": 1,
+    "monto_total": 7890.00,
+    "medio_pago": "cheque",
+    "comprobante_nro": "CHEQUE-GALICIA-123456",
+    "observaciones": "Cobro documentado con cheque"
+}
+
+### 8. Verificar saldo después de los cobros
+GET {{baseUrl}}/cobros/clientes/1/saldo
+Accept: application/json
+
+### 9. Registrar cobro que extingue totalmente la deuda del cliente
+POST {{baseUrl}}/cobros
+Content-Type: application/json
+Accept: application/json
+
+{
+    "id_cliente": 1,
+    "id_usuario": 1,
+    "monto_total": 22000.00,
+    "medio_pago": "efectivo"
+}
