@@ -331,6 +331,63 @@
         <div class="kpi normal"><div class="kpi-label">Stock normal</div><div class="kpi-value" id="kpiNormal">-</div><div class="kpi-sub">Dentro de nivel</div></div>
       </div>
 
+      <!-- KPIs (S09 alertas de vencimiento) -->
+      <div class="kpis" id="kpisVencimiento" style="margin-bottom:24px;">
+        <div class="kpi" style="border-left: 4px solid var(--primary);"><div class="kpi-label">Total alertas (S09)</div><div class="kpi-value" id="kpiVencTotal">-</div><div class="kpi-sub">Lotes en seguimiento</div></div>
+        <div class="kpi critico"><div class="kpi-label">Vencidos</div><div class="kpi-value" id="kpiVencVencidos">-</div><div class="kpi-sub">Días < 0</div></div>
+        <div class="kpi bajo" style="border-left: 4px solid #ea580c;"><div class="kpi-label">Urgentes</div><div class="kpi-value" id="kpiVencUrgentes" style="color:#ea580c;">-</div><div class="kpi-sub">≤ 15 días</div></div>
+        <div class="kpi normal" style="border-left: 4px solid var(--warning);"><div class="kpi-label">Próximos a vencer</div><div class="kpi-value" id="kpiVencProximos" style="color:var(--warning);">-</div><div class="kpi-sub">Dentro del umbral</div></div>
+      </div>
+
+      <section class="card">
+        <div class="card-h" style="background-color: rgba(245,158,11,0.05); border-bottom-color: rgba(245,158,11,0.2);">
+          <div>
+            <h2>Alertas de Vencimiento (S09)</h2>
+            <p>Seguimiento automático de lotes próximos a caducar según el umbral de cada producto.</p>
+          </div>
+          <div class="btn-row">
+            <button class="btn" id="btnRefrescarAlertasVenc"><span class="mini-icon">↻</span> Refrescar</button>
+          </div>
+        </div>
+        <div class="card-b">
+           <div class="filters">
+              <div class="field">
+                <label for="filtroVencProducto">Filtrar por producto</label>
+                <select class="control" id="filtroVencProducto"><option value="">Todos los productos</option></select>
+              </div>
+              <div class="field">
+                <label for="filtroVencNivel">Nivel de alerta</label>
+                <select class="control" id="filtroVencNivel">
+                  <option value="">Todos los niveles</option>
+                  <option value="vencido">Vencidos</option>
+                  <option value="urgente">Urgentes (≤ 15 días)</option>
+                  <option value="proximo">Próximos (≤ umbral del prod.)</option>
+                </select>
+              </div>
+              <div class="btn-row" style="margin-bottom:2px;">
+                <button class="btn primary" id="btnFiltrarAlertasVenc"><span class="mini-icon">⌁</span> Filtrar</button>
+              </div>
+           </div>
+           <div style="overflow:auto; border-radius:10px; border:1px solid var(--border); background:#fff; max-height: 300px;">
+             <table aria-label="Listado de alertas de vencimiento" style="min-width:820px;">
+               <thead>
+                 <tr>
+                   <th>Lote</th>
+                   <th>Producto</th>
+                   <th>Cantidad</th>
+                   <th>Vencimiento</th>
+                   <th>Días restantes</th>
+                   <th>Nivel</th>
+                 </tr>
+               </thead>
+               <tbody id="tbodyAlertasVenc">
+                 <tr><td colspan="6" style="text-align:center; padding:30px; color:var(--muted);">Cargando alertas...</td></tr>
+               </tbody>
+             </table>
+           </div>
+        </div>
+      </section>
+
       <section class="card">
         <div class="card-h">
           <div>
@@ -535,6 +592,35 @@
       <div class="modal-footer">
         <button class="btn" onclick="closeModal('modalAlertas')">Cancelar</button>
         <button class="btn primary-solid" id="btnGuardarMinimo">Guardar Mínimo</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Configurar Umbral de Vencimiento (S09) -->
+  <div class="modal-backdrop" id="modalUmbralVenc">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Configurar Alerta de Vencimiento (S09)</h3>
+        <button class="modal-close" onclick="closeModal('modalUmbralVenc')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="error-box" id="errorBoxUmbralVenc"></div>
+        <div class="help" style="margin-bottom:10px;">Define con cuántos días de anticipación querés recibir la alerta amarilla (Próximo) para este producto.</div>
+        <div class="form-grid">
+          <div class="field span-2">
+            <label for="umbralVencProducto">Producto *</label>
+            <select class="control" id="umbralVencProducto"><option value="">Seleccione un producto</option></select>
+          </div>
+          <div class="field">
+            <label for="umbralVencDias">Días de anticipación *</label>
+            <input class="control" type="number" min="1" max="365" id="umbralVencDias" value="30" />
+          </div>
+          <div class="field"><label>Estado actual</label><div id="umbralVencEstadoActual" style="padding-top:8px;">—</div></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeModal('modalUmbralVenc')">Cancelar</button>
+        <button class="btn primary-solid" id="btnGuardarUmbralVenc">Guardar Configuración</button>
       </div>
     </div>
   </div>
@@ -810,7 +896,7 @@
         const el = document.getElementById(id);
         if (el) el.innerHTML = '<option value="">Seleccione un producto</option>' + opcionesActivos;
       });
-      ['ajuProducto', 'aleProducto', 'uniProducto'].forEach(id => {
+      ['ajuProducto', 'aleProducto', 'uniProducto', 'umbralVencProducto', 'filtroVencProducto'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.innerHTML = opcionesActivos;
       });
@@ -850,6 +936,7 @@
               <button class="btn" style="padding:6px 9px; font-size:12px;" onclick="verMovimientos(${p.id_producto})" title="Disponibilidad y movimientos">👁️ Detalle</button>
               <button class="btn" style="padding:6px 9px; font-size:12px; background:#0284c7; color:#fff;" onclick="abrirModalLotes('${p.id_producto}')" title="Ver lotes y vencimientos">📦 Lotes</button>
               <button class="btn warning" style="padding:6px 9px; font-size:12px;" onclick="abrirAjustePara('${p.id_producto}')" title="Ajustar stock">✎ Ajuste</button>
+              <button class="btn" style="padding:6px 9px; font-size:12px;" onclick="abrirUmbralVencPara('${p.id_producto}')" title="Configurar alerta de vencimiento">⚠ Alertas</button>
               <button class="btn" style="padding:6px 9px; font-size:12px;" onclick="abrirMinimoPara('${p.id_producto}')" title="Configurar stock mínimo">Min.</button>
               <button class="btn" style="padding:6px 9px; font-size:12px;" onclick="abrirUnidadesPara('${p.id_producto}')" title="Unidades de medida">▣ Univ.</button>
             </div>
@@ -1552,10 +1639,128 @@
       }
     });
 
+    // ==========================================
+    // S09: ALERTAS DE VENCIMIENTO
+    // ==========================================
+
+    async function cargarAlertasVencimiento() {
+      const tbody = document.getElementById('tbodyAlertasVenc');
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:30px; color:var(--muted);">Cargando alertas...</td></tr>`;
+
+      const idProd = document.getElementById('filtroVencProducto').value;
+      const nivel = document.getElementById('filtroVencNivel').value;
+      
+      const params = new URLSearchParams();
+      if (idProd) params.append('id_producto', idProd);
+      if (nivel) params.append('nivel', nivel);
+
+      try {
+        const res = await fetch(`${API_BASE}/stock/alertas-vencimiento?${params.toString()}`, { headers: { 'Accept': 'application/json' } });
+        const json = await res.json();
+        
+        if (json.status === 'success') {
+          const { resumen, alertas } = json.data;
+          
+          // Actualizar KPIs
+          document.getElementById('kpiVencTotal').textContent = resumen.total_alertas;
+          document.getElementById('kpiVencVencidos').textContent = resumen.vencidos;
+          document.getElementById('kpiVencUrgentes').textContent = resumen.urgentes;
+          document.getElementById('kpiVencProximos').textContent = resumen.proximos;
+          
+          if (alertas.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:30px; color:var(--muted);">No hay lotes en estado de alerta de vencimiento con los filtros actuales.</td></tr>`;
+            return;
+          }
+
+          tbody.innerHTML = alertas.map(a => {
+            let nivelHtml = '—';
+            if (a.nivel_alerta === 'vencido') {
+               nivelHtml = `<span class="tag crit"><span class="s"></span>Vencido</span>`;
+            } else if (a.nivel_alerta === 'urgente') {
+               nivelHtml = `<span class="tag crit" style="border-color:#ea580c; color:#9a3412;"><span class="s" style="background:#ea580c;"></span>Urgente</span>`;
+            } else if (a.nivel_alerta === 'proximo') {
+               nivelHtml = `<span class="tag warn"><span class="s"></span>Próximo</span>`;
+            }
+            
+            let diasStr = a.dias_para_vencer < 0 
+                ? `<span style="color:var(--danger); font-weight:800;">Hace ${Math.abs(a.dias_para_vencer)} días</span>`
+                : `<strong>${a.dias_para_vencer} días</strong> (umbral: ${a.umbral_producto})`;
+
+            return `
+              <tr>
+                <td data-label="Lote"><strong style="font-family:monospace;">${a.nro_lote}</strong></td>
+                <td data-label="Producto">${a.descripcion_producto || a.codigo_producto}</td>
+                <td data-label="Cantidad" style="font-weight:700;">${a.cantidad} ${a.nombre_unidad || ''}</td>
+                <td data-label="Vencimiento">${a.fecha_vencimiento}</td>
+                <td data-label="Días restantes">${diasStr}</td>
+                <td data-label="Nivel">${nivelHtml}</td>
+              </tr>
+            `;
+          }).join('');
+        } else {
+          tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:30px; color:var(--danger);">${json.message || 'Error al cargar alertas'}</td></tr>`;
+        }
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:30px; color:var(--muted);">⚠️ Error de conexión con el servidor.</td></tr>`;
+      }
+    }
+
+    document.getElementById('btnFiltrarAlertasVenc').addEventListener('click', cargarAlertasVencimiento);
+    document.getElementById('btnRefrescarAlertasVenc').addEventListener('click', cargarAlertasVencimiento);
+
+    function abrirUmbralVencPara(idProducto) {
+      const p = productosCache.find(x => x.id_producto == idProducto);
+      if (p) {
+        document.getElementById('umbralVencProducto').value = p.id_producto;
+        document.getElementById('umbralVencDias').value = p.dias_alerta_vencimiento || 30;
+        document.getElementById('umbralVencEstadoActual').innerHTML = `<strong>${p.dias_alerta_vencimiento || 30} días</strong>`;
+      }
+      openModal('modalUmbralVenc');
+    }
+
+    document.getElementById('umbralVencProducto').addEventListener('change', (e) => {
+      const p = productosCache.find(x => x.id_producto == e.target.value);
+      if (p) {
+        document.getElementById('umbralVencDias').value = p.dias_alerta_vencimiento || 30;
+        document.getElementById('umbralVencEstadoActual').innerHTML = `<strong>${p.dias_alerta_vencimiento || 30} días</strong>`;
+      } else {
+        document.getElementById('umbralVencDias').value = 30;
+        document.getElementById('umbralVencEstadoActual').textContent = '—';
+      }
+    });
+
+    document.getElementById('btnGuardarUmbralVenc').addEventListener('click', async () => {
+      const errorBox = document.getElementById('errorBoxUmbralVenc');
+      errorBox.classList.remove('show');
+      const idProducto = document.getElementById('umbralVencProducto').value;
+      const dias = parseInt(document.getElementById('umbralVencDias').value, 10);
+
+      if (!idProducto) { errorBox.textContent = 'Seleccione un producto.'; errorBox.classList.add('show'); return; }
+      if (isNaN(dias) || dias < 1 || dias > 365) { errorBox.textContent = 'El umbral debe ser entre 1 y 365 días.'; errorBox.classList.add('show'); return; }
+
+      try {
+        const res = await fetch(`${API_BASE}/stock/alertas-vencimiento/${idProducto}/configurar`, {
+          method: 'PATCH',
+          headers: { 'Content-Type':'application/json', 'Accept':'application/json' },
+          body: JSON.stringify({ dias_alerta_vencimiento: dias })
+        });
+        const json = await res.json();
+        if (json.status === 'success') {
+          showToast(json.message, 'success');
+          closeModal('modalUmbralVenc');
+          loadProductos(); 
+          cargarAlertasVencimiento();
+        } else {
+          errorBox.textContent = json.message || 'Error al configurar el umbral.'; errorBox.classList.add('show');
+        }
+      } catch (err) { errorBox.textContent = 'Error de conexión.'; errorBox.classList.add('show'); }
+    });
+
     // Inicialización
     window.addEventListener('DOMContentLoaded', async () => {
       await loadProveedores();
       await loadProductos();
+      await cargarAlertasVencimiento();
     });
   </script>
 </body>

@@ -1255,7 +1255,7 @@
   </script>
 
   <script>
-    // S06 - Próximos a vencer: carga los lotes reales desde el backend (misma convención API_BASE de las demás páginas).
+    // S09 - Próximos a vencer: carga las alertas reales de vencimiento desde el backend
     (function () {
       const API_BASE = (window.location.port === '8000') ? '/api' : 'http://localhost:8000/api';
       const tbodyVenc = document.getElementById('tbodyVencer');
@@ -1263,29 +1263,44 @@
 
       async function cargarLotesVencer() {
         try {
-          const res = await fetch(`${API_BASE}/stock/lotes-por-vencer`, { headers: { 'Accept': 'application/json' } });
+          const res = await fetch(`${API_BASE}/stock/alertas-vencimiento`, { headers: { 'Accept': 'application/json' } });
           const json = await res.json();
           if (!res.ok || json.status !== 'success') {
-            tbodyVenc.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);">No se pudieron cargar los lotes.</td></tr>';
+            tbodyVenc.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);">No se pudieron cargar las alertas.</td></tr>';
             return;
           }
-          const lotes = json.data || [];
-          if (lotes.length === 0) {
+          
+          let alertas = json.data.alertas || [];
+          
+          if (alertas.length === 0) {
             tbodyVenc.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);">Sin lotes próximos a vencer.</td></tr>';
             return;
           }
-          tbodyVenc.innerHTML = lotes.map(function (l) {
-            const dias = (typeof l.dias_para_vencer === 'number') ? l.dias_para_vencer : l.dias;
-            const urgente = dias <= 15;
+          
+          // Mostrar solo los primeros 5 más urgentes en el dashboard
+          alertas = alertas.slice(0, 5);
+
+          tbodyVenc.innerHTML = alertas.map(function (a) {
+            let nivelHtml = '—';
+            if (a.nivel_alerta === 'vencido') {
+               nivelHtml = `<span class="tag crit"><span class="s"></span>Vencido</span>`;
+            } else if (a.nivel_alerta === 'urgente') {
+               nivelHtml = `<span class="tag crit" style="border-color:#ea580c; color:#9a3412;"><span class="s" style="background:#ea580c;"></span>Urgente</span>`;
+            } else if (a.nivel_alerta === 'proximo') {
+               nivelHtml = `<span class="tag warn"><span class="s"></span>Próximo</span>`;
+            }
+            
+            let diasStr = a.dias_para_vencer < 0 
+                ? `<span style="color:var(--danger); font-weight:800;">Hace ${Math.abs(a.dias_para_vencer)} días</span>`
+                : `<span style="font-weight:700;">${a.dias_para_vencer} día${a.dias_para_vencer === 1 ? '' : 's'}</span>`;
+
             return `
               <tr>
-                <td data-label="Producto">${esc(l.descripcion_producto || l.descripcion || '')}</td>
-                <td data-label="Lote">${esc(l.nro_lote || '')}</td>
-                <td data-label="Vencimiento">${esc(l.fecha_vencimiento || l.fecha_vencimiento_lote || '')}</td>
-                <td data-label="Días restantes">
-                  <span class="${urgente ? 'tag crit' : 'tag active'}" style="padding:4px 10px; font-size:12px;">${dias} día${dias === 1 ? '' : 's'}</span>
-                </td>
-                <td data-label="Estado"><span class="${urgente ? 'tag crit' : 'tag active'}"><span class="s"></span>${urgente ? 'Urgente' : 'Vigente'}</span></td>
+                <td data-label="Producto">${esc(a.descripcion_producto || a.codigo_producto || '')}</td>
+                <td data-label="Lote">${esc(a.nro_lote || '')}</td>
+                <td data-label="Vencimiento">${esc(a.fecha_vencimiento || '')}</td>
+                <td data-label="Días restantes">${diasStr}</td>
+                <td data-label="Estado">${nivelHtml}</td>
               </tr>`;
           }).join('');
         } catch (e) {

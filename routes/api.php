@@ -12,6 +12,7 @@ use App\Modules\Stock\Controllers\VentaStockController;
 use App\Modules\Stock\Controllers\DevolucionController;
 use App\Modules\Stock\Controllers\AjusteStockController;
 use App\Modules\Stock\Controllers\AlertaStockController;
+use App\Modules\Stock\Controllers\AlertaVencimientoController;
 use App\Modules\Stock\Controllers\UnidadController;
 use App\Modules\Stock\Controllers\LoteController;
 use App\Modules\Proveedores\Controllers\ProveedorController;
@@ -147,6 +148,10 @@ Route::post('stock/lotes', [LoteController::class, 'store']);
 Route::get('stock/lotes/{id}', [LoteController::class, 'show']);
 Route::get('stock/productos/{id}/lotes', [LoteController::class, 'lotesPorProducto']);
 Route::get('stock/lotes-por-vencer', [LoteController::class, 'porVencer']);
+
+// S09 - Alertas de productos próximos a vencer
+Route::get('stock/alertas-vencimiento', [AlertaVencimientoController::class, 'index']);
+Route::patch('stock/alertas-vencimiento/{id}/configurar', [AlertaVencimientoController::class, 'configurarUmbral']);
 
 // S08 - Gestión de unidades y equivalencias
 Route::get('unidades/convertir', [UnidadController::class, 'convertir']);
