@@ -13,6 +13,7 @@ use App\Modules\Stock\Controllers\DevolucionController;
 use App\Modules\Stock\Controllers\AjusteStockController;
 use App\Modules\Stock\Controllers\AlertaStockController;
 use App\Modules\Stock\Controllers\UnidadController;
+use App\Modules\Stock\Controllers\LoteController;
 use App\Modules\Proveedores\Controllers\ProveedorController;
 use App\Modules\Compras\Controllers\CompraController;
 use App\Modules\Compras\Controllers\RecepcionController;
@@ -37,6 +38,11 @@ Route::get('/', function (Request $request) {
             'POST /api/stock/ajustes',
             'GET /api/stock/alertas',
             'GET /api/stock/{id}/historial-movimientos',
+            'GET /api/stock/lotes',
+            'POST /api/stock/lotes',
+            'GET /api/stock/lotes/{id}',
+            'GET /api/stock/productos/{id}/lotes',
+            'GET /api/stock/lotes-por-vencer',
             'GET /api/proveedores',
             'GET /api/proveedores/{id}',
             'POST /api/proveedores',
@@ -135,8 +141,12 @@ Route::get('stock/alertas', [AlertaStockController::class, 'index']);
 Route::patch('stock/alertas/{id}/minimo', [AlertaStockController::class, 'configurarMinimo']);
 Route::post('stock/alertas/recalcular', [AlertaStockController::class, 'recalcular']);
 
-// S06 - Lotes próximos a vencer (dashboard)
-Route::get('stock/lotes-por-vencer', [StockController::class, 'lotesPorVencer']);
+// S06 / Lotes - Gestión de Lotes y Vencimientos
+Route::get('stock/lotes', [LoteController::class, 'index']);
+Route::post('stock/lotes', [LoteController::class, 'store']);
+Route::get('stock/lotes/{id}', [LoteController::class, 'show']);
+Route::get('stock/productos/{id}/lotes', [LoteController::class, 'lotesPorProducto']);
+Route::get('stock/lotes-por-vencer', [LoteController::class, 'porVencer']);
 
 // S08 - Gestión de unidades y equivalencias
 Route::get('unidades/convertir', [UnidadController::class, 'convertir']);

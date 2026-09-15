@@ -5,6 +5,7 @@ namespace App\Modules\Productos\Models;
 
 use App\Modules\Stock\Models\MovimientoStock;
 use App\Modules\Stock\Models\UnidadMedida;
+use App\Modules\Stock\Models\Lote;
 use App\Modules\Proveedores\Models\ProductoProveedor;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -150,6 +151,15 @@ class Producto extends Model
     public function proveedores(): HasMany
     {
         return $this->hasMany(ProductoProveedor::class, 'id_producto', 'id_producto');
+    }
+
+    /**
+     * Lotes y fechas de vencimiento del producto.
+     */
+    public function lotes(): HasMany
+    {
+        return $this->hasMany(Lote::class, 'id_producto', 'id_producto')
+                    ->orderBy('fecha_vencimiento', 'asc');
     }
 
     /**

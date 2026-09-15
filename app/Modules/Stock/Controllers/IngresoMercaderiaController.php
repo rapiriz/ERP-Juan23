@@ -6,8 +6,10 @@ namespace App\Modules\Stock\Controllers;
 use App\Http\Controllers\Controller;
 use App\Modules\Productos\Models\Producto;
 use App\Modules\Proveedores\Models\Proveedor;
+use App\Modules\Stock\Models\Lote;
 use App\Modules\Stock\Services\StockService;
 use App\Support\UsuarioActual;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -33,6 +35,8 @@ class IngresoMercaderiaController extends Controller
             'items.*.cantidad' => 'required|integer|min:1',
             'items.*.id_unidad' => 'nullable|integer|exists:UNIDAD_MEDIDA,id_unidad',
             'items.*.motivo' => 'nullable|string|max:255',
+            'items.*.nro_lote' => 'nullable|string|max:100',
+            'items.*.fecha_vencimiento' => 'nullable|date',
         ], [
             'id_proveedor.required' => 'Debe seleccionar un proveedor.',
             'id_proveedor.exists' => 'El proveedor seleccionado no existe.',
@@ -42,6 +46,7 @@ class IngresoMercaderiaController extends Controller
             'items.*.id_producto.exists' => 'Uno de los productos seleccionados no existe.',
             'items.*.cantidad.required' => 'Cada ítem debe indicar la cantidad ingresada.',
             'items.*.cantidad.min' => 'La cantidad ingresada debe ser mayor a cero.',
+            'items.*.fecha_vencimiento.date' => 'La fecha de vencimiento debe ser una fecha válida.',
         ]);
 
         if ($validator->fails()) {
@@ -86,7 +91,7 @@ class IngresoMercaderiaController extends Controller
                     ], 400);
                 }
 
-                $this->stockService->registrarMovimiento(
+                $movimiento = $this->stockService->registrarMovimiento(
                     $producto,
                     'ingreso',
                     $cantidad,
@@ -94,6 +99,31 @@ class IngresoMercaderiaController extends Controller
                     $idUsuario,
                     $idUnidad
                 );
+
+                $loteRegistrado = null;
+                $nroLote = isset($item['nro_lote']) && trim((string) $item['nro_lote']) !== '' ? trim((string) $item['nro_lote']) : null;
+                $fechaVencimiento = isset($item['fecha_vencimiento']) && trim((string) $item['fecha_vencimiento']) !== '' ? Carbon::parse($item['fecha_vencimiento'])->toDateString() : null;
+
+                if ($nroLote && $fechaVencimiento) {
+                    $estadoLote = Carbon::parse($fechaVencimiento)->isPast() ? 'vencido' : 'vigente';
+                    $lote = Lote::create([
+                        'id_producto' => $producto->id_producto,
+                        'id_movimiento' => $movimiento->id_movimiento,
+                        'id_unidad' => $idUnidad,
+                        'nro_lote' => $nroLote,
+                        'cantidad' => $cantidad,
+                        'fecha_vencimiento' => $fechaVencimiento,
+                        'estado' => $estadoLote,
+                    ]);
+
+                    $loteRegistrado = [
+                        'id_lote' => $lote->id_lote,
+                        'nro_lote' => $lote->nro_lote,
+                        'fecha_vencimiento' => $lote->fecha_vencimiento->format('Y-m-d'),
+                        'estado' => $lote->estado,
+                        'dias_para_vencer' => $lote->dias_para_vencer,
+                    ];
+                }
 
                 $producto->refresh();
 
@@ -103,6 +133,7 @@ class IngresoMercaderiaController extends Controller
                     'descripcion' => $producto->descripcion,
                     'cantidad' => $cantidad,
                     'id_unidad' => $idUnidad,
+                    'lote' => $loteRegistrado,
                     'stock_disponible' => $producto->stock_disponible,
                     'estado_alerta' => $producto->estado_alerta,
                 ];

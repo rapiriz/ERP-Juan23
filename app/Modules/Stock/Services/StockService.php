@@ -58,7 +58,7 @@ class StockService
         int $idUsuario,
         ?int $idUnidad = null,
         ?int $idVenta = null
-    ): void {
+    ): MovimientoStock {
         if (!in_array($tipo, self::TIPOS, true)) {
             throw new RuntimeException("Tipo de movimiento inválido: {$tipo}");
         }
@@ -97,7 +97,7 @@ class StockService
             $producto->save();
             $this->recalcularAlerta($producto);
 
-            MovimientoStock::create([
+            $movimiento = MovimientoStock::create([
                 'id_producto' => $producto->id_producto,
                 'id_unidad' => $idUnidad,
                 'tipo' => $tipo,
@@ -109,6 +109,8 @@ class StockService
             ]);
 
             DB::commit();
+
+            return $movimiento;
         } catch (\Throwable $e) {
             if (DB::transactionLevel() > 0) {
                 DB::rollBack();

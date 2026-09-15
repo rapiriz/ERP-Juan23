@@ -339,6 +339,7 @@
           </div>
           <div class="btn-row">
             <button class="btn primary-solid" id="btnIngreso"><span style="font-size:15px;">＋</span> Ingreso Mercadería</button>
+            <button class="btn primary" id="btnLotes"><span class="mini-icon">📦</span> Lotes y Vencimientos</button>
             <button class="btn success" id="btnDevolucion"><span class="mini-icon">↩</span> Devolución</button>
             <button class="btn warning" id="btnAjuste"><span class="mini-icon">⚙</span> Ajuste Manual</button>
             <button class="btn" id="btnUnidades"><span class="mini-icon">▣</span> Unidades</button>
@@ -414,15 +415,17 @@
           </div>
         </div>
         <div class="divider"></div>
-        <div class="help" style="margin-bottom:8px;">Productos recibidos (cantidades en unidad base)</div>
+        <div class="help" style="margin-bottom:8px;">Productos recibidos con información de lote y caducidad opcionales</div>
         <div id="ingProductoSelector" style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
-          <select class="control" id="ingProductoSelect" style="flex:2; min-width:220px;"></select>
-          <input class="control" type="number" id="ingProductoCant" min="1" style="flex:1; width:120px;" placeholder="Cantidad" />
+          <select class="control" id="ingProductoSelect" style="flex:2; min-width:180px;"></select>
+          <input class="control" type="number" id="ingProductoCant" min="1" style="flex:1; min-width:80px; width:80px;" placeholder="Cant." />
+          <input class="control" type="text" id="ingProductoLote" placeholder="N° Lote (opcional)" style="flex:1; min-width:110px;" />
+          <input class="control" type="date" id="ingProductoVenc" title="Fecha de Vencimiento" style="flex:1; min-width:130px;" />
           <button class="btn primary" id="btnAgregarItemIngreso">＋ Agregar</button>
         </div>
         <div style="max-height:200px; overflow-y:auto; border:1px solid var(--border); border-radius:10px;">
           <table class="items-table" aria-label="Ítems de ingreso">
-            <thead><tr><th>Producto</th><th>Código</th><th>Cantidad</th><th></th></tr></thead>
+            <thead><tr><th>Producto</th><th>Código</th><th>Cant.</th><th>N° Lote</th><th>Vence</th><th></th></tr></thead>
             <tbody id="tbodyItemsIngreso"></tbody>
           </table>
         </div>
@@ -601,6 +604,88 @@
     </div>
   </div>
 
+  <!-- MODAL: Gestión de Lotes y Vencimientos -->
+  <div class="modal-backdrop" id="modalLotes">
+    <div class="modal-content" style="max-width:880px;">
+      <div class="modal-header">
+        <div>
+          <h3>Gestión de Lotes y Vencimientos (Stock)</h3>
+          <p style="font-size:13px; color:var(--muted); margin:2px 0 0;">Trazabilidad de partidas, rotación y fechas de caducidad</p>
+        </div>
+        <button class="modal-close" onclick="closeModal('modalLotes')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="error-box" id="errorBoxLotes"></div>
+        
+        <!-- Formulario: Registrar nuevo lote -->
+        <details style="margin-bottom:16px; border:1px solid var(--border); border-radius:10px; padding:10px 14px; background:rgba(2,132,199,0.05);" id="detNuevoLote">
+          <summary style="font-weight:700; cursor:pointer; color:#0284c7;">＋ Registrar Nuevo Lote / Partida</summary>
+          <div class="form-grid" style="margin-top:12px;">
+            <div class="field span-2">
+              <label for="loteProducto">Producto *</label>
+              <select class="control" id="loteProducto"><option value="">Seleccione un producto</option></select>
+            </div>
+            <div class="field">
+              <label for="loteNumero">N° de Lote *</label>
+              <input class="control" type="text" id="loteNumero" placeholder="Ej: LOT-2026-A1" />
+            </div>
+            <div class="field">
+              <label for="loteVencimiento">Fecha de Vencimiento *</label>
+              <input class="control" type="date" id="loteVencimiento" />
+            </div>
+            <div class="field">
+              <label for="loteCantidad">Cantidad *</label>
+              <input class="control" type="number" min="1" id="loteCantidad" value="10" />
+            </div>
+            <div class="field" style="display:flex; align-items:center; gap:8px; padding-top:24px;">
+              <input type="checkbox" id="loteAsociarStock" checked style="width:18px; height:18px;" />
+              <label for="loteAsociarStock" style="font-size:13px; cursor:pointer;">Ingresar a stock automáticamente</label>
+            </div>
+            <div class="field span-2" style="text-align:right;">
+              <button class="btn primary-solid" id="btnGuardarLoteDirecto">Registrar Lote</button>
+            </div>
+          </div>
+        </details>
+
+        <!-- Filtros de la tabla de Lotes -->
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px; align-items:center;">
+          <select class="control" id="filtroLoteProducto" style="flex:2; min-width:200px;">
+            <option value="">Todos los productos</option>
+          </select>
+          <select class="control" id="filtroLoteEstado" style="flex:1; min-width:140px;">
+            <option value="">Todos los estados</option>
+            <option value="vigente">Vigentes</option>
+            <option value="por_vencer">Próximos a vencer (30 días)</option>
+            <option value="vencido">Vencidos</option>
+          </select>
+          <button class="btn primary" id="btnFiltrarLotes"><span class="mini-icon">⌁</span> Filtrar</button>
+          <button class="btn" id="btnRefrescarLotes"><span class="mini-icon">↻</span></button>
+        </div>
+
+        <div style="max-height:300px; overflow-y:auto; border:1px solid var(--border); border-radius:10px;">
+          <table aria-label="Tabla de lotes registrados" style="width:100%; border-collapse:collapse;">
+            <thead>
+              <tr>
+                <th>Lote</th>
+                <th>Producto</th>
+                <th>Cantidad</th>
+                <th>Vencimiento</th>
+                <th>Días restantes</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyLotes">
+              <tr><td colspan="6" style="text-align:center; padding:20px; color:var(--muted);">Cargando lotes...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeModal('modalLotes')">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Container -->
   <div class="toast-container" id="toastContainer"></div>
 
@@ -690,10 +775,15 @@
           renderKpis(productosCache);
           cargarSelectsProducto();
         } else {
-          showToast(json.message || 'Error al cargar stock', 'error');
+          const msg = (json.message || '').toLowerCase();
+          if (msg.includes('no such table') || msg.includes('doesn\'t exist') || msg.includes('table not found')) {
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:24px; color:var(--muted);">⚠️ La base de datos aún no está configurada. Conecte con MySQL para ver los productos.</td></tr>`;
+          } else {
+            showToast(json.message || 'Error al cargar stock', 'error');
+          }
         }
       } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:24px; color:var(--danger);">Error de conexión con la API Laravel.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:24px; color:var(--muted);">⚠️ No se pudo conectar con el servidor. Verifique que el backend esté corriendo (php artisan serve).</td></tr>`;
       }
     }
 
@@ -758,6 +848,7 @@
           <td data-label="Acciones">
             <div class="btn-row">
               <button class="btn" style="padding:6px 9px; font-size:12px;" onclick="verMovimientos(${p.id_producto})" title="Disponibilidad y movimientos">👁️ Detalle</button>
+              <button class="btn" style="padding:6px 9px; font-size:12px; background:#0284c7; color:#fff;" onclick="abrirModalLotes('${p.id_producto}')" title="Ver lotes y vencimientos">📦 Lotes</button>
               <button class="btn warning" style="padding:6px 9px; font-size:12px;" onclick="abrirAjustePara('${p.id_producto}')" title="Ajustar stock">✎ Ajuste</button>
               <button class="btn" style="padding:6px 9px; font-size:12px;" onclick="abrirMinimoPara('${p.id_producto}')" title="Configurar stock mínimo">Min.</button>
               <button class="btn" style="padding:6px 9px; font-size:12px;" onclick="abrirUnidadesPara('${p.id_producto}')" title="Unidades de medida">▣ Univ.</button>
@@ -797,8 +888,12 @@
     document.getElementById('btnAgregarItemIngreso').addEventListener('click', () => {
       const sel = document.getElementById('ingProductoSelect');
       const cant = document.getElementById('ingProductoCant');
+      const loteInput = document.getElementById('ingProductoLote');
+      const vencInput = document.getElementById('ingProductoVenc');
       const prod = productosCache.find(p => p.id_producto == sel.value);
       const cantidad = parseInt(cant.value, 10);
+      const nroLote = loteInput ? loteInput.value.trim() : '';
+      const fechaVenc = vencInput ? vencInput.value : '';
 
       const errorBox = document.getElementById('errorBoxIngreso');
       errorBox.classList.remove('show');
@@ -806,23 +901,34 @@
       if (!cantidad || cantidad < 1) { errorBox.textContent = 'Ingrese una cantidad válida (>0).'; errorBox.classList.add('show'); return; }
       if (itemsIngreso.some(i => i.id_producto == sel.value)) { errorBox.textContent = 'El producto ya está en la lista. Modifique su cantidad o elimínelo.'; errorBox.classList.add('show'); return; }
 
-      itemsIngreso.push({ id_producto: parseInt(sel.value), codigo: prod.codigo, descripcion: prod.descripcion, cantidad });
+      itemsIngreso.push({
+        id_producto: parseInt(sel.value),
+        codigo: prod.codigo,
+        descripcion: prod.descripcion,
+        cantidad,
+        nro_lote: nroLote || null,
+        fecha_vencimiento: fechaVenc || null
+      });
       renderItemsIngreso();
       cant.value = '';
       sel.value = '';
+      if (loteInput) loteInput.value = '';
+      if (vencInput) vencInput.value = '';
     });
 
     function renderItemsIngreso(){
       const tbody = document.getElementById('tbodyItemsIngreso');
       if (itemsIngreso.length === 0){
-        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:12px; color:var(--muted);">No hay productos agregados.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:12px; color:var(--muted);">No hay productos agregados.</td></tr>`;
         return;
       }
       tbody.innerHTML = itemsIngreso.map((it, idx) => `
         <tr>
           <td>${it.descripcion}</td>
           <td>${it.codigo}</td>
-          <td><input class="control" type="number" min="1" value="${it.cantidad}" style="width:90px; padding:6px 8px; font-size:13px;" onchange="editarCantItemIngreso(${idx}, this.value)" /></td>
+          <td><input class="control" type="number" min="1" value="${it.cantidad}" style="width:75px; padding:4px 6px; font-size:13px;" onchange="editarCantItemIngreso(${idx}, this.value)" /></td>
+          <td><span style="font-family:monospace; font-size:12px;">${it.nro_lote || '—'}</span></td>
+          <td><span style="font-size:12px; color:var(--muted);">${it.fecha_vencimiento || '—'}</span></td>
           <td><button class="icon-btn" onclick="quitarItemIngreso(${idx})" title="Quitar">✕</button></td>
         </tr>
       `).join('');
@@ -858,7 +964,13 @@
         id_proveedor: parseInt(idProveedor),
         fecha: fecha || null,
         id_usuario: 1,
-        items: itemsIngreso.map(i => ({ id_producto: i.id_producto, cantidad: i.cantidad, motivo: 'Ingreso de mercadería (S03)' }))
+        items: itemsIngreso.map(i => ({
+          id_producto: i.id_producto,
+          cantidad: i.cantidad,
+          nro_lote: i.nro_lote,
+          fecha_vencimiento: i.fecha_vencimiento,
+          motivo: 'Ingreso de mercadería (S03)'
+        }))
       };
 
       document.getElementById('btnGuardarIngreso').disabled = true;
@@ -1279,6 +1391,165 @@
       document.getElementById('globalSearchInput').value = '';
       document.getElementById('filterNivel').value = '';
       loadProductos();
+    });
+
+    // ==========================================
+    // GESTIÓN DE LOTES Y VENCIMIENTOS
+    // ==========================================
+
+    document.getElementById('btnLotes').addEventListener('click', () => {
+      abrirModalLotes();
+    });
+
+    function abrirModalLotes(idProducto = null) {
+      const errorBox = document.getElementById('errorBoxLotes');
+      errorBox.classList.remove('show');
+
+      // Cargar selects de productos en el modal de lotes
+      const opciones = productosCache.map(p => `<option value="${p.id_producto}">${p.codigo} — ${p.descripcion}</option>`).join('');
+      document.getElementById('loteProducto').innerHTML = '<option value="">Seleccione un producto</option>' + opciones;
+      document.getElementById('filtroLoteProducto').innerHTML = '<option value="">Todos los productos</option>' + opciones;
+
+      if (idProducto) {
+        document.getElementById('filtroLoteProducto').value = idProducto;
+        document.getElementById('loteProducto').value = idProducto;
+      } else {
+        document.getElementById('filtroLoteProducto').value = '';
+      }
+
+      document.getElementById('filtroLoteEstado').value = '';
+      document.getElementById('loteNumero').value = '';
+      document.getElementById('loteVencimiento').value = '';
+      document.getElementById('loteCantidad').value = '10';
+      document.getElementById('loteAsociarStock').checked = true;
+
+      openModal('modalLotes');
+      cargarLotes();
+    }
+
+    async function cargarLotes() {
+      const tbody = document.getElementById('tbodyLotes');
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:20px; color:var(--muted);">Cargando lotes...</td></tr>`;
+
+      const idProd = document.getElementById('filtroLoteProducto').value;
+      const estado = document.getElementById('filtroLoteEstado').value;
+
+      const params = new URLSearchParams();
+      if (idProd) params.append('id_producto', idProd);
+      if (estado === 'por_vencer') {
+        params.append('por_vencer', 'true');
+        params.append('dias', '30');
+      } else if (estado) {
+        params.append('estado', estado);
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/stock/lotes?${params.toString()}`, {
+          headers: { 'Accept': 'application/json' }
+        });
+        const json = await res.json();
+        if (json.status === 'success') {
+          const lotes = json.data || [];
+          if (lotes.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:20px; color:var(--muted);">No se encontraron lotes con los filtros seleccionados.</td></tr>`;
+            return;
+          }
+          tbody.innerHTML = lotes.map(l => {
+            const dias = l.dias_para_vencer;
+            let diasHtml = '—';
+            let estadoHtml = `<span class="tag"><span class="s"></span>${l.estado}</span>`;
+
+            if (l.estado === 'vencido' || (dias !== null && dias < 0)) {
+              diasHtml = `<span class="tag crit" style="font-weight:700;">Vencido (${Math.abs(dias)}d atrás)</span>`;
+              estadoHtml = `<span class="tag crit"><span class="s"></span>Vencido</span>`;
+            } else if (dias !== null && dias <= 15) {
+              diasHtml = `<span class="tag crit" style="font-weight:700;">${dias} día${dias === 1 ? '' : 's'}</span>`;
+              estadoHtml = `<span class="tag crit"><span class="s"></span>Urgente</span>`;
+            } else if (dias !== null && dias <= 30) {
+              diasHtml = `<span class="tag warn" style="font-weight:700;">${dias} días</span>`;
+              estadoHtml = `<span class="tag warn"><span class="s"></span>Próximo</span>`;
+            } else if (dias !== null) {
+              diasHtml = `<span style="font-size:12px; color:var(--muted);">${dias} días</span>`;
+              estadoHtml = `<span class="tag active"><span class="s"></span>Vigente</span>`;
+            }
+
+            return `
+              <tr>
+                <td data-label="Lote"><strong style="font-family:monospace;">${l.nro_lote}</strong></td>
+                <td data-label="Producto">${l.descripcion_producto || l.codigo_producto || 'ID ' + l.id_producto}</td>
+                <td data-label="Cantidad" style="font-weight:700;">${l.cantidad} ${l.nombre_unidad || ''}</td>
+                <td data-label="Vencimiento">${l.fecha_vencimiento || '—'}</td>
+                <td data-label="Días restantes">${diasHtml}</td>
+                <td data-label="Estado">${estadoHtml}</td>
+              </tr>
+            `;
+          }).join('');
+        } else {
+          const msg = (json.message || '').toLowerCase();
+          if (msg.includes('no such table') || msg.includes('doesn\'t exist') || msg.includes('table not found')) {
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:20px; color:var(--muted);">⚠️ La base de datos aún no está configurada. Las tablas de lotes se crearán al conectar con MySQL.</td></tr>`;
+          } else {
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:20px; color:var(--danger);">${json.message || 'Error al cargar lotes.'}</td></tr>`;
+          }
+        }
+      } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:20px; color:var(--muted);">⚠️ No se pudo conectar con el servidor. Verifique que el backend esté corriendo.</td></tr>`;
+      }
+    }
+
+    document.getElementById('btnFiltrarLotes').addEventListener('click', cargarLotes);
+    document.getElementById('filtroLoteProducto').addEventListener('change', cargarLotes);
+    document.getElementById('filtroLoteEstado').addEventListener('change', cargarLotes);
+    document.getElementById('btnRefrescarLotes').addEventListener('click', cargarLotes);
+
+    document.getElementById('btnGuardarLoteDirecto').addEventListener('click', async () => {
+      const errorBox = document.getElementById('errorBoxLotes');
+      errorBox.classList.remove('show');
+
+      const idProducto = document.getElementById('loteProducto').value;
+      const nroLote = document.getElementById('loteNumero').value.trim();
+      const fechaVenc = document.getElementById('loteVencimiento').value;
+      const cantidad = parseInt(document.getElementById('loteCantidad').value, 10);
+      const asociarStock = document.getElementById('loteAsociarStock').checked;
+
+      if (!idProducto) { errorBox.textContent = 'Seleccione un producto.'; errorBox.classList.add('show'); return; }
+      if (!nroLote) { errorBox.textContent = 'Ingrese el número de lote.'; errorBox.classList.add('show'); return; }
+      if (!fechaVenc) { errorBox.textContent = 'Seleccione la fecha de vencimiento.'; errorBox.classList.add('show'); return; }
+      if (!cantidad || cantidad < 1) { errorBox.textContent = 'Ingrese una cantidad válida (>0).'; errorBox.classList.add('show'); return; }
+
+      const payload = {
+        id_producto: parseInt(idProducto),
+        nro_lote: nroLote,
+        fecha_vencimiento: fechaVenc,
+        cantidad: cantidad,
+        asociar_ingreso: asociarStock
+      };
+
+      document.getElementById('btnGuardarLoteDirecto').disabled = true;
+      try {
+        const res = await fetch(`${API_BASE}/stock/lotes`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const json = await res.json();
+        if (json.status === 'success') {
+          showToast(json.message || 'Lote registrado con éxito.', 'success');
+          document.getElementById('loteNumero').value = '';
+          document.getElementById('loteVencimiento').value = '';
+          document.getElementById('detNuevoLote').open = false;
+          cargarLotes();
+          loadProductos();
+        } else {
+          errorBox.textContent = json.message || 'Error al registrar el lote.';
+          errorBox.classList.add('show');
+        }
+      } catch (err) {
+        errorBox.textContent = 'Error de conexión con el servidor.';
+        errorBox.classList.add('show');
+      } finally {
+        document.getElementById('btnGuardarLoteDirecto').disabled = false;
+      }
     });
 
     // Inicialización

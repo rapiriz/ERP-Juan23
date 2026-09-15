@@ -6,6 +6,7 @@ namespace App\Modules\Stock\Models;
 use App\Modules\Productos\Models\Producto;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class MovimientoStock extends Model
 {
@@ -44,5 +45,10 @@ class MovimientoStock extends Model
     public function unidad(): BelongsTo
     {
         return $this->belongsTo(UnidadMedida::class, 'id_unidad', 'id_unidad');
+    }
+
+    public function lotes(): HasMany
+    {
+        return $this->hasMany(Lote::class, 'id_movimiento', 'id_movimiento');
     }
 }
