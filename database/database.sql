@@ -9,14 +9,31 @@ CREATE TABLE IF NOT EXISTS usuarios (
     usuario VARCHAR(50) NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     nombre VARCHAR(120) NOT NULL,
-    rol ENUM('administrativo', 'vendedor') NOT NULL,
+    email VARCHAR(160) NULL,
+    rol ENUM('administrativo', 'repartidor', 'contador') NOT NULL,
     estado ENUM('activo', 'inactivo') NOT NULL DEFAULT 'activo',
     intentos_fallidos TINYINT UNSIGNED NOT NULL DEFAULT 0,
     bloqueado_hasta DATETIME NULL,
     ultimo_intento_fallido DATETIME NULL,
     current_session_id VARCHAR(128) NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE KEY uq_usuarios_usuario (usuario)
+    UNIQUE KEY uq_usuarios_usuario (usuario),
+    UNIQUE KEY uq_usuarios_email (email)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS password_reset_codes (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    usuario_id INT UNSIGNED NOT NULL,
+    code_hash VARCHAR(255) NOT NULL,
+    intentos TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP NULL,
+    updated_at TIMESTAMP NULL,
+    UNIQUE KEY uq_password_reset_codes_usuario_id (usuario_id),
+    CONSTRAINT fk_password_reset_codes_usuario_id
+        FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS clientes (
@@ -76,13 +93,15 @@ CREATE TABLE IF NOT EXISTS reclamos (
         ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT INTO usuarios (usuario, password_hash, nombre, rol, estado)
+INSERT INTO usuarios (usuario, password_hash, nombre, email, rol, estado)
 VALUES
-    ('admin', '$2y$12$ANsXNeCiggg9JGyVdCzvzOfdLWveLkj05ghYBjggIajDzzTYmpDI2', 'Usuario Administrativo', 'administrativo', 'activo'),
-    ('vendedor', '$2y$12$THO53TWdVvSVBJ58Bwm4EeYXPfzT.RnuXMoOZNbRPhuoljXIKILY2', 'Usuario Vendedor', 'vendedor', 'activo'),
-    ('inactivo', '$2y$12$hZwvCqPlVn2Fy0NxRpoeR.D0aBSd4sVi2.lZQZ361JjoECd.VJJda', 'Usuario Inactivo', 'vendedor', 'inactivo')
+    ('admin', '$2y$12$ANsXNeCiggg9JGyVdCzvzOfdLWveLkj05ghYBjggIajDzzTYmpDI2', 'Usuario Administrativo', 'admin@example.com', 'administrativo', 'activo'),
+    ('repartidor', '$2y$10$1w7KtO7GmkddmHApsSLMt.GnObzeT55v1pw6P4cYttd3IkjiWcOIW', 'Usuario Repartidor', 'repartidor@example.com', 'repartidor', 'activo'),
+    ('contador', '$2y$10$sLTqTWYXWdUXeBapcdmP1OmUwlCtPy.S9gb8Icfc22HgmJSHhZF8m', 'Usuario Contador', 'contador@example.com', 'contador', 'activo'),
+    ('inactivo', '$2y$12$hZwvCqPlVn2Fy0NxRpoeR.D0aBSd4sVi2.lZQZ361JjoECd.VJJda', 'Usuario Inactivo', 'inactivo@example.com', 'repartidor', 'inactivo')
 ON DUPLICATE KEY UPDATE
     password_hash = VALUES(password_hash),
     nombre = VALUES(nombre),
+    email = VALUES(email),
     rol = VALUES(rol),
     estado = VALUES(estado);
