@@ -424,4 +424,143 @@ class ProductoController extends Controller
             'data' => $historial,
         ]);
     }
+
+    /**
+     * Aplicar aumento porcentual masivo sobre productos activos (P07 / OB1)
+     *
+     * Permite filtrar por ids explícitos, categoría o marca. Cuando no se
+     * especifica ningún filtro, aplica a todos los productos activos.
+     */
+    public function aumentoMasivo(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'porcentaje' => 'required|numeric|gt:0',
+            'tipo_precio' => 'nullable|string|in:ambos,mayorista,minorista',
+            'ids' => 'nullable|array',
+            'ids.*' => 'integer|exists:PRODUCTO,id_producto',
+            'id_categoria' => 'nullable|integer|exists:CATEGORIA,id_categoria',
+            'id_marca' => 'nullable|integer|exists:MARCA,id_marca',
+        ], [
+            'porcentaje.required' => 'Debe indicar el porcentaje de aumento.',
+            'porcentaje.numeric' => 'El porcentaje debe ser numérico.',
+            'porcentaje.gt' => 'El porcentaje de aumento debe ser mayor a 0.',
+            'tipo_precio.in' => 'El tipo de precio debe ser: ambos, mayorista o minorista.',
+            'ids.*.exists' => 'Alguno de los productos indicados no existe.',
+            'id_categoria.exists' => 'La categoría seleccionada no existe.',
+            'id_marca.exists' => 'La marca seleccionada no existe.',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $validator->errors()->first(),
+            ], 400);
+        }
+
+        $porcentaje = (float) $request->input('porcentaje');
+        $tipoPrecio = $request->input('tipo_precio', 'ambos');
+        $idUsuario = UsuarioActual::id($request);
+        $now = Carbon::now()->toDateString();
+
+        try {
+            $query = Producto::query()->where('estado', 'activo');
+
+            $ids = $request->input('ids');
+            if (is_array($ids) && count($ids) > 0) {
+                $query->whereIn('id_producto', array_map('intval', $ids));
+            } else {
+                $query->filterCategoria($request->filled('id_categoria') ? (int) $request->input('id_categoria') : null)
+                      ->filterMarca($request->filled('id_marca') ? (int) $request->input('id_marca') : null);
+            }
+
+            $productos = $query->orderBy('id_producto', 'asc')->get();
+
+            $detalles = DB::transaction(function () use ($productos, $porcentaje, $tipoPrecio, $idUsuario, $now) {
+                $detalles = [];
+
+                foreach ($productos as $producto) {
+                    $cambio = false;
+                    $mayoristaAnterior = (float) $producto->precioMay;
+                    $minoristaAnterior = (float) $producto->precioMin;
+                    $nuevoMayorista = $mayoristaAnterior;
+                    $nuevoMinorista = $minoristaAnterior;
+
+                    if ($tipoPrecio === 'ambos' || $tipoPrecio === 'mayorista') {
+                        $nuevoMayorista = round($mayoristaAnterior * (1 + $porcentaje / 100.0), 2);
+                    }
+                    if ($tipoPrecio === 'ambos' || $tipoPrecio === 'minorista') {
+                        $nuevoMinorista = round($minoristaAnterior * (1 + $porcentaje / 100.0), 2);
+                    }
+
+                    if (abs($nuevoMayorista - $mayoristaAnterior) >= 0.001) {
+                        HistorialPrecio::create([
+                            'id_producto' => $producto->id_producto,
+                            'tipo_precio' => 'mayorista',
+                            'precio' => $nuevoMayorista,
+                            'porcentaje_aumento' => $porcentaje,
+                            'regla_redondeo' => 'sin_redondeo',
+                            'origen' => 'aumento_masivo',
+                            'fecha_cambio' => $now,
+                            'id_usuario' => $idUsuario,
+                        ]);
+                        $cambio = true;
+                    }
+
+                    if (abs($nuevoMinorista - $minoristaAnterior) >= 0.001) {
+                        HistorialPrecio::create([
+                            'id_producto' => $producto->id_producto,
+                            'tipo_precio' => 'minorista',
+                            'precio' => $nuevoMinorista,
+                            'porcentaje_aumento' => $porcentaje,
+                            'regla_redondeo' => 'sin_redondeo',
+                            'origen' => 'aumento_masivo',
+                            'fecha_cambio' => $now,
+                            'id_usuario' => $idUsuario,
+                        ]);
+                        $cambio = true;
+                    }
+
+                    if ($cambio) {
+                        $producto->update([
+                            'precioMay' => $nuevoMayorista,
+                            'precioMin' => $nuevoMinorista,
+                            'fecha_modificacion' => $now,
+                            'id_usuario_modificacion' => $idUsuario,
+                        ]);
+                    }
+
+                    $detalles[] = [
+                        'id_producto' => $producto->id_producto,
+                        'codigo' => $producto->codigo,
+                        'descripcion' => $producto->descripcion,
+                        'precio_mayorista_anterior' => $mayoristaAnterior,
+                        'precio_mayorista_nuevo' => $nuevoMayorista,
+                        'precio_minorista_anterior' => $minoristaAnterior,
+                        'precio_minorista_nuevo' => $nuevoMinorista,
+                        'aplicado' => $cambio,
+                    ];
+                }
+
+                return $detalles;
+            });
+
+            $totalAplicados = count(array_filter($detalles, fn ($d) => $d['aplicado']));
+
+            return response()->json([
+                'status' => 'success',
+                'message' => "Aumento del {$porcentaje}% aplicado a {$totalAplicados} producto(s) activo(s).",
+                'data' => [
+                    'porcentaje' => $porcentaje,
+                    'tipo_precio' => $tipoPrecio,
+                    'total_aplicados' => $totalAplicados,
+                    'productos' => $detalles,
+                ],
+            ]);
+        } catch (Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Error al aplicar el aumento masivo: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
 }

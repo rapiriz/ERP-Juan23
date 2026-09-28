@@ -29,6 +29,7 @@ Route::get('/', function (Request $request) {
             'GET /api/productos',
             'GET /api/productos/{id}',
             'GET /api/productos/{id}/historial',
+            'POST /api/productos/aumento-masivo',
             'GET /api/stock',
             'GET /api/stock/{id}/disponibilidad',
             'POST /api/stock/ingresos',
@@ -101,8 +102,10 @@ Route::patch('ordenes-compra/{orden}/enviar', [OrdenCompraController::class, 'en
 // PC01/PC02/PC03/PC04 - Generar, listar, detalle y editar
 Route::apiResource('ordenes-compra', OrdenCompraController::class);
 
-// Productos (P01, P04, P05, P06, P08)
+// Productos (P01, P04, P05, P06, P07, P08)
 Route::get('productos/{id}/historial', [ProductoController::class, 'historialPrecios']);
+// P07 - Aplicar aumento porcentual masivo de precios
+Route::post('productos/aumento-masivo', [ProductoController::class, 'aumentoMasivo']);
 Route::patch('productos/{id}/desactivar', [ProductoController::class, 'desactivar']);
 Route::patch('productos/{id}/activar', [ProductoController::class, 'activar']);
 Route::apiResource('productos', ProductoController::class);
