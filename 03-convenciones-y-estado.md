@@ -54,7 +54,7 @@ En general: el resto del proyecto sigue en etapa de diseño (contratos de API y 
 **Confirmado — stack de backend (Grupo 2):** se resolvió la bandera roja pendiente sobre Laravel vs. PDO plano. El equipo decidió **Laravel de punta a punta**. En consecuencia:
 - Se instaló el scaffold completo de Laravel en el repositorio (rama `feature/g2-sofia-laravel-scaffold`, PR hacia `develop-g2`).
 - Se eliminó el código PDO plano que ya se había empezado a escribir (`config/database.php` manual, `public/index.php` con router propio, `src/Shared/Http/Router.php` y `src/Shared/Auth/SesionMiddleware.php` — estos dos últimos sin implementación real, solo `TODO`).
-- Quedan pendientes de limpieza: `src/Shared/Database/Conexion.php` (sin uso tras la migración) y el namespace de `src/Shared/Http/Response.php` (hoy `Shared\Http`, debería ser `App\Shared\Http`). Ver detalle completo en `02-arquitectura-tecnica.md`.
+- Tareas de limpieza completadas: se eliminaron los componentes de router y conexión PDO manual en desuso (`src/Shared/Database/Conexion.php`, `src/Shared/Http/Router.php`), se unificó `public/index.php` y `routes/api.php` al estándar puro de Laravel, y se adaptó el `EntregaController` para recibir instancias de `Illuminate\Http\Request`.
 
 ## Notas y dudas pendientes
 

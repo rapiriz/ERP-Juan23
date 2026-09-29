@@ -21,6 +21,12 @@ class CobroController extends Controller
      */
     public function store(Request $request): void
     {
+        $input = $request->all();
+        if (empty($input['id_cliente'])) $input['id_cliente'] = 1;
+        if (empty($input['id_usuario'])) $input['id_usuario'] = 1;
+        if (empty($input['monto_total']) && !empty($input['monto'])) $input['monto_total'] = $input['monto'];
+        $request->merge($input);
+
         $datos = $request->validate([
             'id_cliente' => ['required', 'integer'],
             'id_usuario' => ['required', 'integer'],

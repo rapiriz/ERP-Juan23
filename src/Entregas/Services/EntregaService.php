@@ -2,7 +2,6 @@
 namespace App\Entregas\Services;
 
 use Exception;
-use App\Shared\Database\Conexion;
 use App\Entregas\Models\Entrega;
 use App\Entregas\Models\Remito;
 use App\Entregas\Repositories\EntregaRepository;

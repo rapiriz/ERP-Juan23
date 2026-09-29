@@ -1,5 +1,5 @@
 <?php
-namespace Dominio\Rendiciones\Services;
+namespace App\Rendiciones\Services;
 
 class ProcesadorDeDevolucionRendicion 
 {
@@ -26,7 +26,7 @@ class ProcesadorDeDevolucionRendicion
                 "cliente" => $datos['cliente'] ?? 'Cliente general',
                 "motivo" => $datos['motivo'],
                 "observaciones" => $datos['observaciones'] ?? 'Sin observaciones',
-                "estado_entrega" => "Fallida / No entregado",
+                "estado_entrega" => "no_entregada",
                 "fecha_registro" => date('Y-m-d H:i:s')
             ]
         ];

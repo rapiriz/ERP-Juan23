@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Módulo de Rendiciones y Cobros — ERP Distribuidora Juan XXIII">
+    <title>Rendiciones & Cobros — ERP Distribuidora Juan XXIII</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+    <!-- HAMBURGER MOBILE -->
+    <button class="sidebar-toggle" id="sidebarToggle" aria-label="Abrir menú" aria-expanded="false">☰</button>
+    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar" role="navigation" aria-label="Menú principal">
+        <div class="sidebar-logo">
+            <div class="sidebar-logo-icon">📦</div>
+            <div>
+                <h1>ERP Distribuidora</h1>
+                <small>Juan XXIII — Pigüé</small>
+            </div>
+        </div>
+
+        <p class="sidebar-section-label">Módulos Grupo 2</p>
+
+        <ul class="sidebar-menu" role="list">
+            <li class="sidebar-item">
+                <a href="entregas.html">
+                    <span class="nav-icon" aria-hidden="true">🚚</span>
+                    Entregas & Despacho
+                </a>
+            </li>
+            <li class="sidebar-item">
+                <a href="facturacion.html">
+                    <span class="nav-icon" aria-hidden="true">🧾</span>
+                    Facturación
+                </a>
+            </li>
+            <li class="sidebar-item active">
+                <a href="rendiciones.html" aria-current="page">
+                    <span class="nav-icon" aria-hidden="true">📋</span>
+                    Rendiciones & Cobros
+                </a>
+            </li>
+        </ul>
+
+        <p class="sidebar-section-label">Administración</p>
+        <ul class="sidebar-menu" role="list">
+            <li class="sidebar-item">
+                <a href="#">
+                    <span class="nav-icon" aria-hidden="true">🏦</span>
+                    Conciliación Bancaria
+                </a>
+            </li>
+            <li class="sidebar-item">
+                <a href="#">
+                    <span class="nav-icon" aria-hidden="true">🏠</span>
+                    Caja & Tesoro
+                </a>
+            </li>
+        </ul>
+
+        <div class="sidebar-footer">
+            <div class="sidebar-user">
+                <div class="sidebar-user-avatar">D</div>
+                <div class="sidebar-user-info">
+                    <div class="sidebar-user-name">Diego García</div>
+                    <div class="sidebar-user-role">Administrador</div>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- CONTENIDO PRINCIPAL -->
+    <main class="main-content" id="mainContent">
+
+        <!-- ENCABEZADO -->
+        <div class="page-header">
+            <div class="page-header-info">
+                <nav class="breadcrumb" aria-label="Ruta de navegación">
+                    <span>ERP</span>
+                    <span class="breadcrumb-sep">›</span>
+                    <span>Cobros</span>
+                    <span class="breadcrumb-sep">›</span>
+                    <strong>Rendiciones</strong>
+                </nav>
+                <h2>Rendiciones de Jornada & Cobros</h2>
+                <p>Control de rendiciones de choferes, cobros liquidados y arqueo de caja</p>
+            </div>
+            <div class="page-header-actions">
+                <button class="clay-btn clay-btn-secondary btn-spin" onclick="cargarListadoRendiciones()" aria-label="Actualizar lista de rendiciones">
+                    <svg class="icon-svg icon-svg-lg" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M21.5 2v6h-6M2.5 22v-6h6M21.34 15.57a10 10 0 1 1-.57-8.38"/>
+                    </svg>
+                    <span>Actualizar</span>
+                </button>
+                <button class="clay-btn clay-btn-secondary" onclick="abrirModalDevolucion()">
+                    📦 Devolución
+                </button>
+                <button class="clay-btn clay-btn-primary" onclick="abrirModalNuevaRendicion()" id="btnNuevaRendicion">
+                    <svg class="icon-svg icon-svg-lg" viewBox="0 0 24 24" aria-hidden="true">
+                        <line x1="12" y1="5" x2="12" y2="19"/>
+                        <line x1="5" y1="12" x2="19" y2="12"/>
+                    </svg>
+                    <span>Nueva Rendición</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- KPI SUMMARY -->
+        <div class="kpi-grid" role="region" aria-label="Indicadores clave">
+            <div class="kpi-card">
+                <div class="kpi-icon" style="background: linear-gradient(135deg, #DBEAFE, #BFDBFE);">📋</div>
+                <div class="kpi-body">
+                    <div class="kpi-label">Rendiciones Hoy</div>
+                    <div class="kpi-value" id="kpiTotalRendiciones">—</div>
+                </div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-icon" style="background: linear-gradient(135deg, #FEF3C7, #FDE68A);">⏳</div>
+                <div class="kpi-body">
+                    <div class="kpi-label">Pendientes Revisión</div>
+                    <div class="kpi-value" id="kpiPendientes" style="color: var(--warning);">—</div>
+                </div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-icon" style="background: linear-gradient(135deg, #D1FAE5, #6EE7B7);">✅</div>
+                <div class="kpi-body">
+                    <div class="kpi-label">Cobros Liquidados</div>
+                    <div class="kpi-value" id="kpiTotalDinero" style="color: var(--success);">—</div>
+                </div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-icon" style="background: linear-gradient(135deg, #FEE2E2, #FCA5A5);">❌</div>
+                <div class="kpi-body">
+                    <div class="kpi-label">Rechazadas</div>
+                    <div class="kpi-value" id="kpiRechazadas" style="color: var(--danger);">—</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TABLA & FILTROS -->
+        <section class="clay-card" aria-labelledby="seccion-rendiciones-title">
+            <h3 class="clay-card-title" id="seccion-rendiciones-title" style="margin-bottom: 1.25rem;">
+                <span class="card-icon" aria-hidden="true">📊</span>
+                Listado de Rendiciones
+            </h3>
+
+            <!-- TABS DE ESTADO -->
+            <div class="tab-bar" role="tablist" aria-label="Filtrar por estado">
+                <button class="tab-btn active" id="tabTodas" role="tab" aria-selected="true"
+                    onclick="filtrarEstadoTab('')">
+                    Todas
+                    <span class="tab-count" id="cntTodas">0</span>
+                </button>
+                <button class="tab-btn" id="tabPendientes" role="tab" aria-selected="false"
+                    onclick="filtrarEstadoTab('pendiente')">
+                    Pendientes
+                    <span class="tab-count" id="cntPendientes">0</span>
+                </button>
+                <button class="tab-btn" id="tabAprobadas" role="tab" aria-selected="false"
+                    onclick="filtrarEstadoTab('aprobada')">
+                    Aprobadas (Cobros)
+                    <span class="tab-count" id="cntAprobadas">0</span>
+                </button>
+                <button class="tab-btn" id="tabRechazadas" role="tab" aria-selected="false"
+                    onclick="filtrarEstadoTab('rechazada')">
+                    Rechazadas
+                    <span class="tab-count" id="cntRechazadas">0</span>
+                </button>
+            </div>
+
+            <!-- TOOLBAR FILTROS -->
+            <div class="toolbar">
+                <div class="toolbar-left">
+                    <div class="filter-group">
+                        <label for="filtroRepartidor">Repartidor:</label>
+                        <select id="filtroRepartidor" class="clay-select" style="min-width: 210px;"
+                            onchange="cargarListadoRendiciones()">
+                            <option value="">Todos los repartidores</option>
+                            <option value="1">Matías García</option>
+                            <option value="2">Juan Pérez</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="filtroFecha">Fecha:</label>
+                        <input type="date" id="filtroFecha" class="clay-input"
+                            style="min-width: 160px;" onchange="cargarListadoRendiciones()">
+                    </div>
+                </div>
+                <div class="toolbar-right">
+                    <button class="clay-btn clay-btn-secondary clay-btn-sm" onclick="limpiarFiltros()">
+                        <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true">
+                            <line x1="18" y1="6" x2="6" y2="18"/>
+                            <line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
+                        Limpiar filtros
+                    </button>
+                </div>
+            </div>
+
+            <!-- TABLA DE RENDICIONES -->
+            <div class="table-responsive" role="region" aria-label="Lista de rendiciones" tabindex="0">
+                <table class="clay-table" aria-live="polite">
+                    <thead>
+                        <tr>
+                            <th>Nº Rendición</th>
+                            <th>Fecha</th>
+                            <th>Chofer / Repartidor</th>
+                            <th>Entrega Asoc.</th>
+                            <th style="text-align: right;">Total Rendido $</th>
+                            <th style="text-align: center;">Estado</th>
+                            <th>Observaciones</th>
+                            <th style="text-align: center;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaRendicionesBody">
+                        <tr>
+                            <td colspan="8">
+                                <div class="table-empty">
+                                    <span class="table-empty-icon">📋</span>
+                                    Cargando rendiciones…
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+        </section>
+    </main>
+
+    <!-- ===== MODAL: NUEVA RENDICIÓN ===== -->
+    <div id="modalNuevaRendicion" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modalNuevaTitle">
+        <div class="modal-content" style="max-width: 620px;">
+            <div class="modal-header">
+                <h3 class="modal-title" id="modalNuevaTitle">
+                    <span aria-hidden="true">➕</span>
+                    Cargar Rendición de Reparto
+                </h3>
+                <button class="modal-close" onclick="cerrarModalNuevaRendicion()" aria-label="Cerrar modal">✕</button>
+            </div>
+
+            <form id="formNuevaRendicion" onsubmit="guardarNuevaRendicion(event)" novalidate>
+                <div class="form-grid form-grid-2" style="margin-bottom: 1.1rem;">
+                    <div class="form-group">
+                        <label for="formRepartidor" class="form-label">
+                            Chofer Repartidor <span class="required" aria-hidden="true">*</span>
+                        </label>
+                        <select id="formRepartidor" class="clay-select" required aria-required="true">
+                            <option value="">Seleccionar…</option>
+                            <option value="1">Matías García</option>
+                            <option value="2">Juan Pérez</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="formEntrega" class="form-label">ID Entrega / Ruta (Opcional)</label>
+                        <input type="number" id="formEntrega" class="clay-input" value="1" placeholder="Ej. 1" min="1">
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <p class="form-section-title">
+                        <span aria-hidden="true">💰</span>
+                        Cobro Rendido (Medio de Pago)
+                    </p>
+                    <div class="form-grid form-grid-2" style="margin-bottom: 0.875rem;">
+                        <div class="form-group">
+                            <label for="formCliente" class="form-label">Cliente / Factura</label>
+                            <select id="formCliente" class="clay-select">
+                                <option value="1" data-factura="101">Supermercado Central (Factura #101)</option>
+                                <option value="2" data-factura="102">Autoservicio El Amigo (Factura #102)</option>
+                                <option value="3" data-factura="103">Despensa San José (Factura #103)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="formMedioPago" class="form-label">Medio de Pago</label>
+                            <select id="formMedioPago" class="clay-select">
+                                <option value="efectivo">💵 Efectivo (Impacta en Caja)</option>
+                                <option value="transferencia">🏦 Transferencia (Conciliación Bancaria)</option>
+                                <option value="cheque">📄 Cheque Diferido / Al Día</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="formMonto" class="form-label">
+                            Monto a Rendir ($) <span class="required" aria-hidden="true">*</span>
+                        </label>
+                        <input type="number" step="0.01" id="formMonto" class="clay-input"
+                            value="45500.00" required aria-required="true" min="0.01" placeholder="0.00">
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-top: 1rem;">
+                    <label for="formObservaciones" class="form-label">Observaciones / Novedades</label>
+                    <textarea id="formObservaciones" class="clay-input"
+                        placeholder="Ej. El cliente abonó en efectivo según comprobante…"></textarea>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="clay-btn clay-btn-secondary" onclick="cerrarModalNuevaRendicion()">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="clay-btn clay-btn-primary">
+                        <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M5 12l5 5L20 7"/>
+                        </svg>
+                        Registrar Rendición
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ===== MODAL: DETALLE Y REVISIÓN ===== -->
+    <div id="modalDetalleRendicion" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modalDetalleTitle">
+        <div class="modal-content" style="max-width: 680px;">
+            <div class="modal-header">
+                <h3 class="modal-title" id="modalDetalleTitle">
+                    <span aria-hidden="true">🔍</span>
+                    Detalle Rendición <span id="detIdRendicion">#--</span>
+                </h3>
+                <button class="modal-close" onclick="cerrarModalDetalle()" aria-label="Cerrar modal">✕</button>
+            </div>
+
+            <!-- DATOS GENERALES -->
+            <div class="form-section" style="margin-bottom: 1.25rem;">
+                <div class="detail-grid">
+                    <div class="detail-item">
+                        <span class="detail-label">Repartidor</span>
+                        <span class="detail-value" id="detRepartidor">--</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Fecha Rendición</span>
+                        <span class="detail-value" id="detFecha">--</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Total Rendido</span>
+                        <span class="detail-value" id="detTotal" style="color: var(--primary); font-size: 1.1rem;">$0,00</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Estado Actual</span>
+                        <span class="detail-value" id="detEstadoBadge">--</span>
+                    </div>
+                </div>
+                <div style="margin-top: 0.75rem;">
+                    <span class="detail-label">Observaciones</span>
+                    <p id="detObs" style="color: var(--text-muted); margin-top: 3px; font-size: 0.9rem;">--</p>
+                </div>
+            </div>
+
+            <!-- COBROS DE LA RENDICIÓN -->
+            <h4 style="font-size: 1rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.75rem;">
+                Cobros Recibidos en la Rendición
+            </h4>
+            <div class="table-responsive" style="margin-bottom: 1.25rem;">
+                <table class="clay-table">
+                    <thead>
+                        <tr>
+                            <th>Cliente / Factura</th>
+                            <th>Medio de Pago</th>
+                            <th style="text-align: right;">Monto</th>
+                            <th style="text-align: center;">Destino de Fondos</th>
+                        </tr>
+                    </thead>
+                    <tbody id="detCobrosBody"></tbody>
+                </table>
+            </div>
+
+            <!-- ACCIÓN ADMINISTRATIVA -->
+            <div id="boxAccionAdmin" class="admin-action-box">
+                <p class="admin-action-title">
+                    <span aria-hidden="true">⚡</span>
+                    Acción Administrativa — Validación de Rendición
+                </p>
+                <div class="form-group" style="margin-bottom: 0.875rem;">
+                    <label for="motivoRechazoAdmin" class="form-label">
+                        Motivo de Rechazo <span style="color: var(--text-muted); font-weight: 500;">(sólo si rechaza)</span>
+                    </label>
+                    <input type="text" id="motivoRechazoAdmin" class="clay-input"
+                        placeholder="Ej. Diferencia de dinero en efectivo no justificada…">
+                </div>
+                <div class="admin-action-btns">
+                    <button class="clay-btn clay-btn-success" onclick="procesarValidacionAdmin('aprobar')">
+                        <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M5 12l5 5L20 7"/>
+                        </svg>
+                        Aprobar & Liquidar Cobros
+                    </button>
+                    <button class="clay-btn clay-btn-danger" onclick="procesarValidacionAdmin('rechazar')">
+                        <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true">
+                            <line x1="18" y1="6" x2="6" y2="18"/>
+                            <line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
+                        Rechazar Rendición
+                    </button>
+                    <button class="clay-btn clay-btn-secondary" onclick="procesarValidacionAdmin('cancelar')">
+                        Cancelar / Anular
+                    </button>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="clay-btn clay-btn-ghost" onclick="cerrarModalDetalle()">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== MODAL: REGISTRAR DEVOLUCIÓN ===== -->
+    <div id="modalDevolucion" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modalDevolucionTitle">
+        <div class="modal-content" style="max-width: 520px;">
+            <div class="modal-header">
+                <h3 class="modal-title" id="modalDevolucionTitle">
+                    <span aria-hidden="true">📦</span>
+                    Registrar Devolución de Pedido
+                </h3>
+                <button class="modal-close" onclick="cerrarModalDevolucion()" aria-label="Cerrar modal">✕</button>
+            </div>
+
+            <form id="formDevolucion" onsubmit="guardarDevolucion(event)">
+                <div class="form-group" style="margin-bottom: 0.875rem;">
+                    <label for="devRendicionId" class="form-label">ID Rendición Asociada</label>
+                    <input type="number" id="devRendicionId" class="clay-input" value="3" required min="1">
+                </div>
+                <div class="form-group" style="margin-bottom: 0.875rem;">
+                    <label for="devPedidoId" class="form-label">ID Pedido No Entregado</label>
+                    <input type="number" id="devPedidoId" class="clay-input" value="103" required min="1">
+                </div>
+                <div class="form-group" style="margin-bottom: 0.875rem;">
+                    <label for="devCliente" class="form-label">Cliente</label>
+                    <input type="text" id="devCliente" class="clay-input" value="Despensa San José">
+                </div>
+                <div class="form-group" style="margin-bottom: 0.875rem;">
+                    <label for="devMotivo" class="form-label">Motivo de Devolución</label>
+                    <select id="devMotivo" class="clay-select">
+                        <option value="Local cerrado">Local cerrado / Cliente ausente</option>
+                        <option value="Rechazo de mercadería">Rechazo por estado/error en pedido</option>
+                        <option value="Sin dinero disponible">Sin dinero disponible para abonar</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 1rem;">
+                    <label for="devObs" class="form-label">Observaciones Adicionales</label>
+                    <textarea id="devObs" class="clay-input" placeholder="Detalles extra…"></textarea>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="clay-btn clay-btn-secondary" onclick="cerrarModalDevolucion()">Cancelar</button>
+                    <button type="submit" class="clay-btn clay-btn-primary">Registrar Devolución</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- CONTENEDOR DE TOASTS -->
+    <div class="toast-container" id="toastContainer" aria-live="assertive" aria-atomic="true"></div>
+
+    <script src="js/rendiciones.js"></script>
+    <script>
+        // Sidebar mobile toggle
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        const sidebar = document.getElementById('sidebar');
+        const backdrop = document.getElementById('sidebarBackdrop');
+
+        function openSidebar() {
+            sidebar.classList.add('open');
+            backdrop.classList.add('open');
+            sidebarToggle.setAttribute('aria-expanded', 'true');
+            sidebarToggle.textContent = '✕';
+        }
+
+        function closeSidebar() {
+            sidebar.classList.remove('open');
+            backdrop.classList.remove('open');
+            sidebarToggle.setAttribute('aria-expanded', 'false');
+            sidebarToggle.textContent = '☰';
+        }
+
+        sidebarToggle.addEventListener('click', () => {
+            sidebar.classList.contains('open') ? closeSidebar() : openSidebar();
+        });
+
+        backdrop.addEventListener('click', closeSidebar);
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && sidebar.classList.contains('open')) closeSidebar();
+        });
+
+        // Función para limpiar filtros
+        function limpiarFiltros() {
+            document.getElementById('filtroRepartidor').value = '';
+            const fechaInput = document.getElementById('filtroFecha');
+            if (fechaInput) fechaInput.value = '';
+            cargarListadoRendiciones();
+        }
+    </script>
+</body>
+</html>

@@ -9,8 +9,10 @@ class Response
 {
     public static function json($data, int $status = 200, ?string $mensaje = null): void
     {
-        http_response_code($status);
-        header('Content-Type: application/json; charset=utf-8');
+        if (!headers_sent()) {
+            http_response_code($status);
+            header('Content-Type: application/json; charset=utf-8');
+        }
         echo json_encode([
             'error' => false,
             'codigo' => $status,
@@ -22,8 +24,10 @@ class Response
 
     public static function error(string $mensaje, int $status = 400, $detalles = null): void
     {
-        http_response_code($status);
-        header('Content-Type: application/json; charset=utf-8');
+        if (!headers_sent()) {
+            http_response_code($status);
+            header('Content-Type: application/json; charset=utf-8');
+        }
         echo json_encode([
             'error' => true,
             'codigo' => $status,
