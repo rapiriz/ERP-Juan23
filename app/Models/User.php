@@ -59,6 +59,16 @@ class User extends Authenticatable
         return $this->hasOne(PasswordResetCode::class, 'usuario_id');
     }
 
+    public function ventas(): HasMany
+    {
+        return $this->hasMany(Venta::class, 'usuario_id');
+    }
+
+    public function cobros(): HasMany
+    {
+        return $this->hasMany(Cobro::class, 'usuario_id');
+    }
+
     protected function casts(): array
     {
         return [

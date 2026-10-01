@@ -39,7 +39,7 @@
                             <th>Contacto</th>
                             <th>Tipo</th>
                             <th>Estado</th>
-                            @can('create', App\Models\Cliente::class)<th>Acciones</th>@endcan
+                            <th>Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -53,9 +53,14 @@
                                 <td>{{ $cliente->telefono }}</td>
                                 <td><span class="type-badge type-{{ $cliente->tipo_cliente->value }}">{{ $cliente->tipo_cliente->value }}</span></td>
                                 <td>{{ $cliente->estado->value }}</td>
-                                @can('update', $cliente)
-                                    <td><a class="button button-secondary button-small" href="{{ route('clientes.edit', $cliente) }}">Editar</a></td>
-                                @endcan
+                                <td>
+                                    <div class="table-actions">
+                                        <a class="button button-secondary button-small" href="{{ route('clientes.show', $cliente) }}">Ver historial</a>
+                                        @can('update', $cliente)
+                                            <a class="button button-secondary button-small" href="{{ route('clientes.edit', $cliente) }}">Editar</a>
+                                        @endcan
+                                    </div>
+                                </td>
                             </tr>
                         @endforeach
                     </tbody>

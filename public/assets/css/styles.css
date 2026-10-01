@@ -293,6 +293,13 @@ p {
     margin-bottom: 24px;
 }
 
+.heading-with-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+}
+
 .erp-heading {
     display: flex;
     justify-content: space-between;
@@ -675,6 +682,97 @@ textarea:focus {
     gap: 10px;
 }
 
+.table-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.finance-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 14px;
+    margin-bottom: 26px;
+}
+
+.finance-summary article {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px;
+    background: var(--surface);
+}
+
+.finance-summary span,
+.finance-summary small {
+    display: block;
+    color: var(--muted);
+}
+
+.finance-summary span {
+    font-size: 0.88rem;
+    font-weight: 700;
+}
+
+.finance-summary strong {
+    display: block;
+    margin: 5px 0 2px;
+    color: var(--primary);
+    font-size: 1.65rem;
+}
+
+.finance-summary .amount-due,
+.amount-due {
+    color: var(--danger);
+}
+
+.finance-summary .amount-clear,
+.amount-clear {
+    color: var(--success);
+}
+
+.section-block + .section-block {
+    margin-top: 30px;
+}
+
+.report-menu {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    border-top: 1px solid var(--border);
+}
+
+.report-menu a {
+    display: grid;
+    gap: 7px;
+    min-height: 130px;
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    padding: 22px;
+    background: rgba(255, 250, 240, 0.78);
+    text-decoration: none;
+}
+
+.report-menu a:hover,
+.report-menu a:focus {
+    background: var(--primary-soft);
+}
+
+.report-menu strong {
+    color: var(--primary);
+    font-size: 1.05rem;
+}
+
+.report-menu span {
+    color: var(--muted);
+}
+
+.report-filter {
+    flex-wrap: wrap;
+}
+
+.report-filter .client-filter {
+    flex: 1 1 330px;
+}
+
 .email-form {
     display: grid;
     grid-template-columns: minmax(220px, 1fr) auto;
@@ -763,7 +861,8 @@ tbody tr:last-child td {
     }
 
     .erp-heading,
-    .section-title {
+    .section-title,
+    .heading-with-actions {
         align-items: stretch;
         flex-direction: column;
     }

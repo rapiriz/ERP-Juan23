@@ -7,7 +7,9 @@ use App\Http\Requests\Clientes\SearchClienteRequest;
 use App\Http\Requests\Clientes\StoreClienteRequest;
 use App\Http\Requests\Clientes\UpdateClienteRequest;
 use App\Models\Cliente;
+use App\Services\ReportService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 
@@ -41,6 +43,23 @@ class ClienteController extends Controller
         Gate::authorize('create', Cliente::class);
 
         return view('clientes.create');
+    }
+
+    public function show(Request $request, Cliente $cliente, ReportService $reports): View
+    {
+        Gate::authorize('view', $cliente);
+        $filters = $request->validate([
+            'desde' => ['nullable', 'date'],
+            'hasta' => ['nullable', 'date', 'after_or_equal:desde'],
+        ]);
+
+        return view('clientes.show', [
+            'cliente' => $cliente,
+            'cobros' => $cliente->cobros()->with('usuario:id,nombre')->latest('fecha')->get(),
+            'ventas' => $reports->clientSales($cliente, $filters['desde'] ?? null, $filters['hasta'] ?? null),
+            'desde' => $filters['desde'] ?? '',
+            'hasta' => $filters['hasta'] ?? '',
+        ]);
     }
 
     public function store(StoreClienteRequest $request): RedirectResponse

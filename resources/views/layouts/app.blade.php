@@ -11,6 +11,9 @@
         <a class="app-title" href="{{ route('dashboard') }}">Sistema de gestión</a>
         <nav class="top-nav" aria-label="Navegación principal">
             <a href="{{ route('dashboard') }}">Panel</a>
+            @if (in_array(auth()->user()->rol, [App\Enums\UserRole::ADMINISTRATIVO, App\Enums\UserRole::CONTADOR], true))
+                <a href="{{ route('reports.index') }}">Reportes</a>
+            @endif
             @yield('nav-links')
             <form action="{{ route('logout') }}" method="post">
                 @csrf

@@ -1,6 +1,6 @@
 # ERP Juan23
 
-Sistema web de gestión comercial migrado completamente de PHP procedural a Laravel. Incluye autenticación segura, recuperación de contraseña por email, permisos por rol, administración de clientes, reclamos, paneles diferenciados y accesos preparados para ventas y stock.
+Sistema web de gestión comercial en Laravel. Incluye autenticación segura, recuperación de contraseña por email, permisos por rol, clientes, reclamos, pagos parciales, cuentas corrientes y reportes de ventas y stock exportables.
 
 ## Requisitos
 
@@ -8,9 +8,11 @@ Sistema web de gestión comercial migrado completamente de PHP procedural a Lara
 - Laravel 12.x.
 - Composer 2.x.
 - MySQL 8 o MariaDB 10.4 o superior.
-- Extensiones PHP: `bcmath`, `ctype`, `curl`, `dom`, `fileinfo`, `mbstring`, `openssl`, `pdo`, `pdo_mysql`, `tokenizer` y `xml`.
+- Extensiones PHP: `bcmath`, `ctype`, `curl`, `dom`, `fileinfo`, `gd`, `mbstring`, `openssl`, `pdo`, `pdo_mysql`, `tokenizer`, `xml` y `zip`.
 
 El proyecto fue verificado con PHP 8.2.12, Laravel 12.69.2 y MariaDB 10.4.32 de XAMPP.
+
+En XAMPP, habilitar `extension=gd` y `extension=zip` en `C:\xampp\php\php.ini`. Como alternativa, los comandos de este README que generan PDF o Excel incluyen ambas extensiones mediante `-d`.
 
 ## Instalación
 
@@ -23,7 +25,7 @@ El proyecto fue verificado con PHP 8.2.12, Laravel 12.69.2 y MariaDB 10.4.32 de 
    En este equipo también puede usarse el Composer local ya descargado:
 
    ```powershell
-   C:\xampp\php\php.exe -d extension=zip .tools\composer.phar install
+   C:\xampp\php\php.exe -d extension=gd -d extension=zip .tools\composer.phar install
    ```
 
 2. Crear el archivo de entorno:
@@ -61,7 +63,7 @@ Crear primero una base vacía llamada `sistema_gestion` con cotejamiento `utf8mb
 C:\xampp\php\php.exe artisan migrate --seed
 ```
 
-Esto crea `usuarios`, `clientes`, `login_logs`, `password_reset_codes` y `reclamos`, junto con sus índices y claves foráneas.
+Esto crea también las tablas de Sprint 3: `zonas`, `categorias`, `marcas`, `productos`, `ventas`, `detalle_ventas`, `cobros` y `cobro_ventas`, junto con sus índices y claves foráneas.
 
 ### Base existente del proyecto
 
@@ -82,7 +84,7 @@ La migration de recuperación agrega un email opcional y único a `usuarios`. El
 Desde la raíz del proyecto:
 
 ```powershell
-C:\xampp\php\php.exe artisan serve
+C:\xampp\php\php.exe -d extension=gd -d extension=zip artisan serve
 ```
 
 Abrir:
@@ -114,7 +116,11 @@ Los usuarios sembrados usan direcciones `example.com`. Deben reemplazarse por em
 | Listar y buscar clientes | Sí | Sí | No |
 | Crear y editar clientes | Sí | No | No |
 | Crear y listar reclamos | Sí | Sí | No |
-| Ventas y stock preparados | Sí | Sí | No |
+| Ver historial de clientes | Sí | Sí | No |
+| Registrar pagos y actualizar saldo | Sí | No | No |
+| Reportes de ventas, stock e historial | Sí | No | Sí |
+| Exportar reportes a PDF y Excel | Sí | No | Sí |
+| Consulta operativa de ventas y stock | Sí | Sí | No |
 | Configurar emails de usuarios | Sí | No | No |
 
 ## Seguridad de acceso
@@ -154,7 +160,7 @@ C:\xampp\php\php.exe artisan config:clear
 Ejecutar la suite automatizada:
 
 ```powershell
-C:\xampp\php\php.exe artisan test
+C:\xampp\php\php.exe -d extension=gd -d extension=zip artisan test
 ```
 
 Comprobar una instalación limpia con SQLite en memoria, sin tocar MySQL:
@@ -170,7 +176,7 @@ C:\xampp\php\php.exe artisan route:list --except-vendor
 C:\xampp\php\php.exe vendor\bin\pint --test
 ```
 
-La suite actual contiene 28 pruebas y 151 verificaciones.
+La suite incluye pruebas de seguridad, clientes, reclamos, pagos, saldos, reportes y exportaciones.
 
 ## Estructura principal
 

@@ -26,6 +26,10 @@ class Cliente extends Model
         'direccion',
         'tipo_cliente',
         'estado',
+        'localidad',
+        'zona_id',
+        'condicion_iva',
+        'saldo',
     ];
 
     protected function casts(): array
@@ -33,6 +37,7 @@ class Cliente extends Model
         return [
             'tipo_cliente' => ClientType::class,
             'estado' => ClientStatus::class,
+            'saldo' => 'decimal:2',
         ];
     }
 
@@ -44,5 +49,20 @@ class Cliente extends Model
     public function reclamos(): HasMany
     {
         return $this->hasMany(Reclamo::class, 'cliente_id');
+    }
+
+    public function zona(): BelongsTo
+    {
+        return $this->belongsTo(Zona::class, 'zona_id');
+    }
+
+    public function ventas(): HasMany
+    {
+        return $this->hasMany(Venta::class, 'cliente_id');
+    }
+
+    public function cobros(): HasMany
+    {
+        return $this->hasMany(Cobro::class, 'cliente_id');
     }
 }

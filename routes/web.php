@@ -3,8 +3,11 @@
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\PasswordRecoveryController;
 use App\Http\Controllers\ClienteController;
+use App\Http\Controllers\CobroController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ReclamoController;
+use App\Http\Controllers\ReportController;
+use App\Http\Controllers\ReportExportController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -44,6 +47,7 @@ Route::middleware(['auth', 'session.current'])->group(function (): void {
 
     Route::middleware('role:administrativo,repartidor')->group(function (): void {
         Route::get('/clientes', [ClienteController::class, 'index'])->name('clientes.index');
+        Route::get('/clientes/{cliente}', [ClienteController::class, 'show'])->whereNumber('cliente')->name('clientes.show');
         Route::get('/reclamos', [ReclamoController::class, 'index'])->name('reclamos.index');
         Route::get('/reclamos/nuevo', [ReclamoController::class, 'create'])->name('reclamos.create');
         Route::post('/reclamos', [ReclamoController::class, 'store'])->name('reclamos.store');
@@ -52,16 +56,28 @@ Route::middleware(['auth', 'session.current'])->group(function (): void {
     Route::middleware('role:administrativo')->group(function (): void {
         Route::get('/clientes/nuevo', [ClienteController::class, 'create'])->name('clientes.create');
         Route::post('/clientes', [ClienteController::class, 'store'])->name('clientes.store');
-        Route::get('/clientes/{cliente}/editar', [ClienteController::class, 'edit'])->name('clientes.edit');
-        Route::put('/clientes/{cliente}', [ClienteController::class, 'update'])->name('clientes.update');
+        Route::get('/clientes/{cliente}/editar', [ClienteController::class, 'edit'])->whereNumber('cliente')->name('clientes.edit');
+        Route::put('/clientes/{cliente}', [ClienteController::class, 'update'])->whereNumber('cliente')->name('clientes.update');
+        Route::get('/clientes/{cliente}/cobros/nuevo', [CobroController::class, 'create'])->whereNumber('cliente')->name('cobros.create');
+        Route::post('/clientes/{cliente}/cobros', [CobroController::class, 'store'])->whereNumber('cliente')->name('cobros.store');
         Route::get('/usuarios', [UserController::class, 'index'])->name('users.index');
         Route::put('/usuarios/{user}/email', [UserController::class, 'updateEmail'])->name('users.email.update');
     });
 
-    Route::view('/ventas', 'modules.ventas')
+    Route::middleware('role:administrativo,contador')->prefix('reportes')->name('reports.')->group(function (): void {
+        Route::get('/', [ReportController::class, 'index'])->name('index');
+        Route::get('/ventas-diarias', [ReportController::class, 'dailySales'])->name('daily-sales');
+        Route::get('/stock-bajo', [ReportController::class, 'lowStock'])->name('low-stock');
+        Route::get('/historial-clientes', [ReportController::class, 'clientHistory'])->name('client-history');
+        Route::get('/ventas-diarias/exportar/{format}', [ReportExportController::class, 'dailySales'])->name('daily-sales.export');
+        Route::get('/stock-bajo/exportar/{format}', [ReportExportController::class, 'lowStock'])->name('low-stock.export');
+        Route::get('/historial-clientes/exportar/{format}', [ReportExportController::class, 'clientHistory'])->name('client-history.export');
+    });
+
+    Route::get('/ventas', [ReportController::class, 'dailySales'])
         ->middleware('role:administrativo,repartidor')
         ->name('ventas.index');
-    Route::view('/stock', 'modules.stock')
+    Route::get('/stock', [ReportController::class, 'lowStock'])
         ->middleware('role:administrativo,repartidor')
         ->name('stock.index');
 });
