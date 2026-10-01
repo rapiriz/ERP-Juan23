@@ -16,8 +16,6 @@ class ConciliacionRepository
 {
     private const MARGEN_HORAS = 48;
 
-    // --- PeriodoConciliacion ---
-
     public function buscarPeriodo(int $idPeriodo): ?PeriodoConciliacion
     {
         return PeriodoConciliacion::with('movimientosBancarios')->find($idPeriodo);
@@ -54,8 +52,6 @@ class ConciliacionRepository
         return $periodo;
     }
 
-    // --- MovimientoBancario ---
-
     public function buscarMovimiento(int $idMovimiento): ?MovimientoBancario
     {
         return MovimientoBancario::find($idMovimiento);
@@ -76,8 +72,6 @@ class ConciliacionRepository
         return $movimiento;
     }
 
-    // --- ConciliacionDetalle ---
-
     public function crearDetalle(array $datos): ConciliacionDetalle
     {
         return ConciliacionDetalle::create([
@@ -92,23 +86,110 @@ class ConciliacionRepository
         ]);
     }
 
-    // --- Búsqueda de candidatos para conciliación automática ---
-
-    /**
-     * Candidatos para un movimiento bancario de tipo 'credito':
-     * Cobro, CajaMovimiento (ingreso) y Cheque.
-     *
-     * Supuesto (a confirmar con el equipo): un Cobro no tiene campo propio
-     * de "ya conciliado" — se considera ya usado si existe una fila en
-     * CONCILIACION_DETALLE apuntándolo. Lo mismo para caja/ajuste/cheque.
-     *
-     * Supuesto: el monto de un Cheque es el monto total de su Cobro asociado
-     * (se asume que el cobro se paga 100% con ese cheque, no combinado).
-     *
-     * @return array<int, array{origen: string, id: int, monto: float, fecha: mixed}>
-     */
     public function buscarCandidatosCredito(MovimientoBancario $movimiento): array
     {
         $candidatos = [];
 
-        $idsCobroYaConciliados = ConciliacionDetalle::whereNotNull('id_cobro'
+        $idsCobroYaConciliados = ConciliacionDetalle::whereNotNull('id_cobro')->pluck('id_cobro');
+        $cobros = Cobro::where('monto', $movimiento->monto)
+            ->whereNotIn('id_cobro', $idsCobroYaConciliados)
+            ->get();
+        foreach ($cobros as $cobro) {
+            if ($this->dentroDelMargen($movimiento->fecha_movimiento, $cobro->fecha_cobro)) {
+                $candidatos[] = ['origen' => 'cobro', 'id' => $cobro->id_cobro, 'monto' => $cobro->monto, 'fecha' => $cobro->fecha_cobro];
+            }
+        }
+
+        $idsCajaYaConciliados = ConciliacionDetalle::whereNotNull('id_movimiento_caja')->pluck('id_movimiento_caja');
+        $movCaja = CajaMovimiento::where('monto', $movimiento->monto)
+            ->where('tipo', 'ingreso')
+            ->whereNotIn('id_movimiento_caja', $idsCajaYaConciliados)
+            ->get();
+        foreach ($movCaja as $mc) {
+            if ($this->dentroDelMargen($movimiento->fecha_movimiento, $mc->fecha)) {
+                $candidatos[] = ['origen' => 'caja', 'id' => $mc->id_movimiento_caja, 'monto' => $mc->monto, 'fecha' => $mc->fecha];
+            }
+        }
+
+        $idsChequeYaConciliados = ConciliacionDetalle::whereNotNull('id_cheque')->pluck('id_cheque');
+        $cheques = Cheque::whereNotIn('id_cheque', $idsChequeYaConciliados)->get();
+        foreach ($cheques as $cheque) {
+            $montoCheque = $cheque->cobro?->monto;
+            $fechaCheque = $cheque->fecha_deposito ?? $cheque->fecha_cobro;
+
+            if ($montoCheque === null) {
+                continue;
+            }
+
+            if ((float) $montoCheque === (float) $movimiento->monto
+                && $this->dentroDelMargen($movimiento->fecha_movimiento, $fechaCheque)) {
+                $candidatos[] = ['origen' => 'cheque', 'id' => $cheque->id_cheque, 'monto' => $montoCheque, 'fecha' => $fechaCheque];
+            }
+        }
+
+        return $candidatos;
+    }
+
+    public function buscarCandidatosDebito(MovimientoBancario $movimiento): array
+    {
+        $candidatos = [];
+
+        $idsAjusteYaConciliados = ConciliacionDetalle::whereNotNull('id_ajuste')->pluck('id_ajuste');
+        $ajustes = AjusteBancario::where('monto', $movimiento->monto)
+            ->whereNotIn('id_ajuste', $idsAjusteYaConciliados)
+            ->get();
+        foreach ($ajustes as $ajuste) {
+            if ($this->dentroDelMargen($movimiento->fecha_movimiento, $ajuste->fecha_registro)) {
+                $candidatos[] = ['origen' => 'ajuste', 'id' => $ajuste->id_ajuste, 'monto' => $ajuste->monto, 'fecha' => $ajuste->fecha_registro];
+            }
+        }
+
+        $idsCajaYaConciliados = ConciliacionDetalle::whereNotNull('id_movimiento_caja')->pluck('id_movimiento_caja');
+        $movCaja = CajaMovimiento::where('monto', $movimiento->monto)
+            ->where('tipo', 'egreso')
+            ->whereNotIn('id_movimiento_caja', $idsCajaYaConciliados)
+            ->get();
+        foreach ($movCaja as $mc) {
+            if ($this->dentroDelMargen($movimiento->fecha_movimiento, $mc->fecha)) {
+                $candidatos[] = ['origen' => 'caja', 'id' => $mc->id_movimiento_caja, 'monto' => $mc->monto, 'fecha' => $mc->fecha];
+            }
+        }
+
+        return $candidatos;
+    }
+
+    /**
+     * True si ya existe un periodo cuyo rango de fechas se superpone con el
+     * rango dado. Se usa tanto para bloquear creacion manual superpuesta
+     * como (indirectamente) para saber si ya existe el periodo del mes.
+     */
+    public function existeSuperposicion(string $fechaDesde, string $fechaHasta): bool
+    {
+        return PeriodoConciliacion::where('fecha_desde', '<=', $fechaHasta)
+            ->where('fecha_hasta', '>=', $fechaDesde)
+            ->exists();
+    }
+
+    /**
+     * Busca el periodo (si existe) que cubre una fecha puntual, sin importar
+     * si es abierto o cerrado. Se usa para saber si ya existe el periodo
+     * automatico del mes antes de crear uno nuevo.
+     */
+    public function buscarPeriodoQueCubre(string $fecha): ?PeriodoConciliacion
+    {
+        return PeriodoConciliacion::where('fecha_desde', '<=', $fecha)
+            ->where('fecha_hasta', '>=', $fecha)
+            ->first();
+    }
+
+    private function dentroDelMargen($fechaMovimiento, $fechaCandidato): bool
+    {
+        if ($fechaCandidato === null) {
+            return false;
+        }
+
+        $diffHoras = Carbon::parse($fechaMovimiento)->diffInHours(Carbon::parse($fechaCandidato));
+
+        return $diffHoras <= self::MARGEN_HORAS;
+    }
+}
