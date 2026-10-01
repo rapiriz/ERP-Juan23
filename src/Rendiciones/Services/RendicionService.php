@@ -86,7 +86,7 @@ class RendicionService
                 'id_repartidor' => $idRepartidor,
                 'id_entrega'    => $idEntrega,
                 'fecha'         => $datos['fecha'] ?? now(),
-                'total_rendido' => $totalRendido,
+                'total_rendido' => 0.0,
                 'observaciones' => $datos['observaciones'] ?? null,
             ]);
 
