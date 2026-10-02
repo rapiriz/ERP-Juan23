@@ -202,6 +202,7 @@
         /* ---------- Utilidades ---------- */
         .muted { color: var(--muted); }
     </style>
+    @stack('styles')
 </head>
 <body>
     <div class="app-layout">

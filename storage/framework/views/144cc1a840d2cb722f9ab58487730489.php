@@ -202,6 +202,7 @@
         /* ---------- Utilidades ---------- */
         .muted { color: var(--muted); }
     </style>
+    <?php echo $__env->yieldPushContent('styles'); ?>
 </head>
 <body>
     <div class="app-layout">
