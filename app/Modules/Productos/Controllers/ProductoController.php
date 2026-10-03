@@ -105,21 +105,19 @@ class ProductoController extends Controller
             $stockInicial = (int) ($request->input('stock_disponible', 0));
             $stockMinimo = (int) ($request->input('stock_minimo', 5));
             $idUsuario = UsuarioActual::id($request);
-            $precioMayorista = (float) $request->input('precio_unitario');
-            $precioMinorista = (float) ($request->input('precio_minorista', $precioMayorista));
+            $precioUnitario = (float) ($request->input('precio_unitario') ?? $request->input('precioMay') ?? 0.0);
             $descripcion = trim($request->input('descripcion'));
             $nombre = trim((string) $request->input('nombre')) !== ''
                 ? trim((string) $request->input('nombre'))
                 : $descripcion;
 
-            $producto = DB::transaction(function () use ($request, $now, $stockInicial, $stockMinimo, $idUsuario, $precioMayorista, $precioMinorista, $descripcion, $nombre) {
+            $producto = DB::transaction(function () use ($request, $now, $stockInicial, $stockMinimo, $idUsuario, $precioUnitario, $descripcion, $nombre) {
                 // 1. Crear Producto (P01). El stock queda embebido en PRODUCTO (OB3).
                 $prod = Producto::create([
                     'codigo' => trim($request->input('codigo')),
                     'nombre' => $nombre,
                     'descripcion' => $descripcion,
-                    'precioMay' => $precioMayorista,
-                    'precioMin' => $precioMinorista,
+                    'precio_unitario' => $precioUnitario,
                     'imagen' => null,
                     'stock' => $stockInicial,
                     'stock_minimo' => $stockMinimo,
@@ -133,22 +131,11 @@ class ProductoController extends Controller
                     'id_usuario_modificacion' => $idUsuario,
                 ]);
 
-                // 2. Registrar precios iniciales en HISTORIAL_PRECIO (1 fila por tipo, OB1)
+                // 2. Registrar precio inicial en HISTORIAL_PRECIO (OB1)
                 HistorialPrecio::create([
                     'id_producto' => $prod->id_producto,
-                    'tipo_precio' => 'mayorista',
-                    'precio' => $precioMayorista,
-                    'porcentaje_aumento' => 0.00,
-                    'regla_redondeo' => 'sin_redondeo',
-                    'origen' => 'manual',
-                    'fecha_cambio' => $now,
-                    'id_usuario' => $idUsuario,
-                ]);
-
-                HistorialPrecio::create([
-                    'id_producto' => $prod->id_producto,
-                    'tipo_precio' => 'minorista',
-                    'precio' => $precioMinorista,
+                    'tipo_precio' => 'general',
+                    'precio' => $precioUnitario,
                     'porcentaje_aumento' => 0.00,
                     'regla_redondeo' => 'sin_redondeo',
                     'origen' => 'manual',
@@ -258,47 +245,26 @@ class ProductoController extends Controller
         try {
             $now = Carbon::now()->toDateString();
             $idUsuario = UsuarioActual::id($request);
-            $nuevoMayorista = (float) $request->input('precio_unitario');
-            $anteriorMayorista = (float) $producto->precioMay;
-            $nuevoMinorista = (float) ($request->input('precio_minorista', (float) $producto->precioMin));
-            $anteriorMinorista = (float) $producto->precioMin;
+            $nuevoPrecio = (float) ($request->input('precio_unitario') ?? $request->input('precioMay') ?? $producto->precio_unitario);
+            $anteriorPrecio = (float) $producto->precio_unitario;
             $descripcion = trim($request->input('descripcion'));
             $nombre = trim((string) $request->input('nombre')) !== ''
                 ? trim((string) $request->input('nombre'))
                 : $descripcion;
 
-            DB::transaction(function () use ($producto, $request, $now, $idUsuario, $nuevoMayorista, $anteriorMayorista, $nuevoMinorista, $anteriorMinorista, $descripcion, $nombre) {
-                // Si cambió el precio mayorista, se registra en HISTORIAL_PRECIO (P04)
-                if (abs($nuevoMayorista - $anteriorMayorista) >= 0.001) {
+            DB::transaction(function () use ($producto, $request, $now, $idUsuario, $nuevoPrecio, $anteriorPrecio, $descripcion, $nombre) {
+                // Si cambió el precio unitario, se registra en HISTORIAL_PRECIO (P04)
+                if (abs($nuevoPrecio - $anteriorPrecio) >= 0.001) {
                     $porcentaje = 0.0;
-                    if ($anteriorMayorista > 0) {
-                        $porcentaje = (($nuevoMayorista - $anteriorMayorista) / $anteriorMayorista) * 100.0;
+                    if ($anteriorPrecio > 0) {
+                        $porcentaje = (($nuevoPrecio - $anteriorPrecio) / $anteriorPrecio) * 100.0;
                     }
 
                     HistorialPrecio::create([
                         'id_producto' => $producto->id_producto,
-                        'tipo_precio' => 'mayorista',
-                        'precio' => $nuevoMayorista,
+                        'tipo_precio' => 'general',
+                        'precio' => $nuevoPrecio,
                         'porcentaje_aumento' => $porcentaje,
-                        'regla_redondeo' => 'manual',
-                        'origen' => 'manual',
-                        'fecha_cambio' => $now,
-                        'id_usuario' => $idUsuario,
-                    ]);
-                }
-
-                // Si cambió el precio minorista, se registra su propia entrada de historial
-                if (abs($nuevoMinorista - $anteriorMinorista) >= 0.001) {
-                    $porcentajeMin = 0.0;
-                    if ($anteriorMinorista > 0) {
-                        $porcentajeMin = (($nuevoMinorista - $anteriorMinorista) / $anteriorMinorista) * 100.0;
-                    }
-
-                    HistorialPrecio::create([
-                        'id_producto' => $producto->id_producto,
-                        'tipo_precio' => 'minorista',
-                        'precio' => $nuevoMinorista,
-                        'porcentaje_aumento' => $porcentajeMin,
                         'regla_redondeo' => 'manual',
                         'origen' => 'manual',
                         'fecha_cambio' => $now,
@@ -311,8 +277,7 @@ class ProductoController extends Controller
                     'codigo' => trim($request->input('codigo')),
                     'nombre' => $nombre,
                     'descripcion' => $descripcion,
-                    'precioMay' => $nuevoMayorista,
-                    'precioMin' => $nuevoMinorista,
+                    'precio_unitario' => $nuevoPrecio,
                     'id_categoria' => (int) $request->input('id_categoria'),
                     'id_marca' => (int) $request->input('id_marca'),
                     'fecha_modificacion' => $now,
@@ -480,63 +445,41 @@ class ProductoController extends Controller
 
                 foreach ($productos as $producto) {
                     $cambio = false;
-                    $mayoristaAnterior = (float) $producto->precioMay;
-                    $minoristaAnterior = (float) $producto->precioMin;
-                    $nuevoMayorista = $mayoristaAnterior;
-                    $nuevoMinorista = $minoristaAnterior;
+                    $precioAnterior = (float) $producto->precio_unitario;
+                    $nuevoPrecio = round($precioAnterior * (1 + $porcentaje / 100.0), 2);
 
-                    if ($tipoPrecio === 'ambos' || $tipoPrecio === 'mayorista') {
-                        $nuevoMayorista = round($mayoristaAnterior * (1 + $porcentaje / 100.0), 2);
-                    }
-                    if ($tipoPrecio === 'ambos' || $tipoPrecio === 'minorista') {
-                        $nuevoMinorista = round($minoristaAnterior * (1 + $porcentaje / 100.0), 2);
-                    }
-
-                    if (abs($nuevoMayorista - $mayoristaAnterior) >= 0.001) {
+                    if (abs($nuevoPrecio - $precioAnterior) >= 0.001) {
                         HistorialPrecio::create([
                             'id_producto' => $producto->id_producto,
-                            'tipo_precio' => 'mayorista',
-                            'precio' => $nuevoMayorista,
+                            'tipo_precio' => 'general',
+                            'precio' => $nuevoPrecio,
                             'porcentaje_aumento' => $porcentaje,
                             'regla_redondeo' => 'sin_redondeo',
                             'origen' => 'aumento_masivo',
                             'fecha_cambio' => $now,
                             'id_usuario' => $idUsuario,
                         ]);
-                        $cambio = true;
-                    }
 
-                    if (abs($nuevoMinorista - $minoristaAnterior) >= 0.001) {
-                        HistorialPrecio::create([
-                            'id_producto' => $producto->id_producto,
-                            'tipo_precio' => 'minorista',
-                            'precio' => $nuevoMinorista,
-                            'porcentaje_aumento' => $porcentaje,
-                            'regla_redondeo' => 'sin_redondeo',
-                            'origen' => 'aumento_masivo',
-                            'fecha_cambio' => $now,
-                            'id_usuario' => $idUsuario,
-                        ]);
-                        $cambio = true;
-                    }
-
-                    if ($cambio) {
                         $producto->update([
-                            'precioMay' => $nuevoMayorista,
-                            'precioMin' => $nuevoMinorista,
+                            'precio_unitario' => $nuevoPrecio,
                             'fecha_modificacion' => $now,
                             'id_usuario_modificacion' => $idUsuario,
                         ]);
+                        $cambio = true;
                     }
 
                     $detalles[] = [
                         'id_producto' => $producto->id_producto,
                         'codigo' => $producto->codigo,
                         'descripcion' => $producto->descripcion,
-                        'precio_mayorista_anterior' => $mayoristaAnterior,
-                        'precio_mayorista_nuevo' => $nuevoMayorista,
-                        'precio_minorista_anterior' => $minoristaAnterior,
-                        'precio_minorista_nuevo' => $nuevoMinorista,
+                        'precio_anterior' => $precioAnterior,
+                        'precio_nuevo' => $nuevoPrecio,
+                        'precio_unitario_anterior' => $precioAnterior,
+                        'precio_unitario_nuevo' => $nuevoPrecio,
+                        'precio_mayorista_anterior' => $precioAnterior,
+                        'precio_mayorista_nuevo' => $nuevoPrecio,
+                        'precio_minorista_anterior' => $precioAnterior,
+                        'precio_minorista_nuevo' => $nuevoPrecio,
                         'aplicado' => $cambio,
                     ];
                 }
