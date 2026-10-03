@@ -1,0 +1,43 @@
+Se agregaron los archivos:
+App > Exceptions > VentaException.php
+App > HTTP\Controllers > Ventas:
+        CajaController.php
+        CarritoController.php
+        ClienteController.php
+        ProductoController.php
+        PromocionController.php
+        VentaController.php
+
+App > Models:
+    Cliente.php
+    Cobro.php
+    DetalleVenta.php
+    Lote.php
+    MovimientoStock.php
+    Producto.php
+    Promocion.php
+    Venta.php
+
+App > models > services\ventas:
+        CajaService.php
+        CarritoService.php
+        PromocionService.php
+        VentaService.php
+
+APP > support:
+        UsuarioActual.php
+
+config:
+    ventas.php
+
+documentacion-guia
+        anotacionesbackventas
+        Estructura_y_convenciones.models
+        Ventas_backend.md
+
+Routes:
+    Ventas.php
+    Web.php se agregaron cosas
+
+Tests > feature:
+        CajaRoutesTest.php

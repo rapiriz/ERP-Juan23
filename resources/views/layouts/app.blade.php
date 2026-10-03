@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -13,23 +14,27 @@
 
     <style>
         :root {
-            --bg:           #EBF4FC;
-            --sidebar-1:    #1E40AF;
-            --sidebar-2:    #1D4ED8;
-            --sidebar-3:    #1E3A8A;
-            --primary:      #0D6EFD;
-            --primary-hover:#0b5ed7;
-            --text:         #1E293B;
-            --card:         rgba(255, 255, 255, 0.85);
+            --bg: #EBF4FC;
+            --sidebar-1: #1E40AF;
+            --sidebar-2: #1D4ED8;
+            --sidebar-3: #1E3A8A;
+            --primary: #0D6EFD;
+            --primary-hover: #0b5ed7;
+            --text: #1E293B;
+            --card: rgba(255, 255, 255, 0.85);
         }
 
-        * { box-sizing: border-box; }
+        * {
+            box-sizing: border-box;
+        }
 
-        html, body {
+        html,
+        body {
             margin: 0;
             padding: 0;
             font-family: 'Inter', system-ui, sans-serif;
-            font-size: 1.125rem; /* 18px — regla del prototipo */
+            font-size: 1.125rem;
+            /* 18px — regla del prototipo */
             color: var(--text);
             background: var(--bg);
         }
@@ -49,6 +54,7 @@
         .clay-card-hover {
             transition: transform .2s ease, box-shadow .2s ease;
         }
+
         .clay-card-hover:hover {
             transform: translateY(-4px);
             box-shadow:
@@ -63,7 +69,8 @@
             align-items: center;
             justify-content: center;
             gap: .6rem;
-            min-height: 48px;       /* target accesible */
+            min-height: 48px;
+            /* target accesible */
             padding: 0 1.75rem;
             border-radius: 18px;
             font-family: inherit;
@@ -82,6 +89,7 @@
                 6px 6px 14px rgba(13, 110, 253, 0.35),
                 -4px -4px 12px rgba(255, 255, 255, 0.7);
         }
+
         .clay-btn-primary:hover {
             background: var(--primary-hover);
             transform: translateY(-2px);
@@ -94,6 +102,7 @@
                 6px 6px 14px rgba(30, 58, 138, 0.12),
                 -4px -4px 12px rgba(255, 255, 255, 0.9);
         }
+
         .clay-btn-secondary:hover {
             transform: translateY(-2px);
             background: #f5f9ff;
@@ -121,6 +130,7 @@
             font-weight: 800;
             margin: 0 0 .5rem;
         }
+
         .page-subtitle {
             font-size: 1.05rem;
             color: #475569;
@@ -156,6 +166,7 @@
             font-weight: 700;
             margin: 0;
         }
+
         .action-desc {
             font-size: .98rem;
             color: #475569;
@@ -163,8 +174,11 @@
             line-height: 1.5;
         }
     </style>
+    @stack('styles')
 </head>
+
 <body>
     @yield('content')
 </body>
+
 </html>
