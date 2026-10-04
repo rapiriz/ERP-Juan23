@@ -1,41 +1,37 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
-    <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'ERP Distribuidora')</title>
+    <meta name="csrf-token" content="<?php echo e(csrf_token()); ?>">
+    <title><?php echo $__env->yieldContent('title', 'ERP Distribuidora'); ?></title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <?php echo app('Illuminate\Foundation\Vite')(['resources/css/app.css', 'resources/js/app.js']); ?>
     <style>
         :root {
-            --bg: #EBF4FC;
-            --sidebar-1: #1E40AF;
-            --sidebar-2: #1D4ED8;
-            --sidebar-3: #1E3A8A;
-            --primary: #0D6EFD;
+            --bg:            #EBF4FC;
+            --sidebar-1:     #1E40AF;
+            --sidebar-2:     #1D4ED8;
+            --sidebar-3:     #1E3A8A;
+            --primary:       #0D6EFD;
             --primary-hover: #0b5ed7;
-            --danger: #DC2626;
-            --text: #1E293B;
-            --muted: #64748B;
-            --card: rgba(255, 255, 255, 0.85);
-            --border: #E2E8F0;
+            --danger:        #DC2626;
+            --text:          #1E293B;
+            --muted:         #64748B;
+            --card:          rgba(255, 255, 255, 0.85);
+            --border:        #E2E8F0;
         }
 
-        * {
-            box-sizing: border-box;
-        }
+        * { box-sizing: border-box; }
 
-        html,
-        body {
+        html, body {
             margin: 0;
             padding: 0;
             font-family: 'Inter', system-ui, sans-serif;
-            font-size: 1.125rem;
+            font-size: 1rem;
             color: var(--text);
             background: var(--bg);
             height: 100%;
@@ -64,7 +60,6 @@
             letter-spacing: .3px;
             line-height: 1.2;
         }
-
         .sidebar-brand small {
             display: block;
             font-weight: 400;
@@ -92,17 +87,14 @@
             font-size: .95rem;
             transition: background .15s ease, transform .15s ease;
         }
-
         .sidebar-link:hover {
             background: rgba(255, 255, 255, 0.12);
             transform: translateX(2px);
         }
-
         .sidebar-link.active {
             background: rgba(255, 255, 255, 0.22);
             font-weight: 600;
         }
-
         .sidebar-link .ico {
             width: 22px;
             text-align: center;
@@ -123,22 +115,11 @@
             background: var(--card);
             backdrop-filter: blur(16px);
             -webkit-backdrop-filter: blur(16px);
-            border-radius: 28px;
-            padding: 2rem;
+            border-radius: 24px;
+            padding: 1.25rem;
             box-shadow:
-                8px 8px 20px rgba(30, 58, 138, 0.10),
-                -6px -6px 16px rgba(255, 255, 255, 0.85);
-        }
-
-        .clay-card-hover {
-            transition: transform .2s ease, box-shadow .2s ease;
-        }
-
-        .clay-card-hover:hover {
-            transform: translateY(-4px);
-            box-shadow:
-                12px 12px 28px rgba(30, 58, 138, 0.16),
-                -8px -8px 20px rgba(255, 255, 255, 0.9);
+                6px 6px 16px rgba(30, 58, 138, 0.08),
+                -4px -4px 12px rgba(255, 255, 255, 0.85);
         }
 
         /* ---------- Botones ---------- */
@@ -148,12 +129,12 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            gap: .6rem;
+            gap: .5rem;
             min-height: 48px;
-            padding: 0 1.75rem;
-            border-radius: 18px;
+            padding: 0 1.5rem;
+            border-radius: 16px;
             font-family: inherit;
-            font-size: 1rem;
+            font-size: .95rem;
             font-weight: 600;
             cursor: pointer;
             border: none;
@@ -164,39 +145,23 @@
         .clay-btn-primary {
             background: var(--primary);
             color: #fff;
-            box-shadow:
-                6px 6px 14px rgba(13, 110, 253, 0.35),
-                -4px -4px 12px rgba(255, 255, 255, 0.7);
+            box-shadow: 5px 5px 12px rgba(13, 110, 253, 0.3);
         }
-
-        .clay-btn-primary:hover {
-            background: var(--primary-hover);
-            transform: translateY(-2px);
-        }
+        .clay-btn-primary:hover { background: var(--primary-hover); transform: translateY(-2px); }
 
         .clay-btn-secondary {
             background: #fff;
-            color: var(--primary);
-            box-shadow:
-                6px 6px 14px rgba(30, 58, 138, 0.12),
-                -4px -4px 12px rgba(255, 255, 255, 0.9);
+            color: var(--text);
+            border: 1px solid var(--border);
         }
-
-        .clay-btn-secondary:hover {
-            background: #f8fafc;
-            transform: translateY(-2px);
-        }
+        .clay-btn-secondary:hover { background: #f8fafc; transform: translateY(-2px); }
 
         .clay-btn-danger {
             background: var(--danger);
             color: #fff;
             box-shadow: 5px 5px 12px rgba(220, 38, 38, 0.3);
         }
-
-        .clay-btn-danger:hover {
-            background: #b91c1c;
-            transform: translateY(-2px);
-        }
+        .clay-btn-danger:hover { background: #b91c1c; transform: translateY(-2px); }
 
         .clay-btn-primary:disabled,
         .clay-btn-secondary:disabled,
@@ -218,7 +183,6 @@
             font-size: 1rem;
             color: var(--text);
         }
-
         .clay-input:focus {
             outline: 4px solid var(--primary);
             outline-offset: 2px;
@@ -232,81 +196,20 @@
         select:focus-visible {
             outline: 4px solid var(--primary);
             outline-offset: 2px;
-            border-radius: 18px;
-        }
-
-        /* ---------- Layout de páginas anteriores ---------- */
-        .page-wrap {
-            max-width: 1100px;
-            margin: 0 auto;
-            padding: 3rem 1.5rem;
-        }
-
-        .page-title {
-            font-size: 2rem;
-            font-weight: 800;
-            margin: 0 0 .5rem;
-        }
-
-        .page-subtitle {
-            font-size: 1.05rem;
-            color: #475569;
-            margin: 0 0 2.5rem;
-        }
-
-        .actions-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 1.5rem;
-        }
-
-        .action-card {
-            display: flex;
-            flex-direction: column;
-            gap: 1.25rem;
-            align-items: flex-start;
-        }
-
-        .action-icon {
-            width: 56px;
-            height: 56px;
-            border-radius: 18px;
-            display: grid;
-            place-items: center;
-            background: linear-gradient(135deg, #DBEAFE, #BFDBFE);
-            color: var(--primary);
-            font-size: 1.5rem;
-        }
-
-        .action-title {
-            font-size: 1.25rem;
-            font-weight: 700;
-            margin: 0;
-        }
-
-        .action-desc {
-            font-size: .98rem;
-            color: #475569;
-            margin: 0;
-            line-height: 1.5;
         }
 
         /* ---------- Utilidades ---------- */
-        .muted {
-            color: var(--muted);
-        }
+        .muted { color: var(--muted); }
     </style>
-    @stack('styles')
 </head>
-
 <body>
     <div class="app-layout">
-        @include('partials.sidebar')
+        <?php echo $__env->make('partials.sidebar', array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?>
         <main class="main-area">
-            @yield('content')
+            <?php echo $__env->yieldContent('content'); ?>
         </main>
     </div>
-    @stack('scripts')
+    <?php echo $__env->yieldPushContent('scripts'); ?>
 </body>
-
 </html>
+<?php /**PATH C:\Users\nicol\Desktop\PPS3Proyecto\resources\views/layouts/app.blade.php ENDPATH**/ ?>

@@ -1,8 +1,6 @@
-@extends('layouts.app')
+<?php $__env->startSection('title', 'Punto de Venta'); ?>
 
-@section('title', 'Punto de Venta')
-
-@push('styles')
+<?php $__env->startPush('styles'); ?>
 <style>
     /* ---------- Cabecera de venta ---------- */
     .venta-top {
@@ -188,11 +186,11 @@
         font-size: 1rem;
     }
 </style>
-@endpush
+<?php $__env->stopPush(); ?>
 
-@section('content')
+<?php $__env->startSection('content'); ?>
 
-    {{-- Cabecera: emisor + lista + acciones cliente --}}
+    
     <div class="clay-card venta-top">
         <div class="factura-box">
             <span class="label">Emitir factura a:</span>
@@ -223,7 +221,7 @@
         </div>
     </div>
 
-    {{-- Buscador de productos --}}
+    
     <div class="clay-card buscador" style="padding: .5rem 1rem;">
         <span class="ico">🔍</span>
         <input
@@ -243,7 +241,7 @@
     <br>
     <br>
     <br>
-    {{-- Carrito --}}
+    
     <div class="clay-card carrito">
         <div class="carrito-header">
             <span>Cód.</span>
@@ -255,7 +253,7 @@
         </div>
 
         <div class="carrito-body" id="carritoBody">
-            {{-- Las filas se generan con JS --}}
+            
         </div>
 
         <div class="carrito-vacio" id="carritoVacio">
@@ -272,7 +270,7 @@
         </div>
     </div>
 
-    {{-- Acciones finales --}}
+    
     <div class="acciones-finales">
         <button type="button" class="clay-btn-primary" id="btnCobrar" disabled>
             🧾 COBRAR
@@ -288,12 +286,12 @@
         </button>
     </div>
 
-@endsection
+<?php $__env->stopSection(); ?>
 
-@push('scripts')
+<?php $__env->startPush('scripts'); ?>
 <script>
     // Datos que vienen del controlador (por ahora hardcodeados en VentaController)
-    const PRODUCTOS = @json($productos);
+    const PRODUCTOS = <?php echo json_encode($productos, 15, 512) ?>;
 
     // ---------- Estado ----------
     let listaActual = 'minorista'; // o 'mayorista'
@@ -513,4 +511,6 @@
         render();
     })();
 </script>
-@endpush
+<?php $__env->stopPush(); ?>
+
+<?php echo $__env->make('layouts.app', array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?><?php /**PATH C:\Users\nicol\Desktop\PPS3Proyecto\resources\views/ventas.blade.php ENDPATH**/ ?>
