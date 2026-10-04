@@ -225,6 +225,7 @@
             color: var(--muted);
         }
     </style>
+    @stack('styles')
 </head>
 
 @stack('styles')
