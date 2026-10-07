@@ -1,5 +1,5 @@
 <?php
-namespace Dominio\Rendiciones\Services;
+namespace App\Rendiciones\Services;
 
 class ProcesadorDeHistorialRendicion 
 {

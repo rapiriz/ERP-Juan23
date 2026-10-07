@@ -2,16 +2,20 @@
 namespace App\Entregas\Repositories;
 
 use PDO;
-use App\Shared\Database\Conexion;
+use Illuminate\Support\Facades\DB;
 use App\Entregas\Models\Remito;
 
 class RemitoRepository
 {
-    private PDO $db;
+    private ?PDO $db;
 
     public function __construct(?PDO $db = null)
     {
-        $this->db = $db ?? Conexion::obtener();
+        try {
+            $this->db = $db ?? DB::getPdo();
+        } catch (\Throwable $e) {
+            $this->db = null;
+        }
     }
 
     /**

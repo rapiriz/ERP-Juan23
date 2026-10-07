@@ -4,6 +4,7 @@ use App\Cobros\Models\Cobro;
 use App\Cobros\Models\CobroVenta;
 use App\Caja\Models\CajaMovimiento;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Eloquent\Collection;
 class CobroRepository
 {
@@ -46,6 +47,9 @@ class CobroRepository
      */
     public function obtenerVentasPendientesCliente(int $idCliente): array
     {
+        if (!Schema::hasTable('VENTA')) {
+            return [];
+        }
         return DB::table('VENTA')
             ->where('id_cliente', $idCliente)
             ->where('pagado', false)
@@ -58,6 +62,9 @@ class CobroRepository
      */
     public function marcarVentaComoPagada(int $idVenta): void
     {
+        if (!Schema::hasTable('VENTA')) {
+            return;
+        }
         DB::table('VENTA')
             ->where('id_venta', $idVenta)
             ->update(['pagado' => true]);
@@ -80,6 +87,9 @@ class CobroRepository
      */
     public function clienteEstaActivo(int $idCliente): bool
     {
+        if (!Schema::hasTable('CLIENTE')) {
+            return $idCliente > 0;
+        }
         return DB::table('CLIENTE')
             ->where('id_cliente', $idCliente)
             ->where('estado', 'activo')

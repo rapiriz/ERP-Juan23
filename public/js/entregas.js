@@ -333,7 +333,7 @@ async function cargarEntregas() {
                     <td><strong>${e.repartidor_nombre}</strong></td>
                     <td>${e.cantidad_pedidos} pedidos</td>
                     <td><span class="badge-bultos">${e.total_bultos} bultos</span></td>
-                    <td><span class="badge-estado badge-${e.estado}">${e.estado.replace('_', ' ').toUpperCase()}</span></td>
+                    <td><span class="badge badge-${e.estado}">${e.estado.replace('_', ' ').toUpperCase()}</span></td>
                     <td>
                         <button class="clay-btn clay-btn-secondary" style="min-height: 38px; padding: 0.4rem 0.9rem; font-size: 0.95rem;" onclick="verDetalleEntrega(${e.id_entrega})">
                             Ver Remitos

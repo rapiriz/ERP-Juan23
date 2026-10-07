@@ -61,7 +61,7 @@ class CobroService
                     break;
                 }
 
-                $totalVenta = (float) $venta->total;
+                $totalVenta = (float) ($venta->total ?? $venta->monto_total ?? 0);
                 $montoAAplicar = min($montoRestantePorAplicar, $totalVenta);
 
                 $this->repository->asociarVenta($cobro->id_cobro, $venta->id_venta, $montoAAplicar);

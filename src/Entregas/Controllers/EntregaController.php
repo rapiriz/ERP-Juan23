@@ -2,6 +2,7 @@
 namespace App\Entregas\Controllers;
 
 use Exception;
+use Illuminate\Http\Request;
 use App\Shared\Http\Controllers\Controller;
 use App\Shared\Http\Response;
 use App\Entregas\Services\EntregaService;
@@ -19,10 +20,10 @@ class EntregaController extends Controller
      * GET /api/v1/entregas/pendientes-despacho
      * HU #1: Lista pedidos confirmados pendientes de despacho
      */
-    public function pedidosPendientes(array $params = [], ?array $body = null, array $query = []): void
+    public function pedidosPendientes(Request $request): void
     {
         try {
-            $idZona = isset($query['zona_id']) && $query['zona_id'] !== '' ? (int)$query['zona_id'] : null;
+            $idZona = $request->query('zona_id') ? (int)$request->query('zona_id') : null;
             $pedidos = $this->service->obtenerPedidosPendientes($idZona);
             Response::json($pedidos, 200, "Pedidos pendientes obtenidos con éxito");
         } catch (Exception $e) {
@@ -34,9 +35,10 @@ class EntregaController extends Controller
      * POST /api/v1/entregas
      * HU #2: Crear entrega agrupando pedidos y emitiendo remitos
      */
-    public function crearEntrega(array $params = [], ?array $body = null, array $query = []): void
+    public function crearEntrega(Request $request): void
     {
         try {
+            $body = $request->all();
             if (!$body) {
                 Response::error("El cuerpo de la petición no contiene datos válidos.", 400);
                 return;
@@ -66,10 +68,10 @@ class EntregaController extends Controller
      * GET /api/v1/entregas
      * Listar entregas con filtros
      */
-    public function listar(array $params = [], ?array $body = null, array $query = []): void
+    public function listar(Request $request): void
     {
         try {
-            $entregas = $this->service->listarEntregas($query);
+            $entregas = $this->service->listarEntregas($request->query());
             Response::json($entregas, 200);
         } catch (Exception $e) {
             Response::error($e->getMessage(), 500);
@@ -80,10 +82,10 @@ class EntregaController extends Controller
      * GET /api/v1/entregas/{id}
      * Detalle completo de una entrega
      */
-    public function detalle(array $params = [], ?array $body = null, array $query = []): void
+    public function detalle(int|string $id): void
     {
         try {
-            $idEntrega = (int)($params['id'] ?? 0);
+            $idEntrega = (int)$id;
             $entrega = $this->service->obtenerEntrega($idEntrega);
             Response::json($entrega, 200);
         } catch (Exception $e) {
@@ -95,10 +97,10 @@ class EntregaController extends Controller
      * GET /api/v1/remitos/{id}
      * Consulta y visualización de un remito
      */
-    public function verRemito(array $params = [], ?array $body = null, array $query = []): void
+    public function verRemito(int|string $id): void
     {
         try {
-            $idRemito = (int)($params['id'] ?? 0);
+            $idRemito = (int)$id;
             $remito = $this->service->obtenerRemito($idRemito);
             Response::json($remito, 200);
         } catch (Exception $e) {
@@ -109,7 +111,7 @@ class EntregaController extends Controller
     /**
      * GET /api/v1/zonas
      */
-    public function zonas(array $params = [], ?array $body = null, array $query = []): void
+    public function zonas(Request $request): void
     {
         try {
             $zonas = $this->service->obtenerZonas();
@@ -122,7 +124,7 @@ class EntregaController extends Controller
     /**
      * GET /api/v1/repartidores
      */
-    public function repartidores(array $params = [], ?array $body = null, array $query = []): void
+    public function repartidores(Request $request): void
     {
         try {
             $repartidores = $this->service->obtenerRepartidores();
@@ -132,3 +134,4 @@ class EntregaController extends Controller
         }
     }
 }
+
