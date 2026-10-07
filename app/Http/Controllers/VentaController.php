@@ -20,12 +20,22 @@ class VentaController extends Controller
         ['id' => 6, 'codigo' => 'P006', 'nombre' => 'Fideos 500g', 'precioMin' => 950, 'precioMay' => 850, 'stock' => 100],
     ];
 
+    public static function productosSimulados(): array
+    {
+        return self::PRODUCTOS;
+    }
+
     public function index(MockClienteApi $clientes)
     {
         return view('ventas', [
-            'productos' => self::PRODUCTOS,
+            'productos' => self::productosSimulados(),
             'clientes' => $clientes->todos(),
         ]);
+    }
+
+    public function obtenerProductosSimulados()
+    {
+        return response()->json(self::productosSimulados());
     }
 
     public function store(Request $request, MockClienteApi $clientes)
@@ -50,7 +60,7 @@ class VentaController extends Controller
             ]);
         }
 
-        $productos = collect(self::PRODUCTOS)->keyBy('id');
+        $productos = collect(self::productosSimulados())->keyBy('id');
         $lista = $datos['lista'] === 'mayorista' ? 'precioMay' : 'precioMin';
         foreach ($datos['items'] as $indice => $item) {
             $producto = $productos->get((int) $item['id']);

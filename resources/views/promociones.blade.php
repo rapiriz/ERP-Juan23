@@ -117,13 +117,17 @@
                         <label style="display:block; margin-bottom:0.5rem; font-size: 0.85rem; font-weight: 600;">Agregar
                             Productos a la promo</label>
                         <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
-                            <input type="text" id="input-nuevo-producto" class="clay-input" placeholder="Buscar producto..."
+                            <input type="text" id="input-nuevo-producto" class="clay-input" placeholder="Buscar por nombre o código..."
+                                autocomplete="off" aria-label="Buscar producto para la promoción"
                                 style="flex: 1;">
                             <!-- Nuevo input de cantidad -->
                             <input type="number" id="input-cantidad-producto" class="clay-input" value="1" min="1"
                                 style="width: 70px;" title="Cantidad">
                             <button type="button" class="clay-btn-primary" onclick="agregarProductoArray()"
                                 style="padding: 0 1rem; font-size: 1.2rem;">+</button>
+                        </div>
+                        <div id="sugerencias-productos-promo"
+                            style="display: none; flex-direction: column; max-height: 180px; overflow-y: auto; margin: -0.25rem 0 0.5rem; border: 1px solid #cbd5e1; border-radius: 8px; background: white;">
                         </div>
                         <div id="lista-productos-tags"
                             style="display: flex; flex-direction: column; gap: 0.4rem; min-height: 40px; padding: 0.5rem; background: #f8fafc; border-radius: 8px; border: 1px dashed #cbd5e1;">
