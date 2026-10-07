@@ -351,20 +351,37 @@ document.addEventListener("DOMContentLoaded", () => {
         modal.style.display = "flex";
     };
 
-    // --- BAJA LÓGICA (Cambiar estado) ---
+    // --- BAJA LÓGICA (Cambiar estado y validar vencimiento) ---
     window.cambiarEstado = (id, nuevoEstado) => {
+        const index = promociones.findIndex((p) => p.id === id);
+        if (index === -1) return;
+
+        const promo = promociones[index];
+
+        // Si la queremos reactivar, verificamos que la fecha no haya pasado
+        if (nuevoEstado === "activa") {
+            const hoy = new Date();
+            hoy.setHours(0, 0, 0, 0);
+            const fechaFin = new Date(promo.fechaFin + "T00:00:00");
+
+            if (fechaFin < hoy) {
+                alert(
+                    "Atención: Esta promoción está vencida. Modificá las fechas de vigencia para poder reactivarla.",
+                );
+                editarPromocion(id); // Te abre el modal con los datos servidos automáticamente
+                return; // Corta la ejecución para que no se reactive rota
+            }
+        }
+
         const mensaje =
             nuevoEstado === "inactiva"
                 ? "¿Deseás dar de baja esta promoción? Pasará al historial."
                 : "¿Deseás volver a activar esta promoción?";
 
         if (confirm(mensaje)) {
-            const index = promociones.findIndex((p) => p.id === id);
-            if (index !== -1) {
-                promociones[index].estado = nuevoEstado;
-                renderizarTabla();
-                limpiarVistaPrevia();
-            }
+            promociones[index].estado = nuevoEstado;
+            renderizarTabla();
+            limpiarVistaPrevia();
         }
     };
 
