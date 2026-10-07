@@ -281,6 +281,14 @@ document.addEventListener("DOMContentLoaded", () => {
         formPromo.addEventListener("submit", (e) => {
             e.preventDefault();
 
+            // Validar que las fechas tengan sentido
+            if (inputInicio.value > inputFin.value) {
+                alert(
+                    "Error: La fecha final no puede ser anterior a la fecha de inicio.",
+                );
+                return; // Corta la ejecución para que no se guarde
+            }
+
             if (productosTemporales.length === 0) {
                 alert("Debes agregar al menos un producto a la promoción.");
                 return;
