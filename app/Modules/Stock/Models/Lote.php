@@ -113,10 +113,12 @@ class Lote extends Model
     /** Lotes vigentes que vencen en los próximos N días. */
     public function scopePorVencer(Builder $query, int $dias = 30): Builder
     {
-        $hoy    = Carbon::today()->toDateString();
+        $hoy = Carbon::today()->toDateString();
         $limite = Carbon::today()->addDays($dias)->toDateString();
         return $query->where('cantidad_actual', '>', 0)
-                     ->whereBetween('fecha_vencimiento', [$hoy, $limite]);
+                     ->whereNotNull('fecha_vencimiento')
+                     ->where('fecha_vencimiento', '>=', $hoy)
+                     ->where('fecha_vencimiento', '<=', $limite);
     }
 
     /** Búsqueda por nro_lote o código/descripción de producto. */

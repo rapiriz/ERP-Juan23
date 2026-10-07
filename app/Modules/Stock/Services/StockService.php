@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace App\Modules\Stock\Services;
 
 use App\Modules\Stock\Models\MovimientoStock;
+use App\Modules\Stock\Models\Lote;
 use App\Modules\Stock\Models\UnidadMedida;
 use App\Modules\Productos\Models\Producto;
 use Carbon\Carbon;
@@ -59,7 +60,9 @@ class StockService
         int $idUsuario,
         ?int $idUnidad = null,
         ?int $idVenta = null,
-        ?int $idRecepcion = null
+        ?int $idRecepcion = null,
+        ?int $idLote = null,
+        ?int $signoAjuste = null
     ): MovimientoStock {
         if (!in_array($tipo, self::TIPOS, true)) {
             throw new RuntimeException("Tipo de movimiento inválido: {$tipo}");
@@ -87,7 +90,8 @@ class StockService
             // Determinar delta aplicado al stock
             $delta = match ($tipo) {
                 'ingreso', 'devolucion' => $cantidadBase,
-                'venta', 'ajuste' => -$cantidadBase,
+                'venta' => -$cantidadBase,
+                'ajuste' => ($signoAjuste === 1 ? 1 : -1) * $cantidadBase,
             };
 
             $nuevoDisponible = $disponible + $delta;
@@ -104,6 +108,57 @@ class StockService
             $producto->save();
             $this->recalcularAlerta($producto);
 
+            // El saldo por lote alimenta las alertas S10. Para salidas se aplica
+            // FEFO (primero vence, primero sale), dentro de la misma transacción
+            // que actualiza PRODUCTO.stock. Las cantidades no trazadas a lotes
+            // anteriores se descuentan del stock general sin inventar un lote.
+            $loteMovimientoId = null;
+            if ($tipo === 'venta' || ($tipo === 'ajuste' && $signoAjuste !== 1)) {
+                $restante = $cantidadBase;
+                $lotesAfectados = 0;
+                $primerLoteAfectado = null;
+                $lotes = Lote::query()
+                    ->where('id_producto', $producto->id_producto)
+                    ->where('cantidad_actual', '>', 0)
+                    ->orderBy('fecha_vencimiento')
+                    ->orderBy('id_lote')
+                    ->lockForUpdate()
+                    ->get();
+
+                foreach ($lotes as $lote) {
+                    if ($restante <= 0) {
+                        break;
+                    }
+
+                    $consumida = min($restante, (int) $lote->cantidad_actual);
+                    $lote->cantidad_actual = (int) $lote->cantidad_actual - $consumida;
+                    $lote->save();
+                    $restante -= $consumida;
+                    $lotesAfectados++;
+                    $primerLoteAfectado ??= $lote->id_lote;
+                }
+
+                // La FK singular se informa sólo cuando la salida consumió un
+                // único lote; en salidas repartidas, todos los saldos sí quedan
+                // actualizados aunque el kardex no represente el reparto.
+                if ($lotesAfectados === 1) {
+                    $loteMovimientoId = $primerLoteAfectado;
+                }
+            } elseif ($tipo === 'devolucion' && $idLote !== null) {
+                $lote = Lote::query()
+                    ->where('id_producto', $producto->id_producto)
+                    ->lockForUpdate()
+                    ->find($idLote);
+
+                if (!$lote) {
+                    throw new RuntimeException('El lote indicado no pertenece al producto devuelto.');
+                }
+
+                $lote->cantidad_actual = (int) $lote->cantidad_actual + $cantidadBase;
+                $lote->save();
+                $loteMovimientoId = $lote->id_lote;
+            }
+
             $movimiento = MovimientoStock::create([
                 'id_producto' => $producto->id_producto,
                 'id_unidad' => $idUnidad,
@@ -115,6 +170,7 @@ class StockService
                 'id_usuario' => $idUsuario,
                 'id_venta' => $idVenta,
                 'id_recepcion' => $idRecepcion,
+                'id_lote' => $loteMovimientoId,
             ]);
 
             DB::commit();
@@ -131,7 +187,7 @@ class StockService
     /**
      * Expresa una cantidad en la unidad base del producto.
      *
-     * MOVIMIENTO_STOCK guarda la cantidad tal como la政党 el usuario y, en
+     * MOVIMIENTO_STOCK guarda la cantidad tal como la indica el usuario y, en
      * cantidad_base, la misma cantidad normalizada a la unidad base: sin eso la
      * traza de auditoría queda inutilizable para razonar sobre stock.
      */

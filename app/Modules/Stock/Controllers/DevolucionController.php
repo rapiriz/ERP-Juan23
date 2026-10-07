@@ -29,6 +29,7 @@ class DevolucionController extends Controller
             'cantidad' => 'required|integer|min:1',
             'motivo' => 'required|string|max:255',
             'id_unidad' => 'nullable|integer|exists:UNIDAD_MEDIDA,id_unidad',
+            'id_lote' => 'nullable|integer|exists:LOTE,id_lote',
         ], [
             'id_producto.required' => 'Debe seleccionar el producto devuelto.',
             'cantidad.required' => 'Debe registrar la cantidad devuelta.',
@@ -62,7 +63,10 @@ class DevolucionController extends Controller
                 (int) $request->input('cantidad'),
                 trim($request->input('motivo')),
                 $idUsuario,
-                $idUnidad
+                $idUnidad,
+                null,
+                null,
+                $request->filled('id_lote') ? (int) $request->input('id_lote') : null
             );
 
             $producto->refresh();

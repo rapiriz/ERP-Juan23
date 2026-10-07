@@ -118,15 +118,6 @@ class LoteController extends Controller
         $fechaVencimiento = Carbon::parse($request->input('fecha_vencimiento'))->toDateString();
         $motivo = $request->input('motivo') ?? "Ingreso mercadería lote {$nroLote}";
 
-        // LOTE tiene UNIQUE(id_producto, nro_lote): se chequea antes de insertar
-        // para devolver un 400 legible en vez de un 500 con SQL crudo.
-        if (Lote::where('id_producto', $producto->id_producto)->where('nro_lote', $nroLote)->exists()) {
-            return response()->json([
-                'status' => 'error',
-                'message' => "El lote '{$nroLote}' ya está registrado para el producto {$producto->codigo}.",
-            ], 400);
-        }
-
         try {
             $lote = DB::transaction(function () use (
                 $producto,
@@ -141,6 +132,16 @@ class LoteController extends Controller
                 // LOTE no tiene id_unidad: se guarda en unidades base, igual que
                 // PRODUCTO.stock, para que la suma de lotes sea comparable al stock.
                 $cantidadBase = StockService::cantidadEnUnidadBase($cantidad, $idUnidad);
+                $lote = Lote::where('id_producto', $producto->id_producto)
+                    ->where('nro_lote', $nroLote)
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($lote && $lote->fecha_vencimiento->toDateString() !== $fechaVencimiento) {
+                    throw new \RuntimeException(
+                        "El lote '{$nroLote}' ya existe con una fecha de vencimiento distinta."
+                    );
+                }
 
                 if ($asociarIngreso) {
                     $movimiento = $this->stockService->registrarMovimiento(
@@ -152,17 +153,30 @@ class LoteController extends Controller
                         $idUnidad
                     );
 
-                    $lote = Lote::create([
-                        'id_producto' => $producto->id_producto,
-                        'nro_lote' => $nroLote,
-                        'cantidad_inicial' => $cantidadBase,
-                        'cantidad_actual' => $cantidadBase,
-                        'fecha_vencimiento' => $fechaVencimiento,
-                    ]);
+                    if ($lote) {
+                        $lote->cantidad_inicial = (int) $lote->cantidad_inicial + $cantidadBase;
+                        $lote->cantidad_actual = (int) $lote->cantidad_actual + $cantidadBase;
+                        $lote->save();
+                    } else {
+                        $lote = Lote::create([
+                            'id_producto' => $producto->id_producto,
+                            'nro_lote' => $nroLote,
+                            'cantidad_inicial' => $cantidadBase,
+                            'cantidad_actual' => $cantidadBase,
+                            'fecha_vencimiento' => $fechaVencimiento,
+                        ]);
+                    }
 
                     // La FK vive en MOVIMIENTO_STOCK.id_lote, no en LOTE.
                     $movimiento->update(['id_lote' => $lote->id_lote]);
 
+                    return $lote;
+                }
+
+                if ($lote) {
+                    $lote->cantidad_inicial = (int) $lote->cantidad_inicial + $cantidadBase;
+                    $lote->cantidad_actual = (int) $lote->cantidad_actual + $cantidadBase;
+                    $lote->save();
                     return $lote;
                 }
 
@@ -257,13 +271,22 @@ class LoteController extends Controller
      */
     public function porVencer(Request $request): JsonResponse
     {
-        $dias = (int) $request->input('dias', 30);
-        if ($dias < 1) {
-            $dias = 30;
+        $validator = Validator::make($request->query(), [
+            'dias' => 'nullable|integer|min:1|max:365',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $validator->errors()->first(),
+            ], 422);
         }
+
+        $dias = (int) $request->query('dias', 30);
 
         $lotes = Lote::with(['producto'])
             ->porVencer($dias)
+            ->whereHas('producto', fn ($query) => $query->where('estado', 'activo'))
             ->orderBy('fecha_vencimiento', 'asc')
             ->get()
             ->map(function (Lote $l) {

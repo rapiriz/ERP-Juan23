@@ -57,6 +57,18 @@ class IngresoMercaderiaController extends Controller
             ], 400);
         }
 
+        foreach ($request->input('items', []) as $index => $item) {
+            $nroLote = trim((string) ($item['nro_lote'] ?? ''));
+            $fechaVencimiento = trim((string) ($item['fecha_vencimiento'] ?? ''));
+            if (($nroLote === '') !== ($fechaVencimiento === '')) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Para registrar la trazabilidad, complete juntos el número de lote y su fecha de vencimiento.',
+                    'item' => $index,
+                ], 422);
+            }
+        }
+
         // PV04: impedir nuevas operaciones con proveedores inactivos.
         $proveedor = Proveedor::find((int) $request->input('id_proveedor'));
         if (!$proveedor) {
@@ -76,28 +88,33 @@ class IngresoMercaderiaController extends Controller
         $fecha = $request->input('fecha');
 
         try {
-            $registrados = [];
             $items = $request->input('items');
-
+            $productos = [];
             foreach ($items as $item) {
                 $producto = Producto::find((int) $item['id_producto']);
-                $idUnidad = isset($item['id_unidad']) ? (int) $item['id_unidad'] : null;
-                $motivo = $item['motivo'] ?? 'Ingreso de mercadería (S03)';
-                $cantidad = (int) $item['cantidad'];
-
                 if (!$producto || $producto->estado !== 'activo') {
                     return response()->json([
                         'status' => 'error',
                         'message' => "El producto con ID {$item['id_producto']} no está activo o no existe.",
                     ], 400);
                 }
+                $productos[(int) $item['id_producto']] = $producto;
+            }
+
+            $registrados = DB::transaction(function () use ($items, $productos, $idUsuario, $fecha) {
+                $registrados = [];
+                foreach ($items as $item) {
+                $producto = $productos[(int) $item['id_producto']];
+                $idUnidad = isset($item['id_unidad']) ? (int) $item['id_unidad'] : null;
+                $motivo = $item['motivo'] ?? 'Ingreso de mercadería (S03)';
+                $cantidad = (int) $item['cantidad'];
 
                 // S09: si el item trae lote, el movimiento y el LOTE se registran
-                // en la misma transaccion (se anida como savepoint).
+                // dentro de la transacción completa del ingreso.
                 $nroLote = isset($item['nro_lote']) ? trim((string) $item['nro_lote']) : null;
                 $vence = $item['fecha_vencimiento'] ?? null;
 
-                $resultado = DB::transaction(function () use (
+                $resultado = (function () use (
                     $producto,
                     $cantidad,
                     $motivo,
@@ -117,30 +134,38 @@ class IngresoMercaderiaController extends Controller
 
                     $loteId = null;
                     if ($nroLote !== null && $nroLote !== '' && $vence !== null) {
-                        if (Lote::where('id_producto', $producto->id_producto)
+                        $lote = Lote::where('id_producto', $producto->id_producto)
                             ->where('nro_lote', $nroLote)
-                            ->exists()
-                        ) {
+                            ->lockForUpdate()
+                            ->first();
+
+                        if ($lote && $lote->fecha_vencimiento->toDateString() !== \Carbon\Carbon::parse($vence)->toDateString()) {
                             throw new \RuntimeException(
-                                "El lote '{$nroLote}' ya está registrado para el producto {$producto->codigo}."
+                                "El lote '{$nroLote}' ya está registrado para el producto {$producto->codigo} con otra fecha de vencimiento."
                             );
                         }
 
                         $cantidadBase = StockService::cantidadEnUnidadBase($cantidad, $idUnidad);
-                        $lote = Lote::create([
-                            'id_producto' => $producto->id_producto,
-                            'nro_lote' => $nroLote,
-                            'cantidad_inicial' => $cantidadBase,
-                            'cantidad_actual' => $cantidadBase,
-                            'fecha_vencimiento' => $vence,
-                        ]);
+                        if ($lote) {
+                            $lote->cantidad_inicial = (int) $lote->cantidad_inicial + $cantidadBase;
+                            $lote->cantidad_actual = (int) $lote->cantidad_actual + $cantidadBase;
+                            $lote->save();
+                        } else {
+                            $lote = Lote::create([
+                                'id_producto' => $producto->id_producto,
+                                'nro_lote' => $nroLote,
+                                'cantidad_inicial' => $cantidadBase,
+                                'cantidad_actual' => $cantidadBase,
+                                'fecha_vencimiento' => $vence,
+                            ]);
+                        }
 
                         $movimiento->update(['id_lote' => $lote->id_lote]);
                         $loteId = $lote->id_lote;
                     }
 
                     return $loteId;
-                });
+                })();
 
                 $producto->refresh();
 
@@ -157,6 +182,8 @@ class IngresoMercaderiaController extends Controller
                     'estado_alerta' => $producto->estado_alerta,
                 ];
             }
+                return $registrados;
+            });
 
             return response()->json([
                 'status' => 'success',
@@ -167,6 +194,11 @@ class IngresoMercaderiaController extends Controller
                     'items' => $registrados,
                 ],
             ], 201);
+        } catch (\RuntimeException $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $e->getMessage(),
+            ], 422);
         } catch (\Throwable $e) {
             return response()->json([
                 'status' => 'error',

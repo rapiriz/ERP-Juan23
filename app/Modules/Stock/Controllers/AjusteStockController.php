@@ -73,7 +73,12 @@ class AjusteStockController extends Controller
                 $tipoMovimiento,
                 $cantidad,
                 $prefijo . $motivo,
-                $idUsuario
+                $idUsuario,
+                null,
+                null,
+                null,
+                null,
+                $tipo === 'aumentar' ? 1 : -1
             );
 
             $producto->refresh();
