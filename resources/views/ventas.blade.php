@@ -55,13 +55,36 @@
         flex-direction: column;
         gap: .5rem;
         justify-content: center;
+        min-width: 230px;
     }
-    .acciones-cliente .clay-btn-secondary,
-    .acciones-cliente .clay-btn-primary {
+    .acciones-cliente label {
+        color: var(--muted);
+        font-size: .72rem;
+        font-weight: 700;
+        letter-spacing: .5px;
+        text-transform: uppercase;
+    }
+    .acciones-cliente select {
         width: 100%;
-        justify-content: flex-start;
+        min-height: 44px;
+        padding: 0 .7rem;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: #fff;
+        color: var(--text);
+        font: inherit;
+    }
+    .venta-feedback {
+        grid-column: 1 / -1;
+        margin: 0;
         font-size: .85rem;
-        padding: 0 1rem;
+    }
+    .venta-feedback.success { color: #008a35; }
+    .venta-feedback.error { color: var(--danger); }
+    @media (max-width: 900px) {
+        .venta-top { grid-template-columns: 1fr; }
+        .lista-toggle { flex-wrap: wrap; }
+        .acciones-cliente { min-width: 0; }
     }
 
     /* ---------- Buscador ---------- */
@@ -196,12 +219,9 @@
     <div class="clay-card venta-top">
         <div class="factura-box">
             <span class="label">Emitir factura a:</span>
-            <span class="cliente">Consumidor Final</span>
-            <span class="cuit">
-                CUIT: 11.111.111-1 &nbsp;·&nbsp;
-                <a href="#">Consumidor Final</a>
-            </span>
-            <span class="cuit">Domicilio/Localidad, Localidad</span>
+            <span class="cliente" id="nombreClienteVenta"></span>
+            <span class="cuit" id="cuitClienteVenta"></span>
+            <span class="cuit" id="domicilioClienteVenta"></span>
         </div>
 
         <div class="lista-toggle">
@@ -214,13 +234,14 @@
         </div>
 
         <div class="acciones-cliente">
-            <button type="button" class="clay-btn-secondary">
-                🔍 BUSCAR CLIENTE
-            </button>
-            <button type="button" class="clay-btn-primary">
-                👤 NUEVO CLIENTE (F1)
-            </button>
+            <label for="clienteVenta">Cliente (venta a cuenta corriente)</label>
+            <select id="clienteVenta" required>
+                @foreach ($clientes as $cliente)
+                    <option value="{{ $cliente['id'] }}">{{ $cliente['nombre'] }} — {{ $cliente['cuit'] }}</option>
+                @endforeach
+            </select>
         </div>
+        <p class="venta-feedback" id="ventaFeedback" role="status" aria-live="polite" hidden></p>
     </div>
 
     {{-- Buscador de productos --}}
@@ -294,12 +315,28 @@
 <script>
     // Datos que vienen del controlador (por ahora hardcodeados en VentaController)
     const PRODUCTOS = @json($productos);
+    const CLIENTES = @json($clientes);
+    const URL_VENTAS = @json(route('ventas.store'));
+    const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]').content;
 
     // ---------- Estado ----------
     let listaActual = 'minorista'; // o 'mayorista'
     const carrito = []; // { id, codigo, nombre, cantidad, precioUnit, descuento }
+    let ventaEnCurso = false;
 
     const $ = (id) => document.getElementById(id);
+
+    function actualizarCliente() {
+        const cliente = CLIENTES.find(x => x.id === Number($('clienteVenta').value));
+        if (!cliente) return;
+
+        $('nombreClienteVenta').textContent = cliente.nombre;
+        $('cuitClienteVenta').textContent = `CUIT: ${cliente.cuit} · ${cliente.condicion}`;
+        $('domicilioClienteVenta').textContent = cliente.domicilio;
+    }
+
+    $('clienteVenta').addEventListener('change', actualizarCliente);
+    actualizarCliente();
 
     // ---------- Buscador ----------
     const input = $('buscadorProductos');
@@ -413,7 +450,7 @@
                     <input type="number" min="1" value="${item.cantidad}"
                            data-campo="cantidad" data-id="${item.id}">
                     <span class="num">$${Number(item.precioUnit).toLocaleString('es-AR')}</span>
-                    <input type="number" min="0" max="100" value="${item.descuento}"
+                    <input type="number" min="0" max="100" step="1" value="${item.descuento}"
                            data-campo="descuento" data-id="${item.id}">
                     <span class="num">$${subtotal.toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2})}</span>
                     <button class="quitar" data-quitar="${item.id}" title="Quitar">✕</button>
@@ -488,9 +525,56 @@
         }
     });
 
-    $('btnCobrar').addEventListener('click', () => {
-        // TODO: POST a /ventas para guardar VENTA + DETALLE_VENTA
-        alert('Cobro registrado (placeholder). Total: ' + $('totalMonto').textContent);
+    $('btnCobrar').addEventListener('click', async () => {
+        if (!carrito.length || ventaEnCurso) return;
+
+        const feedback = $('ventaFeedback');
+        const boton = $('btnCobrar');
+        ventaEnCurso = true;
+        boton.disabled = true;
+        feedback.hidden = true;
+
+        try {
+            const respuesta = await fetch(URL_VENTAS, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': CSRF_TOKEN
+                },
+                body: JSON.stringify({
+                    cliente_id: Number($('clienteVenta').value),
+                    lista: listaActual,
+                    items: carrito.map(item => ({
+                        id: item.id,
+                        cantidad: item.cantidad,
+                        descuento: item.descuento
+                    }))
+                })
+            });
+            const resultado = await respuesta.json();
+
+            if (!respuesta.ok) {
+                const mensaje = Object.values(resultado.errors || {})[0]?.[0]
+                    || resultado.message
+                    || 'No se pudo registrar la venta.';
+                throw new Error(mensaje);
+            }
+
+            carrito.length = 0;
+            localStorage.removeItem('pos_carrito');
+            render();
+            feedback.textContent = `Venta #${resultado.venta_id} registrada a cuenta corriente por $ ${Number(resultado.total).toLocaleString('es-AR')}.`;
+            feedback.className = 'venta-feedback success';
+            feedback.hidden = false;
+        } catch (error) {
+            feedback.textContent = error.message || 'No se pudo registrar la venta.';
+            feedback.className = 'venta-feedback error';
+            feedback.hidden = false;
+        } finally {
+            ventaEnCurso = false;
+            boton.disabled = carrito.length === 0;
+        }
     });
 
     $('btnDescuentos').addEventListener('click', () => {
