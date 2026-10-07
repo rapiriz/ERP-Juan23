@@ -3,132 +3,209 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-// Comentamos la importación del modelo para asegurarnos de no tocar la base de datos
-// use App\Models\Promocion; 
+use App\Models\Promocion;
+use Illuminate\Support\Facades\DB; // IMPORTANTE: Usaremos DB para la tabla intermedia
 
 class PromocionController extends Controller
 {
-    public function index()
-    {
-        // Simulamos un listado estático en lugar de consultar Promocion::all()
-        $promocionesSimuladas = [
-            [
-                'id_promocion'   => 1,
-                'nombre'         => 'Descuento Fin de Semana',
-                'tipo_descuento' => 'porcentaje',
-                'valor'          => 15,
-                'vigencia_desde' => '2026-10-10',
-                'vigencia_hasta' => '2026-10-12',
-                'condiciones'    => 'Aplica a todos los productos',
-                'estado'         => 'activa'
-            ]
-        ];
+    // ==========================================
+    // CATÁLOGO DE PRODUCTOS HARDCODEADOS
+    // ==========================================
+    private $catalogoSimulado = [
+        1 => 'Yerba Mate Playadito 1kg',
+        2 => 'Azúcar Ledesma 1kg',
+        3 => 'Fideos Matarazzo 500g',
+        4 => 'Aceite Natura 1.5L',
+        5 => 'Coca cola' // Agregado para que tu prueba funcione tal cual
+    ];
 
-        // Devolvemos JSON para la API (Si usabas Blade, lo cambiamos para que sea compatible con tu frontend)
-        return response()->json($promocionesSimuladas, 200);
+    // Función auxiliar: Busca el ID por nombre
+    private function obtenerIdPorNombre($nombre)
+    {
+        $nombreBuscado = strtolower(trim($nombre));
+        foreach ($this->catalogoSimulado as $id => $nombreCat) {
+            if (strtolower($nombreCat) === $nombreBuscado) {
+                return $id;
+            }
+        }
+        // Si escriben algo que no está en la lista, lo convierte en un número seguro
+        return abs(crc32($nombreBuscado));
     }
 
+    // Función auxiliar: Busca el nombre por ID para enviarlo al frontend
+    private function obtenerNombrePorId($id)
+    {
+        return $this->catalogoSimulado[$id] ?? 'Producto ID ' . $id;
+    }
+
+    // GET /api/promociones
+    public function index()
+    {
+        $promociones = Promocion::all();
+
+        $promocionesFormateadas = $promociones->map(function ($promo) {
+            // Buscamos en la tabla intermedia sin necesidad del Modelo Producto
+            $detallesPivot = DB::table('promocion_producto')
+                ->where('id_promocion', $promo->id_promocion)
+                ->get();
+
+            $productosArray = $detallesPivot->map(function ($pivot) {
+                return [
+                    'id_producto' => $pivot->id_producto,
+                    'nombre'      => $this->obtenerNombrePorId($pivot->id_producto), // Recuperamos el nombre hardcodeado
+                    'cantidad'    => $pivot->cantidad
+                ];
+            });
+
+            return [
+                'id_promocion'   => $promo->id_promocion,
+                'nombre'         => $promo->nombre,
+                // MEMORIA INTELIGENTE: Si es menor a 0, recordamos que era porcentaje
+                'tipo_descuento' => $promo->total < 0 ? 'porcentaje' : 'monto_fijo',
+                'valor'          => abs($promo->total), // Quitamos el signo "menos" para la vista
+                'vigencia_desde' => $promo->vigencia_desde,
+                'vigencia_hasta' => $promo->vigencia_hasta,
+                'condiciones'    => $promo->descripcion,
+                'estado'         => $promo->estado == 1 ? 'activa' : 'inactiva',
+                'productos'      => $productosArray
+            ];
+        });
+
+        return response()->json($promocionesFormateadas, 200);
+    }
+
+    // POST /api/promociones
     public function store(Request $request)
     {
-        // 1. Simulamos el guardado de la promoción principal
-        // Tomamos los nombres exactos que se envían en el JSON y le agregamos un ID ficticio
-        $promocionSimulada = [
-            'id_promocion'   => rand(100, 999), // ID generado al azar para simular la BD
-            'nombre'         => $request->input('nombre'),
-            'tipo_descuento' => $request->input('tipo_descuento'),
-            'valor'          => $request->input('valor'),
-            'vigencia_desde' => $request->input('vigencia_desde'),
-            'vigencia_hasta' => $request->input('vigencia_hasta'),
-            'condiciones'    => $request->input('condiciones'),
-            'estado'         => $request->input('estado', 'activa')
-        ];
+        DB::beginTransaction();
+        try {
+            // MEMORIA INTELIGENTE: Si es porcentaje, lo guardamos negativo. Si es plata, positivo.
+            $valorRecibido = $request->input('valor', 0);
+            $esPorcentaje = $request->input('tipo_descuento') === 'porcentaje';
+            $totalConMemoria = $esPorcentaje ? -abs($valorRecibido) : abs($valorRecibido);
 
-        // 2. Simulamos la relación de productos (Tabla intermedia)
-        // Simplemente tomamos lo que mandó el frontend y lo agregamos a la respuesta
-        $productos = $request->input('productos', []);
+            $promocion = Promocion::create([
+                'nombre'         => $request->input('nombre'),
+                'descripcion'    => $request->input('descripcion') ?? $request->input('condiciones', ''),
+                'total'          => $totalConMemoria, // Guardamos el número con el signo
+                'vigencia_desde' => $request->input('vigencia_desde'),
+                'vigencia_hasta' => $request->input('vigencia_hasta'),
+                'estado'         => $request->input('estado', 'activa') === 'activa' ? 1 : 0
+            ]);
 
-        // Le adjuntamos los productos al arreglo simulado de la promoción
-        $promocionSimulada['productos'] = $productos;
+            // Guardamos directamente en tu tabla intermedia promocion_producto
+            foreach ($request->input('productos', []) as $prod) {
+                $idProducto = $this->obtenerIdPorNombre($prod['nombre']);
 
-        // 3. Devolver la respuesta al frontend
-        // Devolvemos un código 201 (Created) como si realmente se hubiera guardado
-        return response()->json([
-            'mensaje'   => 'Promoción guardada exitosamente (Modo Simulado)',
-            'promocion' => $promocionSimulada
-        ], 201);
+                DB::table('promocion_producto')->insert([
+                    'id_promocion' => $promocion->id_promocion,
+                    'id_producto'  => $idProducto,
+                    'cantidad'     => $prod['cantidad']
+                ]);
+            }
+            DB::commit();
+
+            return response()->json(['mensaje' => 'Promoción guardada (Híbrida)'], 201);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
     }
 
     // GET /api/promociones/{id}
-    // Devuelve los detalles de una promoción en particular
     public function show($id)
     {
-        // Simulamos que fuimos a la base de datos y encontramos la promo con este ID
-        $promocionSimulada = [
-            'id_promocion'   => (int) $id,
-            'nombre'         => 'Promoción Recuperada ' . $id,
-            'tipo_descuento' => 'porcentaje',
-            'valor'          => 20,
-            'vigencia_desde' => '2026-10-01',
-            'vigencia_hasta' => '2026-10-31',
-            'condiciones'    => 'Condición de prueba',
-            'estado'         => 'activa',
-            'productos'      => [
-                ['id_producto' => 15, 'cantidad' => 2]
-            ]
+        $promo = Promocion::find($id);
+        if (!$promo) return response()->json(['mensaje' => 'No encontrada'], 404);
+
+        $detallesPivot = DB::table('promocion_producto')->where('id_promocion', $id)->get();
+        $productosArray = $detallesPivot->map(function ($pivot) {
+            return [
+                'id_producto' => $pivot->id_producto,
+                'nombre'      => $this->obtenerNombrePorId($pivot->id_producto),
+                'cantidad'    => $pivot->cantidad
+            ];
+        });
+
+        $respuesta = [
+            'id_promocion'   => $promo->id_promocion,
+            'nombre'         => $promo->nombre,
+            // MEMORIA INTELIGENTE: 
+            'tipo_descuento' => $promo->total < 0 ? 'porcentaje' : 'monto_fijo',
+            'valor'          => abs($promo->total),
+            'vigencia_desde' => $promo->vigencia_desde,
+            'vigencia_hasta' => $promo->vigencia_hasta,
+            'condiciones'    => $promo->descripcion,
+            'estado'         => $promo->estado == 1 ? 'activa' : 'inactiva',
+            'productos'      => $productosArray
         ];
 
-        return response()->json($promocionSimulada, 200);
+        return response()->json($respuesta, 200);
     }
 
     // PUT /api/promociones/{id}
-    // Recibe nuevos datos y "actualiza" la promoción
     public function update(Request $request, $id)
     {
-        // Tomamos los datos que envió el frontend
-        $datosActualizados = $request->all();
+        $promocion = Promocion::find($id);
+        if (!$promocion) return response()->json(['mensaje' => 'No encontrada'], 404);
 
-        // Le forzamos el ID de la URL para confirmar que "editamos" la correcta
-        $datosActualizados['id_promocion'] = (int) $id;
+        DB::beginTransaction();
+        try {
+            // MEMORIA INTELIGENTE: Misma lógica para cuando editas
+            $valorRecibido = $request->input('valor', 0);
+            $esPorcentaje = $request->input('tipo_descuento') === 'porcentaje';
+            $totalConMemoria = $esPorcentaje ? -abs($valorRecibido) : abs($valorRecibido);
 
-        return response()->json([
-            'mensaje'   => "Promoción {$id} actualizada exitosamente (Modo Simulado)",
-            'promocion' => $datosActualizados
-        ], 200);
+            $promocion->update([
+                'nombre'         => $request->input('nombre'),
+                'descripcion'    => $request->input('descripcion') ?? $request->input('condiciones', ''),
+                'total'          => $totalConMemoria, // Guardamos el número con el signo
+                'vigencia_desde' => $request->input('vigencia_desde'),
+                'vigencia_hasta' => $request->input('vigencia_hasta'),
+                'estado'         => $request->input('estado', 'activa') === 'activa' ? 1 : 0
+            ]);
+
+            // Eliminamos los productos viejos de la tabla intermedia
+            DB::table('promocion_producto')->where('id_promocion', $id)->delete();
+
+            // Insertamos los nuevos
+            foreach ($request->input('productos', []) as $prod) {
+                $idProducto = $this->obtenerIdPorNombre($prod['nombre']);
+
+                DB::table('promocion_producto')->insert([
+                    'id_promocion' => $promocion->id_promocion,
+                    'id_producto'  => $idProducto,
+                    'cantidad'     => $prod['cantidad']
+                ]);
+            }
+            DB::commit();
+
+            return response()->json(['mensaje' => "Promoción actualizada"], 200);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
     }
 
     // DELETE /api/promociones/{id}
-    // Realiza una BAJA LÓGICA (Cambia el estado a inactiva)
     public function destroy($id)
     {
-        // En la base de datos real haríamos:
-        // $promocion = Promocion::find($id);
-        // $promocion->estado = 'inactiva';
-        // $promocion->save();
-
-        return response()->json([
-            'mensaje' => "Promoción {$id} dada de baja exitosamente (Modo Simulado)",
-            'promocion' => [
-                'id_promocion' => (int) $id,
-                'estado' => 'inactiva' // Simulamos que el estado cambió
-            ]
-        ], 200);
+        $promocion = Promocion::find($id);
+        if ($promocion) {
+            $promocion->estado = 0;
+            $promocion->save();
+        }
+        return response()->json(['mensaje' => "Promoción dada de baja"], 200);
     }
 
     // PATCH /api/promociones/{id}/estado
-    // Reactiva o desactiva una promoción según el valor enviado
     public function updateEstado(Request $request, $id)
     {
-        // Tomamos el estado que manda el frontend, si no manda nada, asumimos 'activa'
-        $nuevoEstado = $request->input('estado', 'activa');
-
-        // En la base de datos real haríamos el mismo update de estado aquí
-
-        return response()->json([
-            'mensaje' => "El estado de la promoción {$id} ha sido cambiado a '{$nuevoEstado}' (Modo Simulado)",
-            'promocion' => [
-                'id_promocion' => (int) $id,
-                'estado' => $nuevoEstado
-            ]
-        ], 200);
+        $promocion = Promocion::find($id);
+        if ($promocion) {
+            $promocion->estado = $request->input('estado', 'activa') === 'activa' ? 1 : 0;
+            $promocion->save();
+        }
+        return response()->json(['mensaje' => "Estado actualizado"], 200);
     }
 }

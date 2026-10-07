@@ -6,7 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class Producto extends Model
 {
-    // Solo para que no falle la prueba. El otro equipo luego lo completará.
-    protected $table = 'PRODUCTO';
+    protected $table = 'producto';
     protected $primaryKey = 'id_producto';
+    public $timestamps = false; // Asumo que tampoco tiene created_at
+    protected $guarded = [];
 }

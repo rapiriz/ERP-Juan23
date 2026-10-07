@@ -278,6 +278,19 @@ document.addEventListener("DOMContentLoaded", () => {
                 return;
             }
 
+            const valorIngresado = inputValorNumero.value.trim();
+
+            // NUEVA VALIDACIÓN: Límite de 100% para los descuentos
+            if (inputTipoValor.value === '%') {
+                // Reemplazamos la coma por punto (por si escribieron "99,5") y lo convertimos a número
+                const numeroPorcentaje = parseFloat(valorIngresado.replace(',', '.'));
+
+                if (numeroPorcentaje > 100) {
+                    alert('Error: El porcentaje de descuento no puede ser mayor a 100%.');
+                    return; // Corta la ejecución para que no se guarde el error
+                }
+            }
+
             const idActual = inputId.value;
             const metodoHTTP = idActual ? 'PUT' : 'POST';
             const urlAPI = idActual ? `/api/promociones/${idActual}` : '/api/promociones';

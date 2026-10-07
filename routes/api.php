@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ProductoController;
 use App\Http\Controllers\PromocionController;
+use App\Http\Controllers\VentaController;
 
 // ==========================================
 // MÓDULO: PRODUCTOS
@@ -22,3 +23,8 @@ Route::get('/promociones/{id}', [PromocionController::class, 'show']);      // V
 Route::put('/promociones/{id}', [PromocionController::class, 'update']);    // Editar una existente
 Route::delete('/promociones/{id}', [PromocionController::class, 'destroy']); // Eliminar una promocion
 Route::patch('/promociones/{id}/estado', [PromocionController::class, 'updateEstado']); // Reactivación / Cambio de estado
+
+// Módulo de Ventas
+Route::get('/ventas/productos-simulados', [VentaController::class, 'obtenerProductosSimulados']);
+Route::post('/ventas', [VentaController::class, 'store']);
+Route::get('/ventas', [VentaController::class, 'index']);

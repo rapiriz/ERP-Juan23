@@ -6,17 +6,13 @@ use Illuminate\Database\Eloquent\Model;
 
 class DetalleVenta extends Model
 {
-    protected $table = 'DETALLE_VENTA';
-    protected $primaryKey = 'id_detalle_venta';
+    protected $table = 'detalle_venta';
+    protected $primaryKey = 'id_detalle';
+    protected $guarded = [];
+    public $timestamps = false; // Igual aquí, tu tabla no tiene timestamps[cite: 13]
 
-    // Relaciones hacia arriba (Pertenece a...)
     public function venta()
     {
         return $this->belongsTo(Venta::class, 'id_venta', 'id_venta');
-    }
-
-    public function promocion()
-    {
-        return $this->belongsTo(Promocion::class, 'id_promocion', 'id_promocion');
     }
 }
