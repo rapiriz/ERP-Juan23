@@ -4,38 +4,16 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Promocion;
-use Illuminate\Support\Facades\DB; // IMPORTANTE: Usaremos DB para la tabla intermedia
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class PromocionController extends Controller
 {
-    // ==========================================
-    // CATÁLOGO DE PRODUCTOS HARDCODEADOS
-    // ==========================================
-    private $catalogoSimulado = [
-        1 => 'Yerba Mate Playadito 1kg',
-        2 => 'Azúcar Ledesma 1kg',
-        3 => 'Fideos Matarazzo 500g',
-        4 => 'Aceite Natura 1.5L',
-        5 => 'Coca cola' // Agregado para que tu prueba funcione tal cual
-    ];
-
-    // Función auxiliar: Busca el ID por nombre
-    private function obtenerIdPorNombre($nombre)
+    private function obtenerNombrePorId(int $id): string
     {
-        $nombreBuscado = strtolower(trim($nombre));
-        foreach ($this->catalogoSimulado as $id => $nombreCat) {
-            if (strtolower($nombreCat) === $nombreBuscado) {
-                return $id;
-            }
-        }
-        // Si escriben algo que no está en la lista, lo convierte en un número seguro
-        return abs(crc32($nombreBuscado));
-    }
+        $producto = collect(VentaController::productosSimulados())->firstWhere('id', $id);
 
-    // Función auxiliar: Busca el nombre por ID para enviarlo al frontend
-    private function obtenerNombrePorId($id)
-    {
-        return $this->catalogoSimulado[$id] ?? 'Producto ID ' . $id;
+        return $producto['nombre'] ?? 'Producto ID ' . $id;
     }
 
     // GET /api/promociones
@@ -77,29 +55,26 @@ class PromocionController extends Controller
     // POST /api/promociones
     public function store(Request $request)
     {
+        $datos = $this->validarPromocion($request);
         DB::beginTransaction();
         try {
-            // MEMORIA INTELIGENTE: Si es porcentaje, lo guardamos negativo. Si es plata, positivo.
-            $valorRecibido = $request->input('valor', 0);
-            $esPorcentaje = $request->input('tipo_descuento') === 'porcentaje';
+            $valorRecibido = $datos['valor'];
+            $esPorcentaje = $datos['tipo_descuento'] === 'porcentaje';
             $totalConMemoria = $esPorcentaje ? -abs($valorRecibido) : abs($valorRecibido);
 
             $promocion = Promocion::create([
-                'nombre'         => $request->input('nombre'),
-                'descripcion'    => $request->input('descripcion') ?? $request->input('condiciones', ''),
-                'total'          => $totalConMemoria, // Guardamos el número con el signo
-                'vigencia_desde' => $request->input('vigencia_desde'),
-                'vigencia_hasta' => $request->input('vigencia_hasta'),
-                'estado'         => $request->input('estado', 'activa') === 'activa' ? 1 : 0
+                'nombre'         => $datos['nombre'],
+                'descripcion'    => $datos['descripcion'] ?? '',
+                'total'          => $totalConMemoria,
+                'vigencia_desde' => $datos['vigencia_desde'],
+                'vigencia_hasta' => $datos['vigencia_hasta'],
+                'estado'         => ($datos['estado'] ?? 'activa') === 'activa' ? 1 : 0
             ]);
 
-            // Guardamos directamente en tu tabla intermedia promocion_producto
-            foreach ($request->input('productos', []) as $prod) {
-                $idProducto = $this->obtenerIdPorNombre($prod['nombre']);
-
+            foreach ($datos['productos'] as $prod) {
                 DB::table('promocion_producto')->insert([
                     'id_promocion' => $promocion->id_promocion,
-                    'id_producto'  => $idProducto,
+                    'id_producto'  => $prod['id_producto'],
                     'cantidad'     => $prod['cantidad']
                 ]);
             }
@@ -149,32 +124,28 @@ class PromocionController extends Controller
         $promocion = Promocion::find($id);
         if (!$promocion) return response()->json(['mensaje' => 'No encontrada'], 404);
 
+        $datos = $this->validarPromocion($request);
         DB::beginTransaction();
         try {
-            // MEMORIA INTELIGENTE: Misma lógica para cuando editas
-            $valorRecibido = $request->input('valor', 0);
-            $esPorcentaje = $request->input('tipo_descuento') === 'porcentaje';
+            $valorRecibido = $datos['valor'];
+            $esPorcentaje = $datos['tipo_descuento'] === 'porcentaje';
             $totalConMemoria = $esPorcentaje ? -abs($valorRecibido) : abs($valorRecibido);
 
             $promocion->update([
-                'nombre'         => $request->input('nombre'),
-                'descripcion'    => $request->input('descripcion') ?? $request->input('condiciones', ''),
-                'total'          => $totalConMemoria, // Guardamos el número con el signo
-                'vigencia_desde' => $request->input('vigencia_desde'),
-                'vigencia_hasta' => $request->input('vigencia_hasta'),
-                'estado'         => $request->input('estado', 'activa') === 'activa' ? 1 : 0
+                'nombre'         => $datos['nombre'],
+                'descripcion'    => $datos['descripcion'] ?? '',
+                'total'          => $totalConMemoria,
+                'vigencia_desde' => $datos['vigencia_desde'],
+                'vigencia_hasta' => $datos['vigencia_hasta'],
+                'estado'         => ($datos['estado'] ?? 'activa') === 'activa' ? 1 : 0
             ]);
 
-            // Eliminamos los productos viejos de la tabla intermedia
             DB::table('promocion_producto')->where('id_promocion', $id)->delete();
 
-            // Insertamos los nuevos
-            foreach ($request->input('productos', []) as $prod) {
-                $idProducto = $this->obtenerIdPorNombre($prod['nombre']);
-
+            foreach ($datos['productos'] as $prod) {
                 DB::table('promocion_producto')->insert([
                     'id_promocion' => $promocion->id_promocion,
-                    'id_producto'  => $idProducto,
+                    'id_producto'  => $prod['id_producto'],
                     'cantidad'     => $prod['cantidad']
                 ]);
             }
@@ -185,6 +156,30 @@ class PromocionController extends Controller
             DB::rollBack();
             return response()->json(['error' => $e->getMessage()], 500);
         }
+    }
+
+    private function validarPromocion(Request $request): array
+    {
+        $datos = $request->validate([
+            'nombre' => ['required', 'string', 'max:255'],
+            'descripcion' => ['nullable', 'string'],
+            'vigencia_desde' => ['required', 'date'],
+            'vigencia_hasta' => ['required', 'date', 'after_or_equal:vigencia_desde'],
+            'tipo_descuento' => ['required', Rule::in(['porcentaje', 'monto_fijo'])],
+            'valor' => ['required', 'numeric', 'min:0'],
+            'estado' => ['sometimes', Rule::in(['activa', 'inactiva'])],
+            'productos' => ['required', 'array', 'min:1'],
+            'productos.*.id_producto' => ['required', 'integer', Rule::in(array_column(VentaController::productosSimulados(), 'id'))],
+            'productos.*.cantidad' => ['required', 'integer', 'min:1', 'max:9999'],
+        ]);
+
+        if ($datos['tipo_descuento'] === 'porcentaje' && (float) $datos['valor'] > 100) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'valor' => ['El porcentaje de descuento debe estar entre 0 y 100.'],
+            ]);
+        }
+
+        return $datos;
     }
 
     // DELETE /api/promociones/{id}

@@ -20,6 +20,7 @@ class CuentaCorrienteTest extends TestCase
             $table->unsignedInteger('id_cliente');
             $table->date('fecha');
             $table->decimal('total', 10, 0);
+            $table->decimal('descuento_global', 10, 0)->default(0);
             $table->string('numFactura', 50);
             $table->string('estado');
             $table->string('observaciones', 150);
@@ -62,6 +63,7 @@ class CuentaCorrienteTest extends TestCase
         $this->postJson('/ventas', [
             'cliente_id' => 915736,
             'lista' => 'mayorista',
+            'observaciones' => 'Cliente retira mañana',
             'items' => [
                 ['id' => 1, 'cantidad' => 2, 'descuento' => 0],
             ],
@@ -73,6 +75,7 @@ class CuentaCorrienteTest extends TestCase
         $this->assertDatabaseHas('venta', [
             'id_cliente' => 915736,
             'total' => 4400,
+            'observaciones' => 'Cliente retira mañana',
             'id_usuario' => 1,
         ]);
         $this->assertDatabaseHas('detalle_venta', [
