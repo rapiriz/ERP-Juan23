@@ -16,4 +16,9 @@ Route::patch('/productos/{id}/estado', [ProductoController::class, 'updateEstado
 // ==========================================
 // MÓDULO: PROMOCIONES (Trabajo previo)
 // ==========================================
-Route::post('/promociones', [PromocionController::class, 'store']); // Creación de promoción
+Route::get('/promociones', [PromocionController::class, 'index']);          // Listar todas
+Route::post('/promociones', [PromocionController::class, 'store']);         // Crear nueva
+Route::get('/promociones/{id}', [PromocionController::class, 'show']);      // Ver detalle de una
+Route::put('/promociones/{id}', [PromocionController::class, 'update']);    // Editar una existente
+Route::delete('/promociones/{id}', [PromocionController::class, 'destroy']); // Eliminar una promocion
+Route::patch('/promociones/{id}/estado', [PromocionController::class, 'updateEstado']); // Reactivación / Cambio de estado
