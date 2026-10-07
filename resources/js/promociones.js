@@ -1,41 +1,6 @@
 document.addEventListener("DOMContentLoaded", () => {
-    // 1. Datos simulados. Ahora incluyen "estado" y los productos tienen "cantidad"
-    let promociones = JSON.parse(
-        localStorage.getItem("erp_promociones_mock"),
-    ) || [
-        {
-            id: 1,
-            codigo: "P001",
-            nombre: "Promo Limpieza",
-            descripcion: "Descuento especial en artículos de limpieza.",
-            fechaInicio: "2026-10-01",
-            fechaFin: "2026-10-31",
-            productos: [
-                { nombre: "Suavizante Vivere 1L", cantidad: 1 },
-                { nombre: "Jabón Líquido Skip 1L", cantidad: 1 },
-            ],
-            tipoValor: "%",
-            valor: "15",
-            estado: "activa",
-        },
-        {
-            id: 2,
-            codigo: "P002",
-            nombre: "Pack Almacén x5",
-            descripcion: "Llevando 5 productos seleccionados.",
-            fechaInicio: "2026-10-10",
-            fechaFin: "2026-11-10",
-            productos: [
-                { nombre: "Fideos", cantidad: 2 },
-                { nombre: "Arroz", cantidad: 2 },
-                { nombre: "Puré de tomate", cantidad: 1 },
-            ],
-            tipoValor: "$",
-            valor: "4.500,00",
-            estado: "activa",
-        },
-    ];
-
+    // 1. Variable global vacía (ya no usamos localStorage)
+    let promociones = [];
     let productosTemporales = [];
 
     const tablaBody = document.getElementById("tabla-promociones-body");
@@ -54,22 +19,45 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Inputs Productos
     const inputNuevoProd = document.getElementById("input-nuevo-producto");
-    const inputCantidadProd = document.getElementById(
-        "input-cantidad-producto",
-    );
+    const inputCantidadProd = document.getElementById("input-cantidad-producto");
     const contenedorTags = document.getElementById("lista-productos-tags");
-    const inputProductosOculto = document.getElementById(
-        "promo-productos-oculto",
-    );
+    const inputProductosOculto = document.getElementById("promo-productos-oculto");
 
     // Filtros y Vista previa
     const inputBusqueda = document.getElementById("input-busqueda");
     const checkHistorial = document.getElementById("check-historial");
     const tituloProductos = document.getElementById("titulo-productos-promo");
     const badgeDescuento = document.getElementById("badge-detalle-descuento");
-    const contenedorTablaDetalle = document.getElementById(
-        "contenedor-tabla-detalle",
-    );
+    const contenedorTablaDetalle = document.getElementById("contenedor-tabla-detalle");
+
+    // ==========================================
+    // CONEXIÓN CON LA API: OBTENER DATOS (GET)
+    // ==========================================
+    async function cargarPromocionesDesdeAPI() {
+        try {
+            const response = await fetch('/api/promociones');
+            const data = await response.json();
+
+            // "Traducimos" los nombres del backend a los nombres que usa tu frontend
+            promociones = data.map(p => ({
+                id: p.id_promocion,
+                codigo: "P" + String(p.id_promocion).padStart(3, "0"),
+                nombre: p.nombre,
+                descripcion: p.condiciones || p.descripcion || "",
+                fechaInicio: p.vigencia_desde,
+                fechaFin: p.vigencia_hasta,
+                productos: p.productos || [],
+                tipoValor: p.tipo_descuento === 'porcentaje' ? '%' : '$',
+                valor: p.valor,
+                estado: p.estado
+            }));
+
+            // Una vez descargados y adaptados, dibujamos tu tabla
+            renderizarTabla();
+        } catch (error) {
+            console.error("Error al cargar promociones desde la API:", error);
+        }
+    }
 
     // --- RENDERIZAR TABLA PRINCIPAL ---
     function renderizarTabla() {
@@ -159,10 +147,7 @@ document.addEventListener("DOMContentLoaded", () => {
             tablaBody.appendChild(tr);
         });
 
-        localStorage.setItem(
-            "erp_promociones_mock",
-            JSON.stringify(promociones),
-        );
+        // ¡ELIMINAMOS EL LOCALSTORAGE AQUÍ!
     }
 
     // --- MOSTRAR DETALLES ---
@@ -178,7 +163,7 @@ document.addEventListener("DOMContentLoaded", () => {
             filasTabla += `
                 <tr>
                     <td style="color: #94a3b8; font-family: monospace;">00${index + 1}</td>
-                    <td>${prod.nombre}</td>
+                    <td>${prod.nombre || ('Producto ID ' + prod.id_producto)}</td>
                     <td class="text-center"><strong>${prod.cantidad}</strong></td>
                     <td class="text-right" style="color: var(--brand-blue); font-weight: bold;">--</td>
                     <td class="text-right" style="font-weight: bold; color: #1e293b;">--</td>
@@ -220,7 +205,7 @@ document.addEventListener("DOMContentLoaded", () => {
         event.currentTarget.classList.add("row-selected");
     }
 
-    // --- LÓGICA DE LOS PRODUCTOS (Ahora con cantidad) ---
+    // --- LÓGICA DE LOS PRODUCTOS ---
     window.agregarProductoArray = () => {
         const prodNombre = inputNuevoProd.value.trim();
         const prodCant = parseInt(inputCantidadProd.value) || 1;
@@ -231,7 +216,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 cantidad: prodCant,
             });
             inputNuevoProd.value = "";
-            inputCantidadProd.value = 1; // Resetea a 1
+            inputCantidadProd.value = 1;
             actualizarTagsProductos();
         }
     };
@@ -276,17 +261,16 @@ document.addEventListener("DOMContentLoaded", () => {
         modal.style.display = "none";
     };
 
-    // --- GUARDAR O MODIFICAR ---
+    // ==========================================
+    // CONEXIÓN CON LA API: GUARDAR (POST/PUT)
+    // ==========================================
     if (formPromo) {
-        formPromo.addEventListener("submit", (e) => {
+        formPromo.addEventListener("submit", async (e) => {
             e.preventDefault();
 
-            // Validar que las fechas tengan sentido
             if (inputInicio.value > inputFin.value) {
-                alert(
-                    "Error: La fecha final no puede ser anterior a la fecha de inicio.",
-                );
-                return; // Corta la ejecución para que no se guarde
+                alert("Error: La fecha final no puede ser anterior a la fecha de inicio.");
+                return;
             }
 
             if (productosTemporales.length === 0) {
@@ -295,39 +279,71 @@ document.addEventListener("DOMContentLoaded", () => {
             }
 
             const idActual = inputId.value;
-            const valorIngresado = inputValorNumero.value.trim();
+            const metodoHTTP = idActual ? 'PUT' : 'POST';
+            const urlAPI = idActual ? `/api/promociones/${idActual}` : '/api/promociones';
 
-            if (idActual) {
-                const index = promociones.findIndex(
-                    (p) => p.id === parseInt(idActual),
-                );
-                if (index !== -1) {
-                    promociones[index].nombre = inputNombre.value;
-                    promociones[index].descripcion = inputDescripcion.value;
-                    promociones[index].fechaInicio = inputInicio.value;
-                    promociones[index].fechaFin = inputFin.value;
-                    promociones[index].productos = [...productosTemporales]; // Array de objetos
-                    promociones[index].tipoValor = inputTipoValor.value;
-                    promociones[index].valor = valorIngresado;
-                }
-            } else {
-                promociones.push({
-                    id: Date.now(),
-                    codigo:
-                        "P" + String(promociones.length + 1).padStart(3, "0"),
-                    nombre: inputNombre.value,
-                    descripcion: inputDescripcion.value,
-                    fechaInicio: inputInicio.value,
-                    fechaFin: inputFin.value,
-                    productos: [...productosTemporales],
-                    tipoValor: inputTipoValor.value,
-                    valor: valorIngresado,
-                    estado: "activa", // Por defecto activa
+            // Armamos el JSON con los nombres exactos que espera nuestro backend
+            const payload = {
+                nombre: inputNombre.value,
+                descripcion: inputDescripcion.value, // (Si se la agregas al backend luego)
+                vigencia_desde: inputInicio.value,
+                vigencia_hasta: inputFin.value,
+                tipo_descuento: inputTipoValor.value === '%' ? 'porcentaje' : 'monto_fijo',
+                valor: inputValorNumero.value,
+                productos: productosTemporales
+            };
+
+            try {
+                const response = await fetch(urlAPI, {
+                    method: metodoHTTP,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
                 });
-            }
 
-            cerrarModal();
-            renderizarTabla();
+                if (response.ok) {
+                    const respuestaBackend = await response.json(); // Obtenemos el ID falso que generó el backend
+                    cerrarModal();
+
+                    // TRUCO MOCKING: Modificamos el arreglo local en lugar de consultar al backend estático
+                    if (!idActual) {
+                        // Es un POST (Creación) - Agregamos al final del arreglo
+                        const nuevaPromo = respuestaBackend.promocion;
+                        promociones.push({
+                            id: nuevaPromo.id_promocion,
+                            codigo: "P" + String(nuevaPromo.id_promocion).padStart(3, "0"),
+                            nombre: nuevaPromo.nombre,
+                            descripcion: inputDescripcion.value,
+                            fechaInicio: nuevaPromo.vigencia_desde,
+                            fechaFin: nuevaPromo.vigencia_hasta,
+                            productos: nuevaPromo.productos || [],
+                            tipoValor: nuevaPromo.tipo_descuento === 'porcentaje' ? '%' : '$',
+                            valor: nuevaPromo.valor,
+                            estado: "activa"
+                        });
+                    } else {
+                        // Es un PUT (Edición) - Buscamos y actualizamos
+                        const index = promociones.findIndex((p) => p.id === parseInt(idActual));
+                        if (index !== -1) {
+                            promociones[index].nombre = inputNombre.value;
+                            promociones[index].descripcion = inputDescripcion.value;
+                            promociones[index].fechaInicio = inputInicio.value;
+                            promociones[index].fechaFin = inputFin.value;
+                            promociones[index].tipoValor = inputTipoValor.value;
+                            promociones[index].valor = inputValorNumero.value;
+                            promociones[index].productos = [...productosTemporales];
+                        }
+                    }
+
+                    // En lugar de cargarPromocionesDesdeAPI(), solo redibujamos la tabla
+                    renderizarTabla();
+                    limpiarVistaPrevia();
+                }
+            } catch (error) {
+                console.error("Error al guardar:", error);
+            }
         });
     }
 
@@ -344,44 +360,65 @@ document.addEventListener("DOMContentLoaded", () => {
         inputTipoValor.value = promo.tipoValor;
         inputValorNumero.value = promo.valor;
 
-        productosTemporales = JSON.parse(JSON.stringify(promo.productos)); // Copia profunda
+        productosTemporales = JSON.parse(JSON.stringify(promo.productos));
         actualizarTagsProductos();
 
         modalTitle.innerText = "Modificar Promoción";
         modal.style.display = "flex";
     };
 
-    // --- BAJA LÓGICA (Cambiar estado y validar vencimiento) ---
-    window.cambiarEstado = (id, nuevoEstado) => {
+    // ==========================================
+    // CONEXIÓN CON LA API: BAJA Y REACTIVAR (DELETE/PATCH)
+    // ==========================================
+    window.cambiarEstado = async (id, nuevoEstado) => {
+        // Buscamos el índice en nuestro array local
         const index = promociones.findIndex((p) => p.id === id);
         if (index === -1) return;
 
         const promo = promociones[index];
 
-        // Si la queremos reactivar, verificamos que la fecha no haya pasado
         if (nuevoEstado === "activa") {
             const hoy = new Date();
             hoy.setHours(0, 0, 0, 0);
             const fechaFin = new Date(promo.fechaFin + "T00:00:00");
 
             if (fechaFin < hoy) {
-                alert(
-                    "Atención: Esta promoción está vencida. Modificá las fechas de vigencia para poder reactivarla.",
-                );
-                editarPromocion(id); // Te abre el modal con los datos servidos automáticamente
-                return; // Corta la ejecución para que no se reactive rota
+                alert("Atención: Esta promoción está vencida. Modificá las fechas de vigencia para poder reactivarla.");
+                editarPromocion(id);
+                return;
             }
         }
 
-        const mensaje =
-            nuevoEstado === "inactiva"
-                ? "¿Deseás dar de baja esta promoción? Pasará al historial."
-                : "¿Deseás volver a activar esta promoción?";
+        const mensaje = nuevoEstado === "inactiva"
+            ? "¿Deseás dar de baja esta promoción? Pasará al historial."
+            : "¿Deseás volver a activar esta promoción?";
 
         if (confirm(mensaje)) {
-            promociones[index].estado = nuevoEstado;
-            renderizarTabla();
-            limpiarVistaPrevia();
+            const urlAPI = nuevoEstado === "inactiva" ? `/api/promociones/${id}` : `/api/promociones/${id}/estado`;
+            const metodoHTTP = nuevoEstado === "inactiva" ? 'DELETE' : 'PATCH';
+            const cuerpo = nuevoEstado === "inactiva" ? null : JSON.stringify({ estado: 'activa' });
+
+            try {
+                const response = await fetch(urlAPI, {
+                    method: metodoHTTP,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: cuerpo
+                });
+
+                if (response.ok) {
+                    // TRUCO MOCKING: Actualizamos el estado en nuestra memoria local
+                    promociones[index].estado = nuevoEstado;
+
+                    // Volvemos a dibujar la tabla
+                    renderizarTabla();
+                    limpiarVistaPrevia();
+                }
+            } catch (error) {
+                console.error("Error al cambiar estado:", error);
+            }
         }
     };
 
@@ -406,5 +443,6 @@ document.addEventListener("DOMContentLoaded", () => {
         return `${partes[2]}/${partes[1]}/${partes[0]}`;
     }
 
-    renderizarTabla();
+    // 2. INICIO DE LA APLICACIÓN: Llamamos a la API en lugar de localStorage
+    cargarPromocionesDesdeAPI();
 });
