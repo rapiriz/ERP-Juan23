@@ -15,7 +15,6 @@ class Promocion extends Model
 
     // Campos que se pueden llenar masivamente
     protected $fillable = [
-        'codigo',
         'nombre',
         'tipo_descuento',
         'valor',

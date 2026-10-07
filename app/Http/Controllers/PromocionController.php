@@ -3,47 +3,58 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Models\Promocion; // Importamos el modelo que creaste antes
+// Comentamos la importación del modelo para asegurarnos de no tocar la base de datos
+// use App\Models\Promocion; 
 
 class PromocionController extends Controller
 {
-    // Esta función se encarga de mostrar la pantalla principal de Promos
     public function index()
     {
-        // 1. Buscamos todas las promociones en la base de datos
-        $promociones = Promocion::all();
+        // Simulamos un listado estático en lugar de consultar Promocion::all()
+        $promocionesSimuladas = [
+            [
+                'id_promocion'   => 1,
+                'nombre'         => 'Descuento Fin de Semana',
+                'tipo_descuento' => 'porcentaje',
+                'valor'          => 15,
+                'vigencia_desde' => '2026-10-10',
+                'vigencia_hasta' => '2026-10-12',
+                'condiciones'    => 'Aplica a todos los productos',
+                'estado'         => 'activa'
+            ]
+        ];
 
-        // 2. Le enviamos esos datos a la vista (el frontend). 
-        // Nota: asumo que el archivo de tu vista se llama 'promociones.blade.php'. 
-        // Si se llama distinto, luego lo ajustamos.
-        return view('promociones', compact('promociones'));
+        // Devolvemos JSON para la API (Si usabas Blade, lo cambiamos para que sea compatible con tu frontend)
+        return response()->json($promocionesSimuladas, 200);
     }
 
     public function store(Request $request)
     {
-        // 1. Guardar la promoción
-        $promocion = Promocion::create([
-            'codigo'         => $request->input('codigo'),
+        // 1. Simulamos el guardado de la promoción principal
+        // Tomamos los nombres exactos que se envían en el JSON y le agregamos un ID ficticio
+        $promocionSimulada = [
+            'id_promocion'   => rand(100, 999), // ID generado al azar para simular la BD
             'nombre'         => $request->input('nombre'),
-            'tipo_descuento' => 'porcentaje',
-            'valor'          => $request->input('descuento'),
-            'estado'         => 'activa'
-        ]);
+            'tipo_descuento' => $request->input('tipo_descuento'),
+            'valor'          => $request->input('valor'),
+            'vigencia_desde' => $request->input('vigencia_desde'),
+            'vigencia_hasta' => $request->input('vigencia_hasta'),
+            'condiciones'    => $request->input('condiciones'),
+            'estado'         => $request->input('estado', 'activa')
+        ];
 
-        // 2. Guardar los productos (si el frontend los envía)
-        $productos = $request->input('productos');
-        if ($productos) {
-            foreach ($productos as $producto) {
-                $promocion->productos()->attach($producto['id_producto'], [
-                    'cantidad' => $producto['cantidad']
-                ]);
-            }
-        }
+        // 2. Simulamos la relación de productos (Tabla intermedia)
+        // Simplemente tomamos lo que mandó el frontend y lo agregamos a la respuesta
+        $productos = $request->input('productos', []);
 
-        // 3. Devolver un JSON de éxito
+        // Le adjuntamos los productos al arreglo simulado de la promoción
+        $promocionSimulada['productos'] = $productos;
+
+        // 3. Devolver la respuesta al frontend
+        // Devolvemos un código 201 (Created) como si realmente se hubiera guardado
         return response()->json([
-            'mensaje' => 'Promoción guardada exitosamente',
-            'promocion' => $promocion
+            'mensaje'   => 'Promoción guardada exitosamente (Modo Simulado)',
+            'promocion' => $promocionSimulada
         ], 201);
     }
 }

@@ -13,7 +13,6 @@ return new class extends Migration
     {
         Schema::create('promocion', function (Blueprint $table) {
             $table->id('id_promocion'); // Clave primaria personalizada
-            $table->string('codigo')->nullable();
             $table->string('nombre')->nullable();
             $table->string('tipo_descuento')->nullable(); // 'porcentaje' | 'monto_fijo'
             $table->decimal('valor', 10, 2)->nullable();
