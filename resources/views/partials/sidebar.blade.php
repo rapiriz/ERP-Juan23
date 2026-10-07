@@ -13,7 +13,8 @@
            class="sidebar-link {{ request()->routeIs('promociones') ? 'active' : '' }}">
             <span class="ico">🏷️</span> Promos
         </a>
-        <a href="#" class="sidebar-link">
+        <a href="{{ route('saldo') }}"
+           class="sidebar-link {{ request()->routeIs('saldo') ? 'active' : '' }}">
             <span class="ico">👥</span> Cuentas Corrientes
         </a>
         <a href="#" class="sidebar-link">
