@@ -1,5 +1,6 @@
 // Reemplazar en el diagrama general desde el comentario [G1]
 // hasta antes del comentario [G3].
+// Propuesta de esquema: DNI/CUIT y condicion_iva aun no estan implementados en Laravel.
 
 Enum ROL_USUARIO {
   administrativo
@@ -22,6 +23,20 @@ Enum ESTADO_CLIENTE {
   inactivo
 }
 
+Enum CONDICION_IVA {
+  responsable_inscripto [note: 'ARCA 1 - IVA Responsable Inscripto']
+  sujeto_exento [note: 'ARCA 4 - IVA Sujeto Exento']
+  consumidor_final [note: 'ARCA 5 - Consumidor Final']
+  responsable_monotributo [note: 'ARCA 6 - Responsable Monotributo']
+  sujeto_no_categorizado [note: 'ARCA 7 - Sujeto No Categorizado']
+  proveedor_del_exterior [note: 'ARCA 8 - Proveedor del Exterior']
+  cliente_del_exterior [note: 'ARCA 9 - Cliente del Exterior']
+  iva_liberado_ley_19640 [note: 'ARCA 10 - IVA Liberado Ley 19.640']
+  monotributista_social [note: 'ARCA 13 - Monotributista Social']
+  iva_no_alcanzado [note: 'ARCA 15 - IVA No Alcanzado']
+  monotributo_trabajador_independiente_promovido [note: 'ARCA 16 - Monotributo Trabajador Independiente Promovido']
+}
+
 Enum PRIORIDAD_RECLAMO {
   baja
   media
@@ -38,7 +53,7 @@ Enum ESTADO_RECLAMO {
 
 Table ZONA {
   id_zona     integer [pk, increment]
-  nombre      varchar(120) [not null]
+  nombre      varchar(120) [not null, unique]
   descripcion varchar(255)
 
   Note: 'Entidad del diagrama general. La asociacion con CLIENTE queda disponible para la integracion con zonas.'
@@ -77,14 +92,15 @@ Table CLIENTE {
   id_cliente              integer [pk, increment]
   nombre                  varchar(120) [not null]
   apellido_razon_social   varchar(160) [not null]
-  dni_cuit                varchar(20) [not null, unique]
+  dni                     varchar(8) [unique, note: 'Solo digitos, sin puntos']
+  cuit                    char(11) [unique, note: 'Solo 11 digitos, sin guiones']
   telefono                varchar(30) [not null]
   email                   varchar(160) [not null, unique]
   direccion               varchar(255) [not null]
   localidad               varchar(120)
   id_zona                  integer [ref: > ZONA.id_zona]
   tipo_cliente            TIPO_CLIENTE [not null]
-  condicion_iva           varchar(80)
+  condicion_iva           CONDICION_IVA
   estado                  ESTADO_CLIENTE [not null, default: 'activo']
   saldo                   decimal(12,2) [default: 0]
   creado_por              integer [not null, ref: > USUARIO.id_usuario]
@@ -96,7 +112,11 @@ Table CLIENTE {
     id_zona [name: 'idx_cliente_id_zona']
   }
 
-  Note: 'Combina los campos implementados en MySQL con localidad, zona, condicion IVA y saldo del modelo general.'
+  checks {
+    `dni IS NOT NULL OR cuit IS NOT NULL` [name: 'chk_cliente_documento']
+  }
+
+  Note: 'Propuesta G1: DNI y CUIT separados; al menos uno informado. Condicion IVA nullable segun catalogo ARCA. Pendiente de implementar en MySQL y API.'
 }
 
 Table LOGIN_LOG {
