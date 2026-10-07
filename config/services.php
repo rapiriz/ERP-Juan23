@@ -35,4 +35,20 @@ return [
         ],
     ],
 
+    'internal_api' => [
+        'token' => env('INTERNAL_API_TOKEN'),
+    ],
+
+    'sales' => [
+        'driver' => env('SALES_SERVICE_DRIVER', 'local'),
+        'url' => env('SALES_SERVICE_URL'),
+        'token' => env('SALES_SERVICE_TOKEN'),
+    ],
+
+    'inventory' => [
+        'driver' => env('INVENTORY_SERVICE_DRIVER', 'local'),
+        'url' => env('INVENTORY_SERVICE_URL'),
+        'token' => env('INVENTORY_SERVICE_TOKEN'),
+    ],
+
 ];

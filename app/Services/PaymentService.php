@@ -42,7 +42,9 @@ class PaymentService
             $lockedClient->saldo = $balance - $amount;
             $lockedClient->save();
 
-            $this->applyToOldestSales($cobro, $amount);
+            if (config('services.sales.driver') === 'local') {
+                $this->applyToOldestSales($cobro, $amount);
+            }
 
             return $cobro;
         });

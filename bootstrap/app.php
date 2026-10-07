@@ -1,5 +1,8 @@
 <?php
 
+use App\Http\Middleware\AuthenticateApiRequest;
+use App\Http\Middleware\EnsureApiAudience;
+use App\Http\Middleware\EnsureApiUser;
 use App\Http\Middleware\EnsureCurrentSession;
 use App\Http\Middleware\EnsureRole;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -11,6 +14,7 @@ use Illuminate\Http\Request;
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
+        api: __DIR__.'/../routes/api.php',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
@@ -18,6 +22,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'session.current' => EnsureCurrentSession::class,
             'role' => EnsureRole::class,
+            'api.access' => AuthenticateApiRequest::class,
+            'api.audience' => EnsureApiAudience::class,
+            'api.user' => EnsureApiUser::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

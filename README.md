@@ -206,3 +206,7 @@ legacy/           Copia de referencia del PHP procedural
 Configurar credenciales reales en `.env`, utilizar `APP_DEBUG=false`, habilitar HTTPS y definir `SESSION_SECURE_COOKIE=true`. Nunca subir `.env` al repositorio.
 
 El detalle completo de la migración está en [MIGRATION.md](MIGRATION.md).
+
+## Integración entre grupos
+
+La API JSON del Grupo 1, los contratos esperados de Ventas e Inventario y la configuración de adaptadores `local`/`http` se documentan en [docs/integracion-microservicios.md](docs/integracion-microservicios.md). El login API es publico; las demas rutas aceptan un token de usuario o, segun sus permisos, `INTERNAL_API_TOKEN`. Ningun token debe incluirse en el repositorio.

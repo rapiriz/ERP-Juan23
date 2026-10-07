@@ -2,10 +2,16 @@
 
 namespace App\Providers;
 
+use App\Contracts\InventoryGateway;
+use App\Contracts\SalesGateway;
 use App\Models\Cliente;
 use App\Models\Reclamo;
 use App\Policies\ClientePolicy;
 use App\Policies\ReclamoPolicy;
+use App\Services\Gateways\HttpInventoryGateway;
+use App\Services\Gateways\HttpSalesGateway;
+use App\Services\Gateways\LocalInventoryGateway;
+use App\Services\Gateways\LocalSalesGateway;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -16,7 +22,17 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(SalesGateway::class, fn ($app) => $app->make(match (config('services.sales.driver')) {
+            'local' => LocalSalesGateway::class,
+            'http' => HttpSalesGateway::class,
+            default => throw new \InvalidArgumentException('SALES_SERVICE_DRIVER debe ser local o http.'),
+        }));
+
+        $this->app->bind(InventoryGateway::class, fn ($app) => $app->make(match (config('services.inventory.driver')) {
+            'local' => LocalInventoryGateway::class,
+            'http' => HttpInventoryGateway::class,
+            default => throw new \InvalidArgumentException('INVENTORY_SERVICE_DRIVER debe ser local o http.'),
+        }));
     }
 
     /**

@@ -45,7 +45,7 @@ if ($isAdmin) {
 <body class="erp-body">
     <aside class="sidebar">
         <div class="sidebar-brand">
-            <strong>Varela ERP</strong>
+            <strong>PyB Pigue ERP</strong>
             <span>Distribuidora comercial</span>
         </div>
 
