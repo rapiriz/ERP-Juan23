@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -13,22 +14,25 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <style>
         :root {
-            --bg:            #EBF4FC;
-            --sidebar-1:     #1E40AF;
-            --sidebar-2:     #1D4ED8;
-            --sidebar-3:     #1E3A8A;
-            --primary:       #0D6EFD;
+            --bg: #EBF4FC;
+            --sidebar-1: #1E40AF;
+            --sidebar-2: #1D4ED8;
+            --sidebar-3: #1E3A8A;
+            --primary: #0D6EFD;
             --primary-hover: #0b5ed7;
-            --danger:        #DC2626;
-            --text:          #1E293B;
-            --muted:         #64748B;
-            --card:          rgba(255, 255, 255, 0.85);
-            --border:        #E2E8F0;
+            --danger: #DC2626;
+            --text: #1E293B;
+            --muted: #64748B;
+            --card: rgba(255, 255, 255, 0.85);
+            --border: #E2E8F0;
         }
 
-        * { box-sizing: border-box; }
+        * {
+            box-sizing: border-box;
+        }
 
-        html, body {
+        html,
+        body {
             margin: 0;
             padding: 0;
             font-family: 'Inter', system-ui, sans-serif;
@@ -61,6 +65,7 @@
             letter-spacing: .3px;
             line-height: 1.2;
         }
+
         .sidebar-brand small {
             display: block;
             font-weight: 400;
@@ -88,14 +93,17 @@
             font-size: .95rem;
             transition: background .15s ease, transform .15s ease;
         }
+
         .sidebar-link:hover {
             background: rgba(255, 255, 255, 0.12);
             transform: translateX(2px);
         }
+
         .sidebar-link.active {
             background: rgba(255, 255, 255, 0.22);
             font-weight: 600;
         }
+
         .sidebar-link .ico {
             width: 22px;
             text-align: center;
@@ -148,21 +156,33 @@
             color: #fff;
             box-shadow: 5px 5px 12px rgba(13, 110, 253, 0.3);
         }
-        .clay-btn-primary:hover { background: var(--primary-hover); transform: translateY(-2px); }
+
+        .clay-btn-primary:hover {
+            background: var(--primary-hover);
+            transform: translateY(-2px);
+        }
 
         .clay-btn-secondary {
             background: #fff;
             color: var(--text);
             border: 1px solid var(--border);
         }
-        .clay-btn-secondary:hover { background: #f8fafc; transform: translateY(-2px); }
+
+        .clay-btn-secondary:hover {
+            background: #f8fafc;
+            transform: translateY(-2px);
+        }
 
         .clay-btn-danger {
             background: var(--danger);
             color: #fff;
             box-shadow: 5px 5px 12px rgba(220, 38, 38, 0.3);
         }
-        .clay-btn-danger:hover { background: #b91c1c; transform: translateY(-2px); }
+
+        .clay-btn-danger:hover {
+            background: #b91c1c;
+            transform: translateY(-2px);
+        }
 
         .clay-btn-primary:disabled,
         .clay-btn-secondary:disabled,
@@ -184,6 +204,7 @@
             font-size: 1rem;
             color: var(--text);
         }
+
         .clay-input:focus {
             outline: 4px solid var(--primary);
             outline-offset: 2px;
@@ -200,10 +221,13 @@
         }
 
         /* ---------- Utilidades ---------- */
-        .muted { color: var(--muted); }
+        .muted {
+            color: var(--muted);
+        }
     </style>
     @stack('styles')
 </head>
+
 <body>
     <div class="app-layout">
         @include('partials.sidebar')
@@ -213,4 +237,5 @@
     </div>
     @stack('scripts')
 </body>
+
 </html>
