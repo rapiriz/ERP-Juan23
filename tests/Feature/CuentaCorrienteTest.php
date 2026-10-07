@@ -20,6 +20,7 @@ class CuentaCorrienteTest extends TestCase
             $table->unsignedInteger('id_cliente');
             $table->date('fecha');
             $table->decimal('total', 10, 0);
+            $table->decimal('descuento_global', 10, 2)->default(0);
             $table->string('numFactura', 50);
             $table->string('estado');
             $table->string('observaciones', 150);
@@ -62,6 +63,7 @@ class CuentaCorrienteTest extends TestCase
         $this->postJson('/ventas', [
             'cliente_id' => 915736,
             'lista' => 'mayorista',
+            'observaciones' => 'Entregar el viernes por la mañana.',
             'items' => [
                 ['id' => 1, 'cantidad' => 2, 'descuento' => 0],
             ],
@@ -73,6 +75,7 @@ class CuentaCorrienteTest extends TestCase
         $this->assertDatabaseHas('venta', [
             'id_cliente' => 915736,
             'total' => 4400,
+            'observaciones' => 'Entregar el viernes por la mañana.',
             'id_usuario' => 1,
         ]);
         $this->assertDatabaseHas('detalle_venta', [
@@ -92,6 +95,54 @@ class CuentaCorrienteTest extends TestCase
             ->assertOk()
             ->assertSee('Venta POS #1')
             ->assertSee('"monto":-4400', false);
+    }
+
+    public function test_sale_applies_global_discount_after_per_item_discounts_and_saves_final_total(): void
+    {
+        $this->postJson('/ventas', [
+            'cliente_id' => 915736,
+            'lista' => 'mayorista',
+            'descuento_global' => ['modo' => 'porcentaje', 'valor' => 10],
+            'items' => [
+                ['id' => 1, 'cantidad' => 2, 'descuento' => 200],
+            ],
+        ])
+            ->assertCreated()
+            ->assertJsonPath('descuento_global', 400)
+            ->assertJsonPath('total', 3600);
+
+        $this->assertDatabaseHas('venta', [
+            'id_venta' => 1,
+            'descuento_global' => 400,
+            'total' => 3600,
+        ]);
+        $this->assertDatabaseHas('detalle_venta', [
+            'id_venta' => 1,
+            'precio_unitario' => 2200,
+            'cantidad' => 2,
+            'descuento' => 200,
+            'subtotal' => 4000,
+        ]);
+        $this->assertDatabaseHas('cuenta_corriente_movimientos', [
+            'venta_id' => 1,
+            'importe' => -3600,
+        ]);
+    }
+
+    public function test_sale_rejects_global_percentage_above_one_hundred(): void
+    {
+        $this->postJson('/ventas', [
+            'cliente_id' => 915736,
+            'lista' => 'mayorista',
+            'descuento_global' => ['modo' => 'porcentaje', 'valor' => 101],
+            'items' => [
+                ['id' => 1, 'cantidad' => 1, 'descuento' => 0],
+            ],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('descuento_global.valor');
+
+        $this->assertDatabaseCount('venta', 0);
     }
 
     public function test_sale_rejects_clients_outside_the_mock_customer_api(): void

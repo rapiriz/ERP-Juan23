@@ -33,10 +33,14 @@ class VentaController extends Controller
         $datos = $request->validate([
             'cliente_id' => ['required', 'integer'],
             'lista' => ['required', Rule::in(['minorista', 'mayorista'])],
+            'observaciones' => ['nullable', 'string', 'max:150'],
             'items' => ['required', 'array', 'min:1', 'max:100'],
             'items.*.id' => ['required', 'integer', Rule::in(array_column(self::PRODUCTOS, 'id'))],
             'items.*.cantidad' => ['required', 'integer', 'min:1', 'max:9999'],
-            'items.*.descuento' => ['required', 'integer', 'min:0'],
+            'items.*.descuento' => ['required', 'numeric', 'min:0'],
+            'descuento_global' => ['sometimes', 'array'],
+            'descuento_global.modo' => ['required_with:descuento_global', Rule::in(['porcentaje', 'monto'])],
+            'descuento_global.valor' => ['required_with:descuento_global', 'numeric', 'min:0'],
         ]);
         $cliente = $clientes->buscar((int) $datos['cliente_id']);
 
@@ -50,7 +54,7 @@ class VentaController extends Controller
         $lista = $datos['lista'] === 'mayorista' ? 'precioMay' : 'precioMin';
         foreach ($datos['items'] as $indice => $item) {
             $producto = $productos->get((int) $item['id']);
-            if ((int) $item['descuento'] > (int) $producto[$lista]) {
+            if ((float) $item['descuento'] > (float) $producto[$lista]) {
                 throw ValidationException::withMessages([
                     "items.{$indice}.descuento" => ['El descuento no puede superar el precio unitario actual.'],
                 ]);
@@ -60,8 +64,8 @@ class VentaController extends Controller
         $detalles = collect($datos['items'])->map(function (array $item) use ($productos, $lista): array {
             $producto = $productos->get((int) $item['id']);
             $precio = (int) $producto[$lista];
-            $descuento = (int) $item['descuento'];
-            $subtotal = (int) $item['cantidad'] * ($precio - $descuento);
+            $descuento = round((float) $item['descuento'], 2);
+            $subtotal = round((int) $item['cantidad'] * ($precio - $descuento), 2);
 
             return [
                 'id_producto' => $producto['id'],
@@ -71,7 +75,20 @@ class VentaController extends Controller
                 'subtotal' => $subtotal,
             ];
         });
-        $total = $detalles->sum('subtotal');
+        $subtotalConDescuentosDeLinea = round($detalles->sum('subtotal'), 2);
+        $descuentoGlobal = $datos['descuento_global'] ?? ['modo' => 'monto', 'valor' => 0];
+        $valorDescuentoGlobal = (float) $descuentoGlobal['valor'];
+
+        if ($descuentoGlobal['modo'] === 'porcentaje' && $valorDescuentoGlobal > 100) {
+            throw ValidationException::withMessages([
+                'descuento_global.valor' => ['El porcentaje de descuento global debe estar entre 0 y 100.'],
+            ]);
+        }
+
+        $montoDescuentoGlobal = $descuentoGlobal['modo'] === 'porcentaje'
+            ? round($subtotalConDescuentosDeLinea * $valorDescuentoGlobal / 100, 2)
+            : round(min($valorDescuentoGlobal, $subtotalConDescuentosDeLinea), 2);
+        $total = round($subtotalConDescuentosDeLinea - $montoDescuentoGlobal, 2);
 
         if ($total <= 0) {
             throw ValidationException::withMessages([
@@ -79,14 +96,17 @@ class VentaController extends Controller
             ]);
         }
 
-        $ventaId = DB::transaction(function () use ($cliente, $detalles, $total): int {
+        $observaciones = trim($datos['observaciones'] ?? '') ?: 'Venta POS a cuenta corriente';
+
+        $ventaId = DB::transaction(function () use ($cliente, $detalles, $total, $montoDescuentoGlobal, $observaciones): int {
             $ventaId = DB::table('venta')->insertGetId([
                 'id_cliente' => $cliente['id'],
                 'fecha' => now()->toDateString(),
                 'total' => $total,
+                'descuento_global' => $montoDescuentoGlobal,
                 'numFactura' => 'POS-'.Str::ulid(),
                 'estado' => 'confirmada',
-                'observaciones' => 'Venta POS a cuenta corriente',
+                'observaciones' => $observaciones,
                 'id_usuario' => config('cuenta_corriente.id_usuario_prueba'),
             ], 'id_venta');
 
@@ -119,6 +139,7 @@ class VentaController extends Controller
             'mensaje' => 'Venta registrada y cargada a la cuenta corriente.',
             'venta_id' => $ventaId,
             'cliente_id' => $cliente['id'],
+            'descuento_global' => $montoDescuentoGlobal,
             'total' => $total,
         ], 201);
     }

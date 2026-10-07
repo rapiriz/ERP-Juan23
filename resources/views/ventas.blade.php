@@ -849,9 +849,9 @@
                     id="cobroObservaciones"
                     class="cobro-textarea"
                     rows="3"
-                    maxlength="500"
+                    maxlength="150"
                     placeholder="Ej: cliente retira mañana, pago con transferencia, etc."></textarea>
-                <span class="cobro-contador"><span id="cobroContador">0</span>/500</span>
+                <span class="cobro-contador"><span id="cobroContador">0</span>/150</span>
             </div>
 
             <div class="modal-desc-footer">
@@ -1245,6 +1245,11 @@
                 body: JSON.stringify({
                     cliente_id: Number($('clienteVenta').value),
                     lista: listaActual,
+                    observaciones: cobroObservaciones.value.trim(),
+                    descuento_global: {
+                        modo: descuentoGlobal.modo,
+                        valor: Number(descuentoGlobal.valor) || 0
+                    },
                     items: carrito.map(item => ({
                         id: item.id,
                         cantidad: item.cantidad,
