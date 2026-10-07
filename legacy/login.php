@@ -29,7 +29,7 @@ if ($reason === 'session_replaced') {
     <main class="auth-shell">
         <section class="auth-card" aria-labelledby="login-title">
             <div class="brand-block">
-                <span class="brand-mark">SG</span>
+                <span class="brand-mark">PyB</span>
                 <div>
                     <h1 id="login-title">Iniciar sesion</h1>
                     <p>Sistema de gestion comercial</p>

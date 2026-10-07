@@ -10,7 +10,7 @@
     <main class="auth-shell">
         <section class="auth-card" aria-labelledby="code-title">
             <div class="brand-block">
-                <span class="brand-mark">SG</span>
+                <span class="brand-mark">PyB</span>
                 <div>
                     <h1 id="code-title">Ingrese el código</h1>
                     <p>Enviado a {{ $email }}. Vence en 15 minutos.</p>

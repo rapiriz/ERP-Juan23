@@ -10,7 +10,7 @@
     <main class="auth-shell">
         <section class="auth-card" aria-labelledby="recovery-title">
             <div class="brand-block">
-                <span class="brand-mark">SG</span>
+                <span class="brand-mark">PyB</span>
                 <div>
                     <h1 id="recovery-title">Recuperar contraseña</h1>
                     <p>Le enviaremos un código temporal.</p>

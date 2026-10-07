@@ -10,7 +10,7 @@
     <main class="auth-shell">
         <section class="auth-card" aria-labelledby="reset-title">
             <div class="brand-block">
-                <span class="brand-mark">SG</span>
+                <span class="brand-mark">PyB</span>
                 <div>
                     <h1 id="reset-title">Nueva contraseña</h1>
                     <p>Use al menos 8 caracteres.</p>

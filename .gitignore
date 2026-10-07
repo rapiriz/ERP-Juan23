@@ -3,7 +3,6 @@
 /.laravel-build
 /.tools
 /node_modules
-/public/build
 /storage/*.key
 /storage/pail
 /vendor
