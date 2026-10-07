@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Schema\Blueprint;
 use Tests\TestCase;
@@ -41,21 +42,59 @@ class CuentaCorrienteTest extends TestCase
 
     public function test_partial_payment_is_saved_and_cannot_exceed_the_debt(): void
     {
-        $this->postJson('/saldo/472891/pagos', ['monto' => 5000])
+        $respuesta = $this->postJson('/saldo/472891/movimientos', [
+            'tipo' => 'pago',
+            'metodo_pago' => 'Efectivo',
+            'monto' => 5000,
+        ])
             ->assertCreated()
             ->assertJsonPath('saldo', -10000)
-            ->assertJsonPath('movimiento.monto', 5000);
+            ->assertJsonPath('movimiento.monto', 5000)
+            ->assertJsonPath('movimiento.referencia_externa', 'Efectivo');
+
+        $fechaMovimiento = $respuesta->json('movimiento.fecha');
+        $this->assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $fechaMovimiento);
+        $this->assertSame(
+            $fechaMovimiento,
+            DB::table('cuenta_corriente_movimientos')->value('created_at')
+        );
 
         $this->assertDatabaseHas('cuenta_corriente_movimientos', [
             'cliente_id' => 472891,
             'tipo' => 'pago',
             'importe' => 5000,
+            'referencia_externa' => 'Efectivo',
         ]);
 
-        $this->postJson('/saldo/472891/pagos', ['monto' => 10000.01])
+        $this->postJson('/saldo/472891/movimientos', [
+            'tipo' => 'pago',
+            'metodo_pago' => 'Transferencia',
+            'monto' => 10000.01,
+        ])
             ->assertUnprocessable();
 
         $this->assertDatabaseCount('cuenta_corriente_movimientos', 1);
+    }
+
+    public function test_credit_note_adds_positive_balance_without_payment_method(): void
+    {
+        $this->postJson('/saldo/915736/movimientos', [
+            'tipo' => 'nota_credito',
+            'monto' => 2500,
+        ])
+            ->assertCreated()
+            ->assertJsonPath('saldo', 2500)
+            ->assertJsonPath('movimiento.descripcion', 'Nota de crédito')
+            ->assertJsonPath('movimiento.referencia_externa', null);
+
+        $this->assertDatabaseHas('cuenta_corriente_movimientos', [
+            'cliente_id' => 915736,
+            'venta_id' => null,
+            'tipo' => 'nota_credito',
+            'descripcion' => 'Nota de crédito',
+            'importe' => 2500,
+            'referencia_externa' => null,
+        ]);
     }
 
     public function test_sale_is_saved_and_decreases_the_selected_customer_balance(): void

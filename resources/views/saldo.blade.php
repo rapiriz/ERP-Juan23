@@ -88,23 +88,41 @@
         line-height: 1.3;
     }
     .resumen-monto span:last-child { display: block; font-size: .8rem; }
-    .pago-form {
-        display: grid;
-        grid-template-columns: 1fr auto;
-        gap: .75rem;
+    .gestion-movimiento {
+        display: flex;
         align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
         padding: .75rem;
-        border: 1px solid #fecaca;
+        border: 1px solid var(--border);
         border-radius: 14px;
-        background: #fff5f5;
+        background: #f8fafc;
     }
-    .pago-form.sin-deuda { border-color: var(--border); background: #f8fafc; }
-    .pago-controls { display: flex; gap: .65rem; min-width: 0; }
-    .pago-controls input { min-width: 0; min-height: 42px; background: #fff; }
-    .pago-controls button { min-height: 42px; padding: 0 1rem; white-space: nowrap; }
-    .pago-titulo { grid-column: 1 / -1; color: var(--danger); font-size: .85rem; font-weight: 700; }
-    .pago-form.sin-deuda .pago-titulo { color: var(--muted); }
-    .pago-feedback { grid-column: 1 / -1; margin: 0; font-size: .82rem; }
+    .gestion-movimiento p { margin: 0; color: var(--muted); font-size: .85rem; }
+    .movimiento-dialog {
+        position: fixed;
+        inset: 50% auto auto 50%;
+        transform: translate(-50%, -50%);
+        max-height: calc(100dvh - 2rem);
+        overflow-y: auto;
+        width: min(440px, calc(100% - 2rem));
+        margin: 0;
+        padding: 0;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        box-shadow: 0 20px 60px rgba(15, 23, 42, .25);
+    }
+    .movimiento-dialog::backdrop { background: rgba(15, 23, 42, .48); }
+    .movimiento-dialog form { display: grid; gap: 1rem; padding: 1.25rem; }
+    .movimiento-dialog h2 { margin: 0; font-size: 1.05rem; }
+    .movimiento-dialog .cliente-gestion { margin: -.5rem 0 0; color: var(--muted); font-size: .9rem; }
+    .movimiento-dialog label { display: grid; gap: .35rem; font-size: .83rem; font-weight: 700; }
+    .movimiento-dialog input,
+    .movimiento-dialog select { width: 100%; min-height: 42px; background: #fff; }
+    .movimiento-dialog .ayuda { margin: -.6rem 0 0; color: var(--muted); font-size: .78rem; }
+    .movimiento-dialog .modal-acciones { display: flex; justify-content: flex-end; gap: .6rem; }
+    .movimiento-dialog .modal-acciones button { min-height: 40px; padding: 0 1rem; }
+    .pago-feedback { margin: 0; font-size: .82rem; }
     .pago-feedback.success { color: #008a35; }
     .pago-feedback.error { color: var(--danger); }
     .movimientos-card { padding: 0; overflow: hidden; }
@@ -145,10 +163,10 @@
         .resumen-monto { text-align: left; }
     }
     @media (max-width: 520px) {
-        .pago-form { grid-template-columns: 1fr; }
-        .pago-titulo { grid-column: auto; }
-        .pago-controls { flex-direction: column; }
-        .pago-controls button { width: 100%; }
+        .gestion-movimiento { align-items: stretch; flex-direction: column; }
+        .gestion-movimiento button { width: 100%; }
+        .movimiento-dialog .modal-acciones { flex-direction: column-reverse; }
+        .movimiento-dialog .modal-acciones button { width: 100%; }
     }
 </style>
 @endpush
@@ -189,15 +207,13 @@
                     </div>
                 </header>
 
-                <form class="pago-form" id="formPago">
-                    <label class="pago-titulo" id="tituloPago" for="montoPago">Registrar pago de deuda</label>
-                    <div class="pago-controls">
-                        <input id="montoPago" class="clay-input" type="number" min="0.01" step="0.01"
-                            inputmode="decimal" placeholder="Monto a pagar..." aria-label="Monto a pagar" required>
-                        <button class="clay-btn-primary" id="btnPagar" type="submit">✓ PAGAR</button>
-                    </div>
-                    <p class="pago-feedback" id="pagoFeedback" role="status" aria-live="polite" hidden></p>
-                </form>
+                <div class="gestion-movimiento">
+                    <p>Registrar un pago recibido o agregar una nota de crédito al cliente.</p>
+                    <button class="clay-btn-primary" id="btnGestionarMovimiento" type="button">
+                        Gestionar movimiento
+                    </button>
+                </div>
+                <p class="pago-feedback" id="pagoFeedback" role="status" aria-live="polite" hidden></p>
 
                 <section class="clay-card movimientos-card" aria-label="Movimientos de cuenta">
                     <header class="movimientos-title">Movimientos de cuenta</header>
@@ -208,6 +224,7 @@
                                     <th>Fecha</th>
                                     <th>Descripción</th>
                                     <th>Venta</th>
+                                    <th>Método</th>
                                     <th style="text-align:right;">Monto</th>
                                     <th style="text-align:right;">Saldo</th>
                                 </tr>
@@ -222,13 +239,52 @@
             </div>
         </section>
     </div>
+
+    <dialog class="movimiento-dialog" id="modalMovimiento" aria-labelledby="tituloModalMovimiento">
+        <form id="formMovimiento">
+            <h2 id="tituloModalMovimiento">Gestionar movimiento</h2>
+            <p class="cliente-gestion">Cliente: <strong id="clienteGestionMovimiento"></strong></p>
+            <label for="tipoMovimiento">
+                Movimiento
+                <select id="tipoMovimiento" class="clay-input" required>
+                    <option value="pago">Registrar pago de deuda</option>
+                    <option value="nota_credito">Agregar nota de crédito</option>
+                </select>
+            </label>
+            <div id="contenedorMetodoPago">
+                <label for="metodoPago">
+                    Método de pago
+                    <select id="metodoPago" class="clay-input" required>
+                        <option value="" selected disabled>Seleccioná un método</option>
+                        <option>Tarjeta de débito</option>
+                        <option>Tarjeta de crédito</option>
+                        <option>Efectivo</option>
+                        <option>Cheque</option>
+                        <option>Transferencia</option>
+                        <option>QR</option>
+                    </select>
+                </label>
+            </div>
+            <label for="montoMovimiento">
+                Monto
+                <input id="montoMovimiento" class="clay-input" type="number" min="0.01" step="0.01"
+                    inputmode="decimal" placeholder="Ingresá el monto" required>
+            </label>
+            <p class="ayuda" id="ayudaMovimiento"></p>
+            <p class="pago-feedback error" id="errorMovimiento" role="alert" hidden></p>
+            <div class="modal-acciones">
+                <button class="clay-btn-secondary" id="cancelarMovimiento" type="button">Cancelar</button>
+                <button class="clay-btn-primary" id="confirmarMovimiento" type="submit">Guardar</button>
+            </div>
+        </form>
+    </dialog>
 </div>
 @endsection
 
 @push('scripts')
 <script>
     const CLIENTES = @json($clientes);
-    const URL_PAGOS = @json(route('saldo.pagos', ['cliente' => '__CLIENTE__']));
+    const URL_MOVIMIENTOS = @json(route('saldo.movimientos', ['cliente' => '__CLIENTE__']));
     const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]').content;
     const $ = (id) => document.getElementById(id);
     const moneda = new Intl.NumberFormat('es-AR', {
@@ -299,6 +355,7 @@
                     <td class="fecha">${escaparHtml(movimiento.fecha)}</td>
                     <td>${escaparHtml(movimiento.descripcion)}</td>
                     <td>${movimiento.venta_id ? `#${escaparHtml(movimiento.venta_id)}` : '—'}</td>
+                    <td>${escaparHtml(movimiento.referencia_externa || '—')}</td>
                     <td class="importe ${claseSaldo(movimiento.monto)}">${formatoMovimiento(Number(movimiento.monto))}</td>
                     <td class="saldo ${claseSaldo(saldoAcumulado)}">${formatoSaldo(saldoAcumulado)}</td>
                 </tr>
@@ -321,11 +378,6 @@
         $('saldoActual').className = claseSaldo(saldo);
         $('estadoSaldo').textContent = hayDeuda ? 'Deuda pendiente' : saldo > 0 ? 'Saldo a favor' : 'Sin deuda pendiente';
         $('estadoSaldo').className = claseSaldo(saldo);
-        $('formPago').classList.toggle('sin-deuda', !hayDeuda);
-        $('tituloPago').textContent = hayDeuda ? 'Registrar pago de deuda' : 'No hay deuda pendiente';
-        $('montoPago').max = hayDeuda ? Math.abs(saldo).toFixed(2) : '';
-        $('montoPago').disabled = !hayDeuda;
-        $('btnPagar').disabled = !hayDeuda;
         $('pagoFeedback').hidden = true;
         $('pagoFeedback').textContent = '';
         renderMovimientos();
@@ -336,7 +388,6 @@
         const boton = evento.target.closest('[data-cliente-id]');
         if (!boton) return;
         clienteSeleccionado = CLIENTES.find(cliente => cliente.id === Number(boton.dataset.clienteId));
-        $('montoPago').value = '';
         renderDetalle();
     });
 
@@ -344,56 +395,88 @@
         renderClientes(evento.target.value);
     });
 
-    $('formPago').addEventListener('submit', async evento => {
+    const modalMovimiento = $('modalMovimiento');
+    const tipoMovimiento = $('tipoMovimiento');
+    const montoMovimiento = $('montoMovimiento');
+    const botonGuardarMovimiento = $('confirmarMovimiento');
+
+    function actualizarAyudaMovimiento() {
+        const esPago = tipoMovimiento.value === 'pago';
+        const saldo = clienteSeleccionado ? saldoDe(clienteSeleccionado) : 0;
+        $('contenedorMetodoPago').hidden = !esPago;
+        $('metodoPago').required = esPago;
+        montoMovimiento.max = esPago && saldo < 0 ? Math.abs(saldo).toFixed(2) : '';
+        $('ayudaMovimiento').textContent = esPago && saldo < 0
+            ? `El pago no puede superar la deuda de ${formatoSaldo(Math.abs(saldo))}.`
+            : esPago
+                ? 'Este cliente no tiene deuda pendiente; elegí nota de crédito para agregar saldo a favor.'
+                : 'La nota de crédito se suma al saldo de la cuenta.';
+    }
+
+    $('btnGestionarMovimiento').addEventListener('click', () => {
+        if (!clienteSeleccionado) return;
+        $('clienteGestionMovimiento').textContent = clienteSeleccionado.nombre;
+        $('formMovimiento').reset();
+        $('errorMovimiento').hidden = true;
+        actualizarAyudaMovimiento();
+        modalMovimiento.showModal();
+        montoMovimiento.focus();
+    });
+
+    $('cancelarMovimiento').addEventListener('click', () => modalMovimiento.close());
+    tipoMovimiento.addEventListener('change', actualizarAyudaMovimiento);
+
+    $('formMovimiento').addEventListener('submit', async evento => {
         evento.preventDefault();
         if (!clienteSeleccionado) return;
 
-        const monto = Number($('montoPago').value);
-        const deudaPendiente = Math.abs(Math.min(saldoDe(clienteSeleccionado), 0));
-        const feedback = $('pagoFeedback');
-
-        if (!Number.isFinite(monto) || monto <= 0 || monto > deudaPendiente) {
-            feedback.textContent = `Ingresá un monto mayor a cero y no superior a ${formatoSaldo(deudaPendiente)}.`;
-            feedback.className = 'pago-feedback error';
-            feedback.hidden = false;
-            return;
-        }
-
-        const boton = $('btnPagar');
-        boton.disabled = true;
-        feedback.textContent = 'Registrando pago...';
-        feedback.className = 'pago-feedback';
-        feedback.hidden = false;
+        const tipo = tipoMovimiento.value;
+        const monto = Number(montoMovimiento.value);
+        const metodoPago = $('metodoPago').value;
+        const errorMovimientoElement = $('errorMovimiento');
+        botonGuardarMovimiento.disabled = true;
+        errorMovimientoElement.textContent = '';
+        errorMovimientoElement.hidden = true;
 
         try {
-            const respuesta = await fetch(URL_PAGOS.replace('__CLIENTE__', clienteSeleccionado.id), {
+            const respuesta = await fetch(URL_MOVIMIENTOS.replace('__CLIENTE__', clienteSeleccionado.id), {
                 method: 'POST',
                 headers: {
                     'Accept': 'application/json',
                     'Content-Type': 'application/json',
                     'X-CSRF-TOKEN': CSRF_TOKEN
                 },
-                body: JSON.stringify({ monto })
+                body: JSON.stringify({
+                    tipo,
+                    monto,
+                    ...(tipo === 'pago' ? { metodo_pago: metodoPago } : {})
+                })
             });
             const resultado = await respuesta.json();
 
             if (!respuesta.ok) {
-                const mensaje = resultado.errors?.monto?.[0] || resultado.message || 'No se pudo registrar el pago.';
+                const mensaje = resultado.errors?.monto?.[0]
+                    || resultado.errors?.metodo_pago?.[0]
+                    || resultado.errors?.tipo?.[0]
+                    || resultado.message
+                    || 'No se pudo guardar el movimiento.';
                 throw new Error(mensaje);
             }
 
             clienteSeleccionado.movimientos.push(resultado.movimiento);
-            $('montoPago').value = '';
+            modalMovimiento.close();
             renderDetalle();
-            feedback.textContent = 'Pago registrado en el historial.';
+            const feedback = $('pagoFeedback');
+            feedback.textContent = tipo === 'pago'
+                ? 'Pago registrado en el historial.'
+                : 'Nota de crédito registrada en el historial.';
             feedback.className = 'pago-feedback success';
             feedback.hidden = false;
         } catch (error) {
-            feedback.textContent = error.message || 'No se pudo registrar el pago.';
-            feedback.className = 'pago-feedback error';
-            feedback.hidden = false;
+            errorMovimientoElement.textContent = error.message || 'No se pudo guardar el movimiento.';
+            errorMovimientoElement.hidden = false;
         } finally {
-            boton.disabled = !clienteSeleccionado || saldoDe(clienteSeleccionado) >= 0;
+            botonGuardarMovimiento.disabled = false;
         }
     });
 

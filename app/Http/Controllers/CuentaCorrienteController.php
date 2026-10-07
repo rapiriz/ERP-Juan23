@@ -17,6 +17,7 @@ class CuentaCorrienteController extends Controller
         $persistidos = DB::table('cuenta_corriente_movimientos')
             ->whereIn('cliente_id', $ids)
             ->orderBy('created_at')
+            ->orderBy('id')
             ->get();
 
         foreach ($listado as &$cliente) {
@@ -26,6 +27,7 @@ class CuentaCorrienteController extends Controller
                     'descripcion' => $movimiento->descripcion,
                     'monto' => (float) $movimiento->importe,
                     'venta_id' => $movimiento->venta_id,
+                    'referencia_externa' => $movimiento->referencia_externa,
                 ])
                 ->all();
 
@@ -36,9 +38,15 @@ class CuentaCorrienteController extends Controller
         return view('saldo', ['clientes' => $listado]);
     }
 
-    public function pagar(Request $request, int $cliente, MockClienteApi $clientes): JsonResponse
+    public function registrarMovimiento(Request $request, int $cliente, MockClienteApi $clientes): JsonResponse
     {
         $datos = $request->validate([
+            'tipo' => ['required', 'in:pago,nota_credito'],
+            'metodo_pago' => [
+                'nullable',
+                'required_if:tipo,pago',
+                'in:Tarjeta de débito,Tarjeta de crédito,Efectivo,Cheque,Transferencia,QR',
+            ],
             'monto' => ['required', 'numeric', 'min:0.01', 'max:9999999999.99'],
         ]);
         $clienteApi = $clientes->buscar($cliente);
@@ -56,29 +64,34 @@ class CuentaCorrienteController extends Controller
             $saldo = array_sum(array_column($clienteApi['movimientos'], 'monto'))
                 + (float) $movimientos->sum('importe');
             $monto = round((float) $datos['monto'], 2);
+            $tipo = $datos['tipo'];
 
-            if ($saldo >= 0 || $monto > abs($saldo)) {
+            if ($tipo === 'pago' && ($saldo >= 0 || $monto > abs($saldo))) {
                 throw ValidationException::withMessages([
                     'monto' => ['El pago no puede superar la deuda pendiente del cliente.'],
                 ]);
             }
 
+            $descripcion = $tipo === 'pago' ? 'Pago de cuenta' : 'Nota de crédito';
+            $fecha = now();
             $id = DB::table('cuenta_corriente_movimientos')->insertGetId([
                 'cliente_id' => $cliente,
                 'venta_id' => null,
-                'tipo' => 'pago',
-                'descripcion' => 'Pago parcial de cuenta',
+                'tipo' => $tipo,
+                'descripcion' => $descripcion,
                 'importe' => $monto,
-                'created_at' => now(),
-                'updated_at' => now(),
+                'referencia_externa' => $datos['metodo_pago'] ?? null,
+                'created_at' => $fecha,
+                'updated_at' => $fecha,
             ]);
 
             return response()->json([
                 'movimiento' => [
-                    'fecha' => now()->toDateString(),
-                    'descripcion' => 'Pago parcial de cuenta',
+                    'fecha' => $fecha->toDateTimeString(),
+                    'descripcion' => $descripcion,
                     'monto' => $monto,
                     'venta_id' => null,
+                    'referencia_externa' => $datos['metodo_pago'] ?? null,
                 ],
                 'saldo' => round($saldo + $monto, 2),
                 'referencia' => $id,

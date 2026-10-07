@@ -10,4 +10,4 @@ Route::get('/promociones', [HomeController::class, 'promociones'])->name('promoc
 Route::get('/ventas', [VentaController::class, 'index'])->name('ventas');
 Route::post('/ventas', [VentaController::class, 'store'])->name('ventas.store');
 Route::get('/saldo', [CuentaCorrienteController::class, 'index'])->name('saldo');
-Route::post('/saldo/{cliente}/pagos', [CuentaCorrienteController::class, 'pagar'])->name('saldo.pagos');
+Route::post('/saldo/{cliente}/movimientos', [CuentaCorrienteController::class, 'registrarMovimiento'])->name('saldo.movimientos');
