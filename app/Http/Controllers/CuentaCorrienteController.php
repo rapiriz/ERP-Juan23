@@ -2,79 +2,87 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\MockClienteApi;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
+
 class CuentaCorrienteController extends Controller
 {
-    public function index()
+    public function index(MockClienteApi $clientes)
     {
-        $clientes = [
-            [
-                'id' => 1,
-                'nombre' => 'Supermercado El Norte SRL',
-                'cuit' => '30-71234567-8',
-                'condicion' => 'Responsable Inscripto',
-                'domicilio' => 'Av. Mitre 450, Buenos Aires',
-                'movimientos' => [
-                    ['fecha' => '2026-06-01', 'descripcion' => 'Compra Factura #1045', 'monto' => -8500],
-                    ['fecha' => '2026-06-05', 'descripcion' => 'Pago parcial', 'monto' => 5000],
-                    ['fecha' => '2026-06-10', 'descripcion' => 'Compra Factura #1062', 'monto' => -11500],
-                ],
-            ],
-            [
-                'id' => 2,
-                'nombre' => 'Almacén Don Pedro',
-                'cuit' => '20-12345678-9',
-                'condicion' => 'Consumidor Final',
-                'domicilio' => 'Calle 9 123, Pigüé',
-                'movimientos' => [
-                    ['fecha' => '2026-06-12', 'descripcion' => 'Saldo a favor', 'monto' => 3500],
-                ],
-            ],
-            [
-                'id' => 3,
-                'nombre' => 'María González',
-                'cuit' => '27-98765432-1',
-                'condicion' => 'Consumidor Final',
-                'domicilio' => 'Buenos Aires',
-                'movimientos' => [],
-            ],
+        $listado = $clientes->todos();
+        $ids = array_column($listado, 'id');
+        $persistidos = DB::table('cuenta_corriente_movimientos')
+            ->whereIn('cliente_id', $ids)
+            ->orderBy('created_at')
+            ->get();
 
-             [
-                'id' => 4,
-                'nombre' => 'Tuvi S.A.',
-                'cuit' => '27-98762134-1',
-                'condicion' => 'Responsable Inscripto',
-                'domicilio' => 'Calle X 354, Carhué',
-                'movimientos' => [
-                    ['fecha' => '2026-06-10', 'descripcion' => 'Compra Factura #2389', 'monto' => -11500],
-                    ['fecha' => '2026-06-10', 'descripcion' => 'Compra Factura #3219', 'monto' => -30500],
-                    ['fecha' => '2026-06-10', 'descripcion' => 'Pago parcial', 'monto' => 2000]
-                ],
-            ],
-              [
-                'id' => 5,
-                'nombre' => 'Babau S.A.',
-                'cuit' => '27-98700002-8',
-                'condicion' => 'Responsable Inscripto',
-                'domicilio' => 'Calle 9 de Julio 101, Coronel Pringles',
-                'movimientos' => [
-                    ['fecha' => '2026-06-10', 'descripcion' => 'Compra Factura #3019', 'monto' => -33450.88],
-                    ['fecha' => '2026-06-10', 'descripcion' => 'Pago parcial', 'monto' => 15000],
-                ],
-            ],
+        foreach ($listado as &$cliente) {
+            $movimientos = $persistidos->where('cliente_id', $cliente['id'])
+                ->map(fn ($movimiento) => [
+                    'fecha' => $movimiento->created_at,
+                    'descripcion' => $movimiento->descripcion,
+                    'monto' => (float) $movimiento->importe,
+                    'venta_id' => $movimiento->venta_id,
+                ])
+                ->all();
 
-            [
-                'id' => 6,
-                'nombre' => 'WoW SRL',
-                'cuit' => '27-128700002-8',
-                'condicion' => 'Responsable Inscripto',
-                'domicilio' => 'Calle San Martín 1033, Pigüe',
-                'movimientos' => [
-                    ['fecha' => '2026-06-10', 'descripcion' => 'Compra Factura #3019', 'monto' => -40450],
-                    ['fecha' => '2026-06-10', 'descripcion' => 'Pago parcial', 'monto' => 9000],
-                ],
-            ],
-        ];
+            $cliente['movimientos'] = array_merge($cliente['movimientos'], $movimientos);
+        }
+        unset($cliente);
 
-        return view('saldo', compact('clientes'));
+        return view('saldo', ['clientes' => $listado]);
+    }
+
+    public function pagar(Request $request, int $cliente, MockClienteApi $clientes): JsonResponse
+    {
+        $datos = $request->validate([
+            'monto' => ['required', 'numeric', 'min:0.01', 'max:9999999999.99'],
+        ]);
+        $clienteApi = $clientes->buscar($cliente);
+
+        if ($clienteApi === null) {
+            return response()->json(['message' => 'El cliente no existe.'], 404);
+        }
+
+        return DB::transaction(function () use ($cliente, $clienteApi, $datos): JsonResponse {
+            $movimientos = DB::table('cuenta_corriente_movimientos')
+                ->where('cliente_id', $cliente)
+                ->lockForUpdate()
+                ->get();
+
+            $saldo = array_sum(array_column($clienteApi['movimientos'], 'monto'))
+                + (float) $movimientos->sum('importe');
+            $monto = round((float) $datos['monto'], 2);
+
+            if ($saldo >= 0 || $monto > abs($saldo)) {
+                throw ValidationException::withMessages([
+                    'monto' => ['El pago no puede superar la deuda pendiente del cliente.'],
+                ]);
+            }
+
+            $id = DB::table('cuenta_corriente_movimientos')->insertGetId([
+                'cliente_id' => $cliente,
+                'venta_id' => null,
+                'tipo' => 'pago',
+                'descripcion' => 'Pago parcial de cuenta',
+                'importe' => $monto,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            return response()->json([
+                'movimiento' => [
+                    'fecha' => now()->toDateString(),
+                    'descripcion' => 'Pago parcial de cuenta',
+                    'monto' => $monto,
+                    'venta_id' => null,
+                ],
+                'saldo' => round($saldo + $monto, 2),
+                'referencia' => $id,
+            ], 201);
+        });
     }
 }

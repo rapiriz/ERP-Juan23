@@ -55,13 +55,36 @@
         flex-direction: column;
         gap: .5rem;
         justify-content: center;
+        min-width: 230px;
     }
-    .acciones-cliente .clay-btn-secondary,
-    .acciones-cliente .clay-btn-primary {
+    .acciones-cliente label {
+        color: var(--muted);
+        font-size: .72rem;
+        font-weight: 700;
+        letter-spacing: .5px;
+        text-transform: uppercase;
+    }
+    .acciones-cliente select {
         width: 100%;
-        justify-content: flex-start;
+        min-height: 44px;
+        padding: 0 .7rem;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: #fff;
+        color: var(--text);
+        font: inherit;
+    }
+    .venta-feedback {
+        grid-column: 1 / -1;
+        margin: 0;
         font-size: .85rem;
-        padding: 0 1rem;
+    }
+    .venta-feedback.success { color: #008a35; }
+    .venta-feedback.error { color: var(--danger); }
+    @media (max-width: 900px) {
+        .venta-top { grid-template-columns: 1fr; }
+        .lista-toggle { flex-wrap: wrap; }
+        .acciones-cliente { min-width: 0; }
     }
 
     /* ---------- Buscador ---------- */
@@ -638,12 +661,9 @@
     <div class="clay-card venta-top">
         <div class="factura-box">
             <span class="label">Emitir factura a:</span>
-            <span class="cliente">Consumidor Final</span>
-            <span class="cuit">
-                CUIT: 11.111.111-1 &nbsp;·&nbsp;
-                <a href="#">Consumidor Final</a>
-            </span>
-            <span class="cuit">Domicilio/Localidad, Localidad</span>
+            <span class="cliente" id="nombreClienteVenta"></span>
+            <span class="cuit" id="cuitClienteVenta"></span>
+            <span class="cuit" id="domicilioClienteVenta"></span>
         </div>
 
         <div class="lista-toggle">
@@ -656,13 +676,14 @@
         </div>
 
         <div class="acciones-cliente">
-            <button type="button" class="clay-btn-secondary">
-                🔍 BUSCAR CLIENTE
-            </button>
-            <button type="button" class="clay-btn-primary">
-                👤 NUEVO CLIENTE (F1)
-            </button>
+            <label for="clienteVenta">Cliente (venta a cuenta corriente)</label>
+            <select id="clienteVenta" required>
+                @foreach ($clientes as $cliente)
+                    <option value="{{ $cliente['id'] }}">{{ $cliente['nombre'] }} — {{ $cliente['cuit'] }}</option>
+                @endforeach
+            </select>
         </div>
+        <p class="venta-feedback" id="ventaFeedback" role="status" aria-live="polite" hidden></p>
     </div>
 
     {{-- Buscador de productos --}}
@@ -845,6 +866,9 @@
 <script>
     // Datos que vienen del controlador (por ahora hardcodeados en VentaController)
     const PRODUCTOS = @json($productos);
+    const CLIENTES = @json($clientes);
+    const URL_VENTAS = @json(route('ventas.store'));
+    const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]').content;
 
     // ---------- Estado ----------
     let listaActual = 'minorista'; // o 'mayorista'
@@ -852,8 +876,21 @@
     let modoDescTemporal = 'porcentaje';
     let itemDescTarget = null; // null = descuento global; id = descuento de esa línea
     const carrito = []; // { id, codigo, nombre, cantidad, precioUnit, descuento }
+    let ventaEnCurso = false;
 
     const $ = (id) => document.getElementById(id);
+
+    function actualizarCliente() {
+        const cliente = CLIENTES.find(x => x.id === Number($('clienteVenta').value));
+        if (!cliente) return;
+
+        $('nombreClienteVenta').textContent = cliente.nombre;
+        $('cuitClienteVenta').textContent = `CUIT: ${cliente.cuit} · ${cliente.condicion}`;
+        $('domicilioClienteVenta').textContent = cliente.domicilio;
+    }
+
+    $('clienteVenta').addEventListener('change', actualizarCliente);
+    actualizarCliente();
 
     // ---------- Buscador ----------
     const input = $('buscadorProductos');
@@ -930,7 +967,9 @@
                 nombre: p.nombre,
                 cantidad: 1,
                 precioUnit: precioDe(p),
-                descuento: 0
+                descuentoMonto: 0,
+                descuentoInputModo: null,
+                descuentoInputValor: null
             });
         }
         render();
@@ -942,9 +981,10 @@
         render();
     }
     function descuentoLineaMonto(item) {
-    const bruto = item.cantidad * item.precioUnit;
-    // El descuento nunca puede superar el bruto de la línea
-    return Math.min(Math.max(item.descuentoMonto || 0, 0), bruto);
+        const descuento = Number(item.descuentoMonto) || 0;
+        const bruto = item.cantidad * item.precioUnit;
+
+        return Math.min(Math.max(descuento, 0), bruto);
     }
     function brutoLinea(item) {
     return item.cantidad * item.precioUnit;
@@ -1188,71 +1228,69 @@
     });
 
     // ---------- Confirmar cobro ----------
-    $('btnConfirmarCobro').addEventListener('click', () => {
+    $('btnConfirmarCobro').addEventListener('click', async () => {
         if (!carrito.length) return;
 
-        // --- Armar payload listo para el backend ---
-        const subtotalBruto   = getSubtotalBruto();
-        const descLineasTotal = getDescuentoLineasTotal();
-        const subtotalNetoLin = subtotalBruto - descLineasTotal;
-        const totalFinal      = calcularTotalConDescuento(subtotalNetoLin);
-        const descGlobalMonto = subtotalNetoLin - totalFinal;
+        const boton = $('btnConfirmarCobro');
+        boton.disabled = true;
 
-        const payload = {
-            // --- Cabecera VENTA ---
-            id_cliente: 1,                    // TODO: cliente seleccionado
-            id_usuario: 1,                    // TODO: usuario logueado
-            fecha: new Date().toISOString(),
-            total: Number(totalFinal.toFixed(2)),
-            numFactura: null,                 // se asigna al facturar
-            estado: 'pendiente',              // ajustá a tu enum
-            observaciones: cobroObservaciones.value.trim() || null,
+        try {
+            const respuesta = await fetch(URL_VENTAS, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': CSRF_TOKEN
+                },
+                body: JSON.stringify({
+                    cliente_id: Number($('clienteVenta').value),
+                    lista: listaActual,
+                    items: carrito.map(item => ({
+                        id: item.id,
+                        cantidad: item.cantidad,
 
-            // --- Info extra por si querés guardarla / mostrarla ---
-            descuento_global: Number(descGlobalMonto.toFixed(2)), // ver nota abajo
+                        // Siempre enviamos el descuento como monto fijo ($)
+                        descuento: Number(
+                            ((item.descuentoMonto || 0) / item.cantidad).toFixed(2)
+                        )
+                    }))
+                })
+            });
 
-            // --- Detalle DETALLE_VENTA[] ---
-            detalle: carrito.map(item => ({
-                id_producto: item.id,
-                id_promocion: null,
-                cantidad: item.cantidad,
-                precio_unitario: Number(item.precioUnit.toFixed(2)),
-                descuento: Number(item.descuentoMonto.toFixed(2)),   // 👈 monto fijo en $
-                subtotal: Number(netoLinea(item).toFixed(2)),
-            })),
-        };
+            const resultado = await respuesta.json();
 
-        console.log('POST /ventas', payload);
+            if (!respuesta.ok) {
+                const mensaje = Object.values(resultado.errors || {})[0]?.[0]
+                    || resultado.message
+                    || 'No se pudo registrar la venta.';
 
-        // TODO: reemplazar por fetch real:
-        /*
-        fetch('/ventas', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-            },
-            body: JSON.stringify(payload),
-        })
-        .then(r => r.json())
-        .then(data => {
-            // limpiar carrito, redirigir, mostrar ticket...
-        })
-        .catch(err => alert('Error al guardar la venta'));
-        */
+                throw new Error(mensaje);
+            }
 
-        // Placeholder
-        alert('Venta registrada (placeholder).\nTotal: ' +
-            '$ ' + totalFinal.toLocaleString('es-AR', {minimumFractionDigits:2}));
+            carrito.length = 0;
+            descuentoGlobal = {
+                modo: 'porcentaje',
+                valor: 0
+            };
 
-        // Limpiar
-        carrito.length = 0;
-        descuentoGlobal = { modo: 'porcentaje', valor: 0 };
-        localStorage.removeItem('pos_carrito');
-        localStorage.removeItem('pos_descuento');
-        cerrarModalCobro();
-        render();
+            localStorage.removeItem('pos_carrito');
+            localStorage.removeItem('pos_descuento');
+
+            cerrarModalCobro();
+            render();
+
+            alert(
+                `Venta #${resultado.venta_id} registrada correctamente.\n` +
+                `Total: $ ${Number(resultado.total).toLocaleString('es-AR')}`
+            );
+
+        } catch (error) {
+            alert(error.message || 'No se pudo registrar la venta.');
+        } finally {
+            boton.disabled = false;
+        }
     });
+
     // ---------- Modal de descuentos (global o por línea) ----------
     const modalDesc = $('modalDescuento');
     const descInput = $('descInput');
@@ -1432,13 +1470,14 @@
             const item = carrito.find(x => x.id === itemDescTarget);
             if (!item) return;
 
-            const bruto = brutoLinea(item);
             let monto = 0;
 
+            const precioUnitario = item.precioUnit;
+
             if (modoDescTemporal === 'porcentaje') {
-                monto = bruto * (valor / 100);
+                monto = (item.cantidad * precioUnitario) * (valor / 100);
             } else {
-                monto = Math.min(valor, bruto); // nunca más que el bruto
+                monto = Math.min(valor, item.cantidad * precioUnitario);
             }
 
             // Guardamos SIEMPRE como monto fijo (canónico, va a la BBDD)
@@ -1472,8 +1511,8 @@
                     if (typeof x.descuentoMonto === 'undefined') {
                         // Si venía con `descuento` como %, lo convertimos a monto fijo
                         const pct = Number(x.descuento) || 0;
-                        const bruto = (Number(x.cantidad) || 1) * (Number(x.precioUnit) || 0);
-                        x.descuentoMonto      = bruto * (pct / 100);
+                        const precioUnitario = Number(x.precioUnit) || 0;
+                        x.descuentoMonto = precioUnitario * (pct / 100);
                         x.descuentoInputModo  = pct > 0 ? 'porcentaje' : null;
                         x.descuentoInputValor = pct > 0 ? pct : null;
                         delete x.descuento;
