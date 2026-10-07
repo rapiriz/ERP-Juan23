@@ -207,6 +207,7 @@
                                 <tr>
                                     <th>Fecha</th>
                                     <th>Descripción</th>
+                                    <th>Venta</th>
                                     <th style="text-align:right;">Monto</th>
                                     <th style="text-align:right;">Saldo</th>
                                 </tr>
@@ -227,6 +228,8 @@
 @push('scripts')
 <script>
     const CLIENTES = @json($clientes);
+    const URL_PAGOS = @json(route('saldo.pagos', ['cliente' => '__CLIENTE__']));
+    const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]').content;
     const $ = (id) => document.getElementById(id);
     const moneda = new Intl.NumberFormat('es-AR', {
         minimumFractionDigits: 2,
@@ -295,6 +298,7 @@
                 <tr>
                     <td class="fecha">${escaparHtml(movimiento.fecha)}</td>
                     <td>${escaparHtml(movimiento.descripcion)}</td>
+                    <td>${movimiento.venta_id ? `#${escaparHtml(movimiento.venta_id)}` : '—'}</td>
                     <td class="importe ${claseSaldo(movimiento.monto)}">${formatoMovimiento(Number(movimiento.monto))}</td>
                     <td class="saldo ${claseSaldo(saldoAcumulado)}">${formatoSaldo(saldoAcumulado)}</td>
                 </tr>
@@ -340,7 +344,7 @@
         renderClientes(evento.target.value);
     });
 
-    $('formPago').addEventListener('submit', evento => {
+    $('formPago').addEventListener('submit', async evento => {
         evento.preventDefault();
         if (!clienteSeleccionado) return;
 
@@ -355,16 +359,42 @@
             return;
         }
 
-        clienteSeleccionado.movimientos.push({
-            fecha: new Date().toISOString().slice(0, 10),
-            descripcion: 'Pago de cuenta',
-            monto: Math.round(monto * 100) / 100
-        });
-        $('montoPago').value = '';
-        renderDetalle();
-        feedback.textContent = 'Pago registrado en el historial.';
-        feedback.className = 'pago-feedback success';
+        const boton = $('btnPagar');
+        boton.disabled = true;
+        feedback.textContent = 'Registrando pago...';
+        feedback.className = 'pago-feedback';
         feedback.hidden = false;
+
+        try {
+            const respuesta = await fetch(URL_PAGOS.replace('__CLIENTE__', clienteSeleccionado.id), {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': CSRF_TOKEN
+                },
+                body: JSON.stringify({ monto })
+            });
+            const resultado = await respuesta.json();
+
+            if (!respuesta.ok) {
+                const mensaje = resultado.errors?.monto?.[0] || resultado.message || 'No se pudo registrar el pago.';
+                throw new Error(mensaje);
+            }
+
+            clienteSeleccionado.movimientos.push(resultado.movimiento);
+            $('montoPago').value = '';
+            renderDetalle();
+            feedback.textContent = 'Pago registrado en el historial.';
+            feedback.className = 'pago-feedback success';
+            feedback.hidden = false;
+        } catch (error) {
+            feedback.textContent = error.message || 'No se pudo registrar el pago.';
+            feedback.className = 'pago-feedback error';
+            feedback.hidden = false;
+        } finally {
+            boton.disabled = !clienteSeleccionado || saldoDe(clienteSeleccionado) >= 0;
+        }
     });
 
     renderClientes();

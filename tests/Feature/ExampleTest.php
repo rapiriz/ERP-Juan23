@@ -2,11 +2,13 @@
 
 namespace Tests\Feature;
 
-// use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class ExampleTest extends TestCase
 {
+    use RefreshDatabase;
+
     /**
      * A basic test example.
      */
@@ -25,8 +27,8 @@ class ExampleTest extends TestCase
             ->assertOk()
             ->assertSee('CUENTAS CORRIENTES')
             ->assertSee('Supermercado El Norte SRL')
-            ->assertSee('Almacén Don Pedro')
-            ->assertSee('María González')
+            ->assertSee('Almac\\u00e9n Don Pedro', false)
+            ->assertSee('Mar\\u00eda Gonz\\u00e1lez', false)
             ->assertSee('Registrar pago de deuda');
     }
 }
