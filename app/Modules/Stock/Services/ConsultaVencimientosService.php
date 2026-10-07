@@ -70,15 +70,16 @@ class ConsultaVencimientosService
     public function obtenerAlertas(): array
     {
         $r = $this->repository->obtenerResumenAlertas($this->critico(), $this->proximo());
+        $desdeProximo = $this->critico() + 1;
 
         return [
             'exito' => true,
             'alertas' => [
-                ['tipo' => 'critica', 'titulo' => 'Productos Vencidos', 'cantidad' => $r['total_vencidos'],
+                ['tipo' => 'critica', 'titulo' => 'Lotes vencidos', 'cantidad' => $r['total_vencidos'],
                  'urgencia' => 'CRÍTICA', 'accion_recomendada' => 'Revisar y dar de baja los lotes vencidos'],
-                ['tipo' => 'alta', 'titulo' => "Vencimiento en {$this->critico()} días", 'cantidad' => $r['criticos_7dias'],
+                ['tipo' => 'alta', 'titulo' => "Lotes próximos (0–{$this->critico()} días)", 'cantidad' => $r['criticos_7dias'],
                  'urgencia' => 'ALTA', 'accion_recomendada' => 'Priorizar venta o descuento'],
-                ['tipo' => 'media', 'titulo' => "Vencimiento en {$this->proximo()} días", 'cantidad' => $r['proximos_30dias'],
+                ['tipo' => 'media', 'titulo' => "Lotes próximos ({$desdeProximo}–{$this->proximo()} días)", 'cantidad' => $r['proximos_30dias'],
                  'urgencia' => 'MEDIA', 'accion_recomendada' => 'Monitorear'],
             ],
         ];
@@ -94,7 +95,7 @@ class ConsultaVencimientosService
                 'Código Producto' => $l->producto?->codigo,
                 'Nombre Producto' => $l->producto?->nombre ?? $l->producto?->descripcion,
                 'Lote' => $l->nro_lote,
-                'Cantidad' => $l->cantidad,
+                'Cantidad' => $l->cantidad_actual,
                 'Fecha Vencimiento' => $l->fecha_vencimiento?->format('d/m/Y'),
                 'Días Restantes' => $dias,
                 'Estado' => $this->determinarEstadoVencimiento($dias),

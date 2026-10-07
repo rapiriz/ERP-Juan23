@@ -336,6 +336,40 @@
         <div class="kpi normal"><div class="kpi-label">Stock normal</div><div class="kpi-value" id="kpiNormal">-</div><div class="kpi-sub">Dentro de nivel</div></div>
       </div>
 
+      <section class="card" id="cardAlertasVencimiento" aria-labelledby="tituloAlertasVencimiento">
+        <div class="card-h">
+          <div>
+            <h2 id="tituloAlertasVencimiento">Alertas de productos próximos a vencer (S10)</h2>
+            <p id="s10Estado" role="status" aria-live="polite">Calculando alertas automáticamente…</p>
+          </div>
+          <div class="btn-row">
+            <label for="s10Dias" class="help">Ventana</label>
+            <select class="control" id="s10Dias" aria-label="Días para detectar vencimientos">
+              <option value="7">7 días</option>
+              <option value="15">15 días</option>
+              <option value="30" selected>30 días</option>
+              <option value="60">60 días</option>
+              <option value="90">90 días</option>
+            </select>
+            <button class="btn" id="btnRefrescarAlertasVencimiento">↻ Actualizar</button>
+            <a class="btn" href="/vencimientos">Ver detalle</a>
+          </div>
+        </div>
+        <div class="card-b">
+          <div class="kpis" style="margin-bottom:14px;">
+            <div class="kpi critico"><div class="kpi-label">Lotes vencidos</div><div class="kpi-value" id="s10Vencidos">-</div></div>
+            <div class="kpi bajo"><div class="kpi-label">Vencen en 0–7 días</div><div class="kpi-value" id="s10Criticos">-</div></div>
+            <div class="kpi normal"><div class="kpi-label">Vencen en 8–30 días</div><div class="kpi-value" id="s10Proximos">-</div></div>
+          </div>
+          <div style="overflow:auto; border-radius:10px; border:1px solid var(--border); background:#fff;">
+            <table aria-label="Alertas de productos próximos a vencer" style="min-width:650px;">
+              <thead><tr><th>Producto</th><th>Lote</th><th>Vencimiento</th><th>Días restantes</th><th>Cantidad</th><th>Estado</th></tr></thead>
+              <tbody id="tbodyAlertasVencimiento"><tr><td colspan="6" style="text-align:center;padding:18px;color:var(--muted);">Cargando lotes próximos…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
       <section class="card">
         <div class="card-h">
           <div>
@@ -578,7 +612,7 @@
           </div>
         </div>
         <div class="divider"></div>
-        <div class="help" style="margin-bottom:8px;">Productos recibidos (cantidades en unidad base). El Nº de lote y el vencimiento son opcionales, pero si completás uno tenés que completar el otro (S09).</div>
+        <div class="help" style="margin-bottom:8px;">Productos recibidos (cantidades en unidad base). Podés agregar el mismo producto en varias filas para registrar lotes distintos. El Nº de lote y el vencimiento son opcionales, pero si completás uno tenés que completar el otro. Si vuelve a ingresar el mismo lote del producto, se acumula su saldo cuando coincide el vencimiento.</div>
         <div id="ingProductoSelector" style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
           <select class="control" id="ingProductoSelect" style="flex:2; min-width:220px;"></select>
           <input class="control" type="number" id="ingProductoCant" min="1" style="flex:1; width:120px;" placeholder="Cantidad" />
@@ -612,6 +646,11 @@
             <div class="field span-2">
               <label for="devProducto">Producto devuelto *</label>
               <select class="control" id="devProducto"><option value="">Seleccione un producto</option></select>
+            </div>
+            <div class="field span-2">
+              <label for="devLote">Lote devuelto (si se conoce)</label>
+              <select class="control" id="devLote"><option value="">Sin lote identificado</option></select>
+              <small class="help">Elegí el lote para que su saldo y las alertas de vencimiento queden actualizados.</small>
             </div>
             <div class="field">
               <label for="devCantidad">Cantidad devuelta *</label>
@@ -770,7 +809,7 @@
 
   <script>
     // Configuración API Laravel REST
-    const API_BASE = (window.location.port === '8000') ? '/api' : 'http://localhost:8000/api';
+    const API_BASE = '/api';
 
     // Estado global de datos
     let productosCache = [];
@@ -853,11 +892,85 @@
           renderStockTable(productosCache);
           renderKpis(productosCache);
           cargarSelectsProducto();
+          loadAlertasVencimiento();
         } else {
           showToast(json.message || 'Error al cargar stock', 'error');
         }
       } catch (err) {
         tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:24px; color:var(--danger);">Error de conexión con la API Laravel.</td></tr>`;
+      }
+    }
+
+    function escapeHtmlS10(value){
+      return String(value == null ? '' : value)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/\"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    async function loadAlertasVencimiento(){
+      const tbody = document.getElementById('tbodyAlertasVencimiento');
+      const estado = document.getElementById('s10Estado');
+      if (!tbody || !estado) return;
+
+      const dias = parseInt(document.getElementById('s10Dias')?.value || '30', 10);
+      estado.textContent = `Calculando alertas para los próximos ${dias} días…`;
+      try {
+        const [resLotes, resResumen] = await Promise.all([
+          fetch(`${API_BASE}/stock/lotes-por-vencer?dias=${dias}`, { headers:{'Accept':'application/json'} }),
+          fetch(`${API_BASE}/vencimientos/alertas`, { headers:{'Accept':'application/json'} })
+        ]);
+        const lotes = await resLotes.json();
+        const resumen = await resResumen.json();
+        if (!resLotes.ok || lotes.status !== 'success' || !resResumen.ok || !resumen.exito) {
+          throw new Error('No se pudieron consultar las alertas.');
+        }
+
+        const alertas = Array.isArray(resumen.alertas) ? resumen.alertas : [];
+        const porTipo = Object.fromEntries(alertas.map(a => [a.tipo, Number(a.cantidad) || 0]));
+        document.getElementById('s10Vencidos').textContent = porTipo.critica ?? 0;
+        document.getElementById('s10Criticos').textContent = porTipo.alta ?? 0;
+        document.getElementById('s10Proximos').textContent = porTipo.media ?? 0;
+
+        const items = Array.isArray(lotes.data) ? lotes.data : [];
+        estado.textContent = items.length
+          ? `${items.length} lote(s) con saldo vencen dentro de ${dias} días. Se actualiza al cambiar el stock.`
+          : `No hay lotes con saldo que venzan dentro de ${dias} días.`;
+        tbody.innerHTML = items.length ? items.map(l => {
+          const restantes = Number(l.dias_para_vencer ?? 0);
+          const alerta = restantes <= 7;
+          return `<tr>
+            <td><strong>${escapeHtmlS10(l.descripcion_producto || l.codigo_producto || '—')}</strong><br><span class="help">${escapeHtmlS10(l.codigo_producto || '')}</span></td>
+            <td>${escapeHtmlS10(l.nro_lote || '—')}</td>
+            <td>${escapeHtmlS10(l.fecha_vencimiento || '—')}</td>
+            <td><span class="tag ${alerta ? 'crit' : 'active'}">${restantes} día(s)</span></td>
+            <td>${Number(l.cantidad) || 0}</td>
+            <td><span class="tag ${alerta ? 'crit' : 'active'}"><span class="s"></span>${alerta ? 'Urgente' : 'Próximo'}</span></td>
+          </tr>`;
+        }).join('') : '<tr><td colspan="6" style="text-align:center;padding:18px;color:var(--muted);">Sin lotes próximos a vencer.</td></tr>';
+      } catch (error) {
+        estado.textContent = error.message || 'Error al consultar las alertas de vencimiento.';
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:18px;color:var(--danger);">No se pudieron cargar los vencimientos.</td></tr>';
+      }
+    }
+
+    async function cargarLotesDevolucion(idProducto){
+      const select = document.getElementById('devLote');
+      if (!select) return;
+      select.innerHTML = '<option value="">Sin lote identificado</option>';
+      if (!idProducto) return;
+
+      try {
+        const params = new URLSearchParams({ id_producto: idProducto, estado: 'todos' });
+        const res = await fetch(`${API_BASE}/stock/lotes?${params}`, { headers:{'Accept':'application/json'} });
+        const json = await res.json();
+        if (!res.ok || json.status !== 'success') throw new Error('No se pudieron cargar los lotes.');
+        const lotes = Array.isArray(json.data) ? json.data : [];
+        select.innerHTML = '<option value="">Sin lote identificado</option>' + lotes.map(l =>
+          `<option value="${Number(l.id_lote)}">${escapeHtmlS10(l.nro_lote)} — vence ${escapeHtmlS10(l.fecha_vencimiento || 'sin fecha')} — saldo ${Number(l.cantidad) || 0} (${escapeHtmlS10(l.estado)})</option>`
+        ).join('');
+      } catch (error) {
+        select.innerHTML = '<option value="">Sin lote identificado</option>';
+        console.error('Lotes de devolución:', error);
       }
     }
 
@@ -889,14 +1002,6 @@
         if (el) el.innerHTML = opcionesActivos;
       });
 
-      // Si el ingreso ya tenía items, refrescar su select
-      if (itemsIngreso.length > 0) {
-        const idsEnLista = new Set(itemsIngreso.map(i => i.id_producto));
-        const sel = document.getElementById('ingProductoSelect');
-        sel.innerHTML = '<option value="">Seleccione un producto</option>' + productosCache
-          .filter(p => !idsEnLista.has(p.id_producto))
-          .map(p => `<option value="${p.id_producto}">${p.codigo} — ${p.descripcion}</option>`).join('');
-      }
     }
 
     // ==========================================
@@ -1276,8 +1381,6 @@
       errorBox.classList.remove('show');
       if (!sel.value) { errorBox.textContent = 'Seleccione un producto.'; errorBox.classList.add('show'); return; }
       if (!cantidad || cantidad < 1) { errorBox.textContent = 'Ingrese una cantidad válida (>0).'; errorBox.classList.add('show'); return; }
-      if (itemsIngreso.some(i => i.id_producto == sel.value)) { errorBox.textContent = 'El producto ya está en la lista. Modifique su cantidad o elimínelo.'; errorBox.classList.add('show'); return; }
-
       itemsIngreso.push({ id_producto: parseInt(sel.value), codigo: prod.codigo, descripcion: prod.descripcion, cantidad });
       renderItemsIngreso();
       cant.value = '';
@@ -1355,19 +1458,6 @@
           errorBox.classList.add('show'); return;
         }
       }
-      // El backend responde 500 si el lote ya existe para ese producto.
-      const vistos = new Set();
-      for (const it of itemsIngreso){
-        const clave = `${it.id_producto}::${(it.nro_lote || '').trim().toLowerCase()}`;
-        if (!clave.endsWith('::')){
-          if (vistos.has(clave)){
-            errorBox.textContent = `El lote «${it.nro_lote}» está repetido para el mismo producto en este ingreso.`;
-            errorBox.classList.add('show'); return;
-          }
-          vistos.add(clave);
-        }
-      }
-
       document.getElementById('btnGuardarIngreso').disabled = true;
       try {
         const res = await fetch(`${API_BASE}/stock/ingresos`, {
@@ -1399,15 +1489,17 @@
     document.getElementById('btnDevolucion').addEventListener('click', () => {
       document.getElementById('formDevolucion').reset();
       document.getElementById('devCantidad').value = 1;
+      document.getElementById('devLote').innerHTML = '<option value="">Sin lote identificado</option>';
       document.getElementById('devInfoStock').textContent = '';
       openModal('modalDevolucion');
     });
 
-    document.getElementById('devProducto').addEventListener('change', (e) => {
+    document.getElementById('devProducto').addEventListener('change', async (e) => {
       const p = productosCache.find(x => x.id_producto == e.target.value);
       document.getElementById('devInfoStock').textContent = p
         ? `Stock actual: ${p.stock_disponible} (mín. ${p.stock_minimo}). La devolución sumará las unidades al stock.`
         : '';
+      await cargarLotesDevolucion(e.target.value);
     });
 
     document.getElementById('btnGuardarDevolucion').addEventListener('click', async () => {
@@ -1416,6 +1508,7 @@
       const idProducto = document.getElementById('devProducto').value;
       const cantidad = parseInt(document.getElementById('devCantidad').value, 10);
       const motivo = document.getElementById('devMotivo').value.trim();
+      const idLote = document.getElementById('devLote').value;
 
       if (!idProducto) { errorBox.textContent = 'Seleccione el producto devuelto.'; errorBox.classList.add('show'); return; }
       if (!cantidad || cantidad < 1) { errorBox.textContent = 'Registre una cantidad válida.'; errorBox.classList.add('show'); return; }
@@ -1425,7 +1518,7 @@
         const res = await fetch(`${API_BASE}/stock/devoluciones`, {
           method: 'POST',
           headers: { 'Content-Type':'application/json', 'Accept':'application/json' },
-          body: JSON.stringify({ id_producto: parseInt(idProducto), cantidad, motivo, id_usuario: 1 })
+          body: JSON.stringify({ id_producto: parseInt(idProducto), cantidad, motivo, id_lote: idLote ? parseInt(idLote, 10) : null, id_usuario: 1 })
         });
         const json = await res.json();
         if (json.status === 'success') {
@@ -1788,6 +1881,12 @@
       document.getElementById('filterNivel').value = '';
       loadProductos();
     });
+
+    document.getElementById('btnRefrescarAlertasVencimiento')?.addEventListener('click', loadAlertasVencimiento);
+    document.getElementById('s10Dias')?.addEventListener('change', loadAlertasVencimiento);
+    window.setInterval(() => {
+      if (document.visibilityState === 'visible') loadAlertasVencimiento();
+    }, 60_000);
 
     // Inicialización
     window.addEventListener('DOMContentLoaded', async () => {

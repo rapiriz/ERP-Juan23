@@ -762,7 +762,7 @@
             </div>
 
             <div class="card" style="box-shadow:none;">
-              <div class="card-h"><div><h2>Próximos a vencer</h2><p>Lotes con vencimiento cercano.</p></div></div>
+              <div class="card-h"><div><h2>Alertas de vencimiento (S10)</h2><p id="resumenAlertasVencer" role="status" aria-live="polite">Calculando alertas…</p></div><a class="btn" href="/vencimientos">Ver alertas</a></div>
               <div class="card-b" style="padding-top:10px;">
                 <table aria-label="Tabla próximos a vencer">
                   <thead>
@@ -1260,11 +1260,12 @@
   </script>
 
   <script>
-    // S06 - Próximos a vencer: carga los lotes reales desde el backend (misma convención API_BASE de las demás páginas).
+    // S10 - Alertas de vencimiento: carga datos actuales y actualiza el panel sin intervención manual.
     (function () {
-      const API_BASE = (window.location.port === '8000') ? '/api' : 'http://localhost:8000/api';
+      const API_BASE = '/api';
       const tbodyVenc = document.getElementById('tbodyVencer');
       if (!tbodyVenc) return;
+      const resumenVenc = document.getElementById('resumenAlertasVencer');
 
       async function cargarLotesVencer() {
         try {
@@ -1297,10 +1298,31 @@
           tbodyVenc.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);">Error al consultar vencimientos.</td></tr>';
         }
       }
+      async function cargarResumenAlertasVencer() {
+        if (!resumenVenc) return;
+        try {
+          const res = await fetch(`${API_BASE}/vencimientos/alertas`, { headers: { 'Accept': 'application/json' } });
+          const json = await res.json();
+          if (!res.ok || !json.exito || !Array.isArray(json.alertas)) throw new Error('No se pudieron calcular las alertas.');
+          const total = json.alertas.reduce((sum, alerta) => sum + (Number(alerta.cantidad) || 0), 0);
+          resumenVenc.textContent = total
+            ? `${total} lote(s) con vencimiento requieren atención. Consulta actualizada automáticamente.`
+            : 'Sin lotes vencidos o próximos a vencer dentro de 30 días.';
+        } catch (e) {
+          resumenVenc.textContent = 'No se pudieron actualizar las alertas de vencimiento.';
+        }
+      }
       function esc(s) {
         return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
       }
       cargarLotesVencer();
+      cargarResumenAlertasVencer();
+      window.setInterval(function () {
+        if (document.visibilityState === 'visible') {
+          cargarLotesVencer();
+          cargarResumenAlertasVencer();
+        }
+      }, 60_000);
     })();
   </script>
 

@@ -53,6 +53,10 @@
         </div>
     </div>
 
+    <div id="alertas-vencimiento" class="clay-card mb-4" role="status" aria-live="polite" aria-atomic="true">
+        <div class="clay-card-content">Calculando alertas de vencimiento…</div>
+    </div>
+
     <div class="clay-tabs mb-4">
         <ul class="nav nav-tabs" role="tablist">
             <li class="nav-item">
@@ -196,6 +200,12 @@
 
 @section('scripts')
 <style>
+    #alertas-vencimiento { padding: 1rem 1.25rem; }
+    #alertas-vencimiento .alerta-vencimiento { margin: .35rem 0; padding: .55rem .75rem; border-left: 4px solid #64748b; background: #f8fafc; }
+    #alertas-vencimiento .badge-critica { border-left-color: #dc3545; }
+    #alertas-vencimiento .badge-alta { border-left-color: #fd7e14; }
+    #alertas-vencimiento .badge-media { border-left-color: #ffc107; }
+    #alertas-vencimiento .alerta-vencimiento strong { margin-right: .35rem; }
     /* Columna ordenada: se resalta y muestra la flecha de dirección. */
     #tablaProximos th.orden-activo {
         color: var(--clay-primary, #6366f1);
