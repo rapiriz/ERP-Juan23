@@ -18,7 +18,12 @@
 /public/storage
 /storage/*.key
 /storage/pail
+/storage/logs/
 /vendor
 Homestead.json
 Homestead.yaml
 Thumbs.db
+/storage/logs/*
+!/storage/logs/.gitignore
+/storage/framework/views/*
+!/storage/framework/views/.gitignore

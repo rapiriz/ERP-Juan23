@@ -73,6 +73,21 @@ return [
             'replace_placeholders' => true,
         ],
 
+        // Log propio del módulo Ventas: un archivo por día en storage/logs/ventas/
+        // (ej: ventas-2026-10-10.log). Lo escribe App\Modules\Venta\Logging\VentaLogger.
+        'ventas' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/ventas/ventas.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+            'days' => 30, // guarda el último mes y borra los más viejos
+            // Escribe solo el mensaje tal cual (el informe ya trae fecha, encabezado y saltos de línea).
+            'formatter' => Monolog\Formatter\LineFormatter::class,
+            'formatter_with' => [
+                'format' => "%message%\n",
+                'allowInlineLineBreaks' => true,
+            ],
+        ],
+
         'slack' => [
             'driver' => 'slack',
             'url' => env('LOG_SLACK_WEBHOOK_URL'),
