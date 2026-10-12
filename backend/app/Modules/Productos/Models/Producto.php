@@ -1,0 +1,280 @@
+<?php
+declare(strict_types=1);
+
+namespace App\Modules\Productos\Models;
+
+use App\Modules\Stock\Models\Lote;
+use App\Modules\Stock\Models\MovimientoStock;
+use App\Modules\Stock\Models\Ubicacion;
+use App\Modules\Stock\Models\UnidadMedida;
+use App\Modules\Proveedores\Models\ProductoProveedor;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Builder;
+
+class Producto extends Model
+{
+    protected $table = 'PRODUCTO';
+    protected $primaryKey = 'id_producto';
+    public $timestamps = false;
+
+    protected $appends = [
+        'stock_disponible',
+        'stock_actual',
+        'estado_alerta',
+        'precio_unitario',
+        'precio_mayorista',
+        'precio_minorista',
+        'precioMay',
+        'precioMin',
+        'unidad_medida',
+        'equivalencia_unidad',
+        'id_unidad_activa',
+    ];
+
+    protected $fillable = [
+        'codigo',
+        'nombre',
+        'descripcion',
+        'precio_unitario',
+        'imagen',
+        'stock',
+        'stock_minimo',
+        'dias_alerta_vencimiento',
+        'estado',
+        'fecha_alta',
+        'fecha_modificacion',
+        'fecha_desactivacion',
+        'id_categoria',
+        'id_marca',
+        'id_usuario_carga',
+        'id_usuario_modificacion',
+    ];
+
+    protected $casts = [
+        'id_producto' => 'integer',
+        'precio_unitario' => 'decimal:2',
+        'stock' => 'integer',
+        'stock_minimo' => 'integer',
+        'dias_alerta_vencimiento' => 'integer',
+        'id_categoria' => 'integer',
+        'id_marca' => 'integer',
+        'id_usuario_carga' => 'integer',
+        'id_usuario_modificacion' => 'integer',
+        'fecha_alta' => 'datetime:Y-m-d H:i:s',
+        'fecha_modificacion' => 'datetime:Y-m-d H:i:s',
+        'fecha_desactivacion' => 'datetime:Y-m-d H:i:s',
+    ];
+
+    public function categoria(): BelongsTo
+    {
+        return $this->belongsTo(Categoria::class, 'id_categoria', 'id_categoria');
+    }
+
+    public function marca(): BelongsTo
+    {
+        return $this->belongsTo(Marca::class, 'id_marca', 'id_marca');
+    }
+
+    public function usuarioCarga(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Usuario::class, 'id_usuario_carga', 'id_usuario');
+    }
+
+    public function usuarioModificacion(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Usuario::class, 'id_usuario_modificacion', 'id_usuario');
+    }
+
+    /**
+     * Stock disponible. En el esquema fusionado el stock vive embebido en
+     * PRODUCTO.stock (OB3), por lo que este atributo expone la columna directa.
+     */
+    public function getStockDisponibleAttribute(?int $value = null): int
+    {
+        return (int) ($value ?? $this->stock);
+    }
+
+    public function getStockActualAttribute(?int $value = null): int
+    {
+        return (int) ($value ?? $this->stock);
+    }
+
+    public function getStockMinimoAttribute(?int $value = null): int
+    {
+        return (int) ($value ?? ($this->attributes['stock_minimo'] ?? 0));
+    }
+
+    /**
+     * Estado de alerta derivado (S07): crítico <= 0, bajo <= mínimo (> 0), normal.
+     * Ya no se persiste en una tabla STOCK separada.
+     */
+    public function getEstadoAlertaAttribute(): string
+    {
+        $disponible = $this->stock_disponible;
+        $minimo = $this->stock_minimo;
+
+        if ($disponible <= 0) {
+            return 'critico';
+        }
+        if ($disponible <= $minimo) {
+            return 'bajo';
+        }
+        return 'normal';
+    }
+
+    /**
+     * Precio unitario de catalogo base.
+     */
+    public function getPrecioUnitarioAttribute(): float
+    {
+        return (float) ($this->attributes['precio_unitario'] ?? 0.0);
+    }
+
+    public function getPrecioMayoristaAttribute(): float
+    {
+        return (float) ($this->attributes['precio_unitario'] ?? 0.0);
+    }
+
+    public function getPrecioMinoristaAttribute(): float
+    {
+        return (float) ($this->attributes['precio_unitario'] ?? 0.0);
+    }
+
+    public function getPrecioMayAttribute(): float
+    {
+        return (float) ($this->attributes['precio_unitario'] ?? 0.0);
+    }
+
+    public function getPrecioMinAttribute(): float
+    {
+        return (float) ($this->attributes['precio_unitario'] ?? 0.0);
+    }
+
+    public function historialPrecios(): HasMany
+    {
+        return $this->hasMany(HistorialPrecio::class, 'id_producto', 'id_producto')
+                    ->orderBy('id_historial', 'desc');
+    }
+
+    /**
+     * Movimientos de stock del producto (S04, S05, S06, S12)
+     */
+    public function movimientos(): HasMany
+    {
+        return $this->hasMany(MovimientoStock::class, 'id_producto', 'id_producto')
+                    ->orderBy('id_movimiento', 'desc');
+    }
+
+    /**
+     * Unidades de medida y equivalencias del producto (S08)
+     */
+    public function unidades(): HasMany
+    {
+        return $this->hasMany(UnidadMedida::class, 'id_producto', 'id_producto');
+    }
+
+    public function getUnidadMedidaAttribute(): string
+    {
+        $u = $this->relationLoaded('unidades')
+            ? $this->unidades->firstWhere('es_base', 1)
+            : $this->unidades()->where('es_base', 1)->first();
+        return $u ? $u->nombre_unidad : 'u.';
+    }
+
+    public function getEquivalenciaUnidadAttribute(): float
+    {
+        $u = $this->relationLoaded('unidades')
+            ? $this->unidades->firstWhere('es_base', 1)
+            : $this->unidades()->where('es_base', 1)->first();
+        return $u ? (float) $u->equivalencia_base : 1.0;
+    }
+
+    public function getIdUnidadActivaAttribute(): ?int
+    {
+        $u = $this->relationLoaded('unidades')
+            ? $this->unidades->firstWhere('es_base', 1)
+            : $this->unidades()->where('es_base', 1)->first();
+        return $u ? (int) $u->id_unidad : null;
+    }
+
+    /**
+     * Asociaciones proveedor-producto del producto (PV05)
+     */
+    public function proveedores(): HasMany
+    {
+        return $this->hasMany(ProductoProveedor::class, 'id_producto', 'id_producto');
+    }
+
+    /**
+     * Lotes y vencimientos del producto (S09)
+     */
+    public function lotes(): HasMany
+    {
+        return $this->hasMany(Lote::class, 'id_producto', 'id_producto');
+    }
+
+    /**
+     * Ubicaciones físicas asignadas al producto (S14)
+     */
+    public function ubicaciones(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            Ubicacion::class,
+            'producto_ubicacion',
+            'id_producto',
+            'id_ubicacion'
+        )->withPivot(['fecha_asignacion', 'id_usuario']);
+    }
+
+    /**
+     * Scope para bǧsqueda flexible por c��digo, nombre o descripci��n (P05)
+     */
+    public function scopeSearch(Builder $query, ?string $term): Builder
+    {
+        if ($term && trim($term) !== '') {
+            $term = trim($term);
+            return $query->where(function (Builder $q) use ($term) {
+                $q->where('codigo', 'LIKE', "%{$term}%")
+                  ->orWhere('nombre', 'LIKE', "%{$term}%")
+                  ->orWhere('descripcion', 'LIKE', "%{$term}%");
+            });
+        }
+        return $query;
+    }
+
+    /**
+     * Scope para filtrar por categoría (P05)
+     */
+    public function scopeFilterCategoria(Builder $query, ?int $categoriaId): Builder
+    {
+        if ($categoriaId && $categoriaId > 0) {
+            return $query->where('id_categoria', $categoriaId);
+        }
+        return $query;
+    }
+
+    /**
+     * Scope para filtrar por marca (P05)
+     */
+    public function scopeFilterMarca(Builder $query, ?int $marcaId): Builder
+    {
+        if ($marcaId && $marcaId > 0) {
+            return $query->where('id_marca', $marcaId);
+        }
+        return $query;
+    }
+
+    /**
+     * Scope para filtrar por estado (P05 / P06)
+     */
+    public function scopeFilterEstado(Builder $query, ?string $estado): Builder
+    {
+        if ($estado && in_array(strtolower($estado), ['activo', 'inactivo'])) {
+            return $query->where('estado', strtolower($estado));
+        }
+        return $query;
+    }
+}

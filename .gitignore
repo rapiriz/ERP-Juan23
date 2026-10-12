@@ -1,24 +1,45 @@
-*.log
-.DS_Store
+# Respaldos antiguos / legado (no se suben al repo)
+backend_legacy/
+
+# Entornos y credenciales (refuerzo por seguridad)
 .env
-.env.backup
-.env.production
-.phpactor.json
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Logs diagnosticos
+gcm-diagnose.log
+*.log
+*.log.err
+
+# Dependencias de terceros (nunca en el repo)
+vendor/
+node_modules/
+dist/
 .phpunit.result.cache
-/.fleet
-/.idea
-/.nova
-/.phpunit.cache
-/.vscode
-/.zed
-/auth.json
-/node_modules
-/public/build
-/public/hot
-/public/storage
-/storage/*.key
-/storage/pail
-/vendor
-Homestead.json
-Homestead.yaml
-Thumbs.db
+
+# Respaldos y material de trabajo que no va al repo
+Basura/
+BD_legacy/
+ERP-Juan23-feature-g3-*/
+ACTUALIZACION/
+Contexto G2/
+Revision/
+BD/archivo/
+Interfaz/server.log.err
+backend/server.log.err
+entrevista_extraida.txt
+historias_usuario_extraidas.txt
+historias_extract.txt
+Documentacion/historias_extract.txt
+*_BACKUP.*
+*.broken
+
+# Editor / IDE
+.vscode/
+.idea/
+
+# Sistema / temporales
+thumbs.db
+Desktop.ini
