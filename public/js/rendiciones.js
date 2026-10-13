@@ -10,6 +10,7 @@ let rendicionSeleccionadaId = null;
 let _todasLasRendiciones = [];
 
 document.addEventListener('DOMContentLoaded', () => {
+    cargarContadoresGlobales();
     cargarListadoRendiciones();
     // Fecha hoy por defecto en filtro de fecha
     const filtroFecha = document.getElementById('filtroFecha');
@@ -18,6 +19,29 @@ document.addEventListener('DOMContentLoaded', () => {
         filtroFecha.value = hoy;
     }
 });
+
+/* ==========================================================
+   MÉTRICAS Y CONTADORES GLOBALES (ESTÁTICOS FRENTE A FILTROS)
+   ========================================================== */
+async function cargarContadoresGlobales() {
+    try {
+        const res = await fetch(`${API_BASE}/rendiciones`);
+        const json = await res.json();
+        if (!json.error && json.data) {
+            actualizarKPIs(json.data);
+            actualizarContadoresTabs(json.data);
+        }
+    } catch (err) {
+        console.error('Error al cargar contadores globales:', err);
+    }
+}
+
+async function recargarTodo() {
+    await Promise.all([
+        cargarContadoresGlobales(),
+        cargarListadoRendiciones()
+    ]);
+}
 
 /* ==========================================================
    TOAST NOTIFICATIONS
@@ -42,7 +66,7 @@ function showToast(mensaje, tipo = 'info') {
    CARGAR LISTADO DE RENDICIONES
    ========================================================== */
 async function cargarListadoRendiciones() {
-    const repartidorId = document.getElementById('filtroRepartidor').value;
+    const repartidorId = document.getElementById('filtroRepartidor')?.value || '';
     const tbody = document.getElementById('tablaRendicionesBody');
     tbody.innerHTML = `<tr><td colspan="8"><div class="table-empty"><span class="table-empty-icon">⏳</span>Cargando rendiciones…</div></td></tr>`;
 
@@ -61,8 +85,8 @@ async function cargarListadoRendiciones() {
 
         const rendiciones = json.data || [];
         _todasLasRendiciones = rendiciones;
-        actualizarKPIs(rendiciones);
-        actualizarContadoresTabs(rendiciones);
+        // NOTA: Los contadores globales superiores y los badges de tabs son
+        // estáticos e independientes del filtro de la tabla.
         renderizarTabla(rendiciones);
 
     } catch (err) {
@@ -244,6 +268,7 @@ async function guardarNuevaRendicion(e) {
         if (!json.error) {
             showToast('¡Rendición registrada con éxito!', 'success');
             cerrarModalNuevaRendicion();
+            cargarContadoresGlobales();
             cargarListadoRendiciones();
         } else {
             showToast('Error: ' + json.mensaje, 'error');
@@ -383,6 +408,7 @@ async function procesarValidacionAdmin(accion) {
             };
             showToast(mensajes[accion] || 'Operación completada.', accion === 'aprobar' ? 'success' : 'info');
             cerrarModalDetalle();
+            cargarContadoresGlobales();
             cargarListadoRendiciones();
         } else {
             showToast('Error: ' + json.mensaje, 'error');

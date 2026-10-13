@@ -27,19 +27,19 @@
 
         <ul class="sidebar-menu" role="list">
             <li class="sidebar-item">
-                <a href="entregas.html">
+                <a href="/entregas.html">
                     <span class="nav-icon" aria-hidden="true">🚚</span>
                     Entregas & Despacho
                 </a>
             </li>
             <li class="sidebar-item">
-                <a href="facturacion.html">
+                <a href="#">
                     <span class="nav-icon" aria-hidden="true">🧾</span>
                     Facturación
                 </a>
             </li>
             <li class="sidebar-item active">
-                <a href="rendiciones.html" aria-current="page">
+                <a href="/rendiciones.html" aria-current="page">
                     <span class="nav-icon" aria-hidden="true">📋</span>
                     Rendiciones & Cobros
                 </a>
@@ -49,13 +49,13 @@
         <p class="sidebar-section-label">Administración</p>
         <ul class="sidebar-menu" role="list">
             <li class="sidebar-item">
-                <a href="#">
+                <a href="/conciliacion">
                     <span class="nav-icon" aria-hidden="true">🏦</span>
                     Conciliación Bancaria
                 </a>
             </li>
             <li class="sidebar-item">
-                <a href="#">
+                <a href="/caja">
                     <span class="nav-icon" aria-hidden="true">🏠</span>
                     Caja & Tesoro
                 </a>
@@ -90,7 +90,7 @@
                 <p>Control de rendiciones de choferes, cobros liquidados y arqueo de caja</p>
             </div>
             <div class="page-header-actions">
-                <button class="clay-btn clay-btn-secondary btn-spin" onclick="cargarListadoRendiciones()" aria-label="Actualizar lista de rendiciones">
+                <button class="clay-btn clay-btn-secondary btn-spin" onclick="recargarTodo()" aria-label="Actualizar lista de rendiciones">
                     <svg class="icon-svg icon-svg-lg" viewBox="0 0 24 24" aria-hidden="true">
                         <path d="M21.5 2v6h-6M2.5 22v-6h6M21.34 15.57a10 10 0 1 1-.57-8.38"/>
                     </svg>
@@ -492,7 +492,7 @@
             document.getElementById('filtroRepartidor').value = '';
             const fechaInput = document.getElementById('filtroFecha');
             if (fechaInput) fechaInput.value = '';
-            cargarListadoRendiciones();
+            filtrarEstadoTab('');
         }
     </script>
 </body>

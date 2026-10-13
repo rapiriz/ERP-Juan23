@@ -112,7 +112,7 @@ class CobroService
         $ventas = $this->repository->obtenerVentasPendientesCliente($idCliente);
         $total = 0.0;
         foreach ($ventas as $v) {
-            $total += (float) $v->total;
+            $total += (float) ($v->total ?? $v->monto_total ?? 0);
         }
         return round($total, 2);
     }

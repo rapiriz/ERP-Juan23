@@ -271,11 +271,64 @@ class EntregaRepository
     }
 
     /**
-     * Listar Repartidores
+     * HU #3 (Issue #124): Marcar un pedido dentro de una entrega como entregado
+     */
+    public function marcarPedidoComoEntregado(int $idEntrega, int $idVenta, ?string $observaciones = null): void
+    {
+        // 1. Actualizar entrega_pedido
+        $sqlEp = "UPDATE entrega_pedido 
+                  SET estado_pedido_entrega = 'entregado', 
+                      fecha_actualizacion = NOW() 
+                  WHERE id_entrega = :id_entrega AND id_venta = :id_venta";
+        $stmtEp = $this->db->prepare($sqlEp);
+        $stmtEp->execute([
+            ':id_entrega' => $idEntrega,
+            ':id_venta' => $idVenta
+        ]);
+
+        // 2. Actualizar estado del remito asociado a 'entregado'
+        $sqlRemito = "UPDATE remito 
+                      SET estado = 'entregado' 
+                      WHERE id_entrega = :id_entrega AND id_venta = :id_venta";
+        $stmtRemito = $this->db->prepare($sqlRemito);
+        $stmtRemito->execute([
+            ':id_entrega' => $idEntrega,
+            ':id_venta' => $idVenta
+        ]);
+
+        // 3. Actualizar estado de la venta a 'entregada'
+        $sqlVenta = "UPDATE venta 
+                     SET estado = 'entregada' 
+                     WHERE id_venta = :id_venta";
+        $stmtVenta = $this->db->prepare($sqlVenta);
+        $stmtVenta->execute([':id_venta' => $idVenta]);
+
+        // 4. Verificar si todos los pedidos de la entrega están entregados
+        $sqlCheck = "SELECT COUNT(*) AS no_entregados 
+                     FROM entrega_pedido 
+                     WHERE id_entrega = :id_entrega 
+                       AND estado_pedido_entrega != 'entregado'";
+        $stmtCheck = $this->db->prepare($sqlCheck);
+        $stmtCheck->execute([':id_entrega' => $idEntrega]);
+        $row = $stmtCheck->fetch(PDO::FETCH_ASSOC);
+
+        $noEntregados = (int)($row['no_entregados'] ?? 0);
+        $nuevoEstadoEntrega = ($noEntregados === 0) ? 'entregada' : 'en_camino';
+
+        $sqlEntrega = "UPDATE entrega SET estado = :estado WHERE id_entrega = :id_entrega";
+        $stmtEntrega = $this->db->prepare($sqlEntrega);
+        $stmtEntrega->execute([
+            ':estado' => $nuevoEstadoEntrega,
+            ':id_entrega' => $idEntrega
+        ]);
+    }
+
+    /**
+     * Listar Repartidores activos
      */
     public function listarRepartidores(): array
     {
-        $stmt = $this->db->query("SELECT id_usuario, nombre, user FROM usuario WHERE rol = 'repartidor' AND estado = 'activo' ORDER BY nombre ASC");
+        $stmt = $this->db->query("SELECT id_usuario, nombre FROM usuario WHERE rol = 'repartidor' AND estado = 'activo' ORDER BY nombre ASC");
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 }

@@ -27,19 +27,19 @@
 
         <ul class="sidebar-menu" role="list">
             <li class="sidebar-item active">
-                <a href="entregas.html" aria-current="page">
+                <a href="/entregas.html" aria-current="page">
                     <span class="nav-icon" aria-hidden="true">🚚</span>
                     Entregas & Despacho
                 </a>
             </li>
             <li class="sidebar-item">
-                <a href="facturacion.html">
+                <a href="#">
                     <span class="nav-icon" aria-hidden="true">🧾</span>
                     Facturación
                 </a>
             </li>
             <li class="sidebar-item">
-                <a href="rendiciones.html">
+                <a href="/rendiciones.html">
                     <span class="nav-icon" aria-hidden="true">📋</span>
                     Rendiciones & Cobros
                 </a>
@@ -49,13 +49,13 @@
         <p class="sidebar-section-label">Administración</p>
         <ul class="sidebar-menu" role="list">
             <li class="sidebar-item">
-                <a href="#">
+                <a href="/conciliacion">
                     <span class="nav-icon" aria-hidden="true">🏦</span>
                     Conciliación Bancaria
                 </a>
             </li>
             <li class="sidebar-item">
-                <a href="#">
+                <a href="/caja">
                     <span class="nav-icon" aria-hidden="true">🏠</span>
                     Caja & Tesoro
                 </a>
@@ -347,6 +347,70 @@
                     <div class="firma-linea">Firma y Aclaración del Chofer (Entrega)</div>
                     <div class="firma-linea">Firma y Sello del Cliente (Recepción Conforme)</div>
                 </div>
+            </div>
+
+            <div class="modal-footer no-print" style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.25rem;">
+                <div id="remitoAccionEntrega">
+                    <!-- Botón de confirmar entrega o badge de entregado -->
+                </div>
+                <button class="clay-btn clay-btn-secondary" onclick="cerrarModalRemito()">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: HOJA DE RUTA Y CONFIRMACIÓN DE PEDIDOS ENTREGADOS (ISSUE #124 / HU #3) -->
+    <div id="modalHojaRuta" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modalHojaRutaTitulo">
+        <div class="modal-content" style="max-width: 960px;">
+            <div class="modal-header">
+                <h3 class="modal-title" id="modalHojaRutaTitulo">
+                    <span aria-hidden="true">🗺️</span>
+                    Hoja de Ruta de Reparto — Control de Entregas
+                </h3>
+                <button class="modal-close" onclick="cerrarModalHojaRuta()" aria-label="Cerrar modal">✕</button>
+            </div>
+
+            <div class="form-section" style="margin-bottom: 1.25rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+                    <div>
+                        <p><strong style="color: var(--primary);">Entrega:</strong> <span id="hrEntregaNumero" style="font-weight: 700;">--</span></p>
+                        <p style="margin-top: 0.25rem;"><strong>Chofer:</strong> <span id="hrChofer">--</span></p>
+                        <p style="margin-top: 0.25rem;"><strong>Fecha Salida:</strong> <span id="hrFechaSalida">--</span></p>
+                    </div>
+                    <div style="text-align: right;">
+                        <p><strong>Estado Viaje:</strong> <span id="hrEstadoBadge" class="badge">--</span></p>
+                        <p style="margin-top: 0.25rem;"><strong>Total Pedidos:</strong> <span id="hrTotalPedidos">--</span></p>
+                        <p style="margin-top: 0.25rem;"><strong>Total Bultos:</strong> <span id="hrTotalBultos" class="badge badge-bultos">--</span></p>
+                    </div>
+                </div>
+            </div>
+
+            <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0.85rem;">
+                ℹ️ Como repartidor, confirme cada pedido entregado al finalizar la descarga en el cliente para notificar a la distribuidora en tiempo real.
+            </p>
+
+            <div class="table-responsive">
+                <table class="clay-table">
+                    <thead>
+                        <tr>
+                            <th>Pedido</th>
+                            <th>Cliente</th>
+                            <th>Dirección y Zona</th>
+                            <th style="text-align: center;">Carga</th>
+                            <th style="text-align: right;">Total</th>
+                            <th style="text-align: center;">Estado Entrega</th>
+                            <th style="text-align: center;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="hrPedidosTableBody">
+                        <tr>
+                            <td colspan="7" style="text-align: center; padding: 2rem;">Cargando pedidos de la hoja de ruta…</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="modal-footer" style="margin-top: 1.25rem;">
+                <button class="clay-btn clay-btn-primary" onclick="cerrarModalHojaRuta()">Cerrar</button>
             </div>
         </div>
     </div>

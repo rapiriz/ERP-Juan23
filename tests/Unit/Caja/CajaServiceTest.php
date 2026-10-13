@@ -45,8 +45,8 @@ class CajaServiceTest extends TestCase
     public function test_abrir_caja_devuelve_error_si_ya_hay_una_abierta_ese_dia(): void
     {
         $repo = $this->createMock(CajaRepository::class);
-        $repo->method('buscarAbiertaDeUsuario')
-            ->willReturn($this->cajaFake(['id_caja' => 1, 'id_usuario' => 7, 'estado' => Caja::ESTADO_ABIERTA]));
+        $repo->method('buscarCualquierAbiertaDeUsuario')
+            ->willReturn($this->cajaFake(['id_caja' => 1, 'id_usuario' => 7, 'fecha' => \Carbon\Carbon::now(), 'estado' => Caja::ESTADO_ABIERTA]));
         $repo->expects($this->never())->method('crear');
 
         $resultado = (new CajaService($repo))->abrirCaja(7, 100.0);
@@ -58,7 +58,7 @@ class CajaServiceTest extends TestCase
     public function test_abrir_caja_devuelve_error_si_monto_inicial_es_negativo(): void
     {
         $repo = $this->createMock(CajaRepository::class);
-        $repo->method('buscarAbiertaDeUsuario')->willReturn(null);
+        $repo->method('buscarCualquierAbiertaDeUsuario')->willReturn(null);
         $repo->expects($this->never())->method('crear');
 
         $resultado = (new CajaService($repo))->abrirCaja(7, -10.0);

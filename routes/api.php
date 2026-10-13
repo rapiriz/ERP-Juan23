@@ -41,6 +41,8 @@ Route::prefix('v1')->group(function () {
     Route::post('/entregas', [EntregaController::class, 'crearEntrega']);
     Route::get('/entregas', [EntregaController::class, 'listar']);
     Route::get('/entregas/{id}', [EntregaController::class, 'detalle']);
+    Route::patch('/entregas/{id}/pedidos/{idVenta}/entregado', [EntregaController::class, 'confirmarPedidoEntregado']);
+    Route::post('/entregas/confirmar-pedido-entregado', [EntregaController::class, 'confirmarPedidoEntregado']);
     Route::get('/remitos/{id}', [EntregaController::class, 'verRemito']);
     Route::get('/zonas', [EntregaController::class, 'zonas']);
     Route::get('/repartidores', [EntregaController::class, 'repartidores']);

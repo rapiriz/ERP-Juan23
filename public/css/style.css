@@ -691,6 +691,7 @@ table.clay-table tbody tr:hover { background: #F8FAFC; }
 .badge-en_camino  { background: #FEF3C7; color: #92400E; border-color: #FCD34D; }
 .badge-en_preparacion { background: #DBEAFE; color: #1E40AF; border-color: #BFDBFE; }
 .badge-finalizada { background: #D1FAE5; color: #065F46; border-color: #6EE7B7; }
+.badge-entregada, .badge-entregado { background: #D1FAE5; color: #065F46; border-color: #6EE7B7; }
 .badge-zona    { background: #EDE9FE; color: #5B21B6; border-color: #C4B5FD; }
 .badge-bultos  { background: #FEF3C7; color: #92400E; }
 .badge-sueltos { background: #E0F2FE; color: #0369A1; margin-left: 3px; }

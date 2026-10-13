@@ -329,15 +329,20 @@ async function cargarEntregas() {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td><strong>#ENT-${e.id_entrega.toString().padStart(4, '0')}</strong></td>
-                    <td>${e.fecha_salida}</td>
+                    <td>${e.fecha_salida || e.fecha_creacion}</td>
                     <td><strong>${e.repartidor_nombre}</strong></td>
                     <td>${e.cantidad_pedidos} pedidos</td>
                     <td><span class="badge-bultos">${e.total_bultos} bultos</span></td>
                     <td><span class="badge badge-${e.estado}">${e.estado.replace('_', ' ').toUpperCase()}</span></td>
                     <td>
-                        <button class="clay-btn clay-btn-secondary" style="min-height: 38px; padding: 0.4rem 0.9rem; font-size: 0.95rem;" onclick="verDetalleEntrega(${e.id_entrega})">
-                            Ver Remitos
-                        </button>
+                        <div style="display: flex; gap: 0.4rem; justify-content: center; flex-wrap: wrap;">
+                            <button class="clay-btn clay-btn-primary" style="min-height: 36px; padding: 0.35rem 0.85rem; font-size: 0.92rem;" onclick="abrirModalHojaRuta(${e.id_entrega})" title="Ver hoja de ruta y confirmar entregas">
+                                📋 Hoja de Ruta
+                            </button>
+                            <button class="clay-btn clay-btn-secondary" style="min-height: 36px; padding: 0.35rem 0.85rem; font-size: 0.92rem;" onclick="verDetalleEntrega(${e.id_entrega})" title="Ver comprobante de remito">
+                                Ver Remito
+                            </button>
+                        </div>
                     </td>
                 `;
                 tbody.appendChild(tr);
@@ -349,7 +354,126 @@ async function cargarEntregas() {
 }
 
 /**
- * Ver detalle de una entrega y sus remitos
+ * HU #3 (Issue #124): Ver Hoja de Ruta de Reparto y gestión de pedidos
+ */
+async function abrirModalHojaRuta(idEntrega) {
+    try {
+        const res = await fetch(`${API_BASE}/entregas/${idEntrega}`);
+        const json = await res.json();
+        if (json.error || !json.data) {
+            showToast('No se pudo cargar la hoja de ruta de la entrega.', 'error');
+            return;
+        }
+
+        const e = json.data;
+        document.getElementById('hrEntregaNumero').textContent = `#ENT-${e.id_entrega.toString().padStart(4, '0')}`;
+        document.getElementById('hrChofer').textContent = e.repartidor_nombre;
+        document.getElementById('hrFechaSalida').textContent = e.fecha_salida || e.fecha_creacion;
+
+        const hrEstado = document.getElementById('hrEstadoBadge');
+        hrEstado.className = `badge badge-${e.estado}`;
+        hrEstado.textContent = e.estado.replace('_', ' ').toUpperCase();
+
+        const pedidos = e.pedidos || [];
+        document.getElementById('hrTotalPedidos').textContent = `${pedidos.length} pedido(s)`;
+
+        let totalBultos = 0;
+        pedidos.forEach(p => totalBultos += parseInt(p.total_bultos || 0));
+        document.getElementById('hrTotalBultos').textContent = `${totalBultos} bultos`;
+
+        const tbody = document.getElementById('hrPedidosTableBody');
+        tbody.innerHTML = '';
+
+        if (pedidos.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-muted);">No hay pedidos asignados a este viaje.</td></tr>`;
+        } else {
+            pedidos.forEach(p => {
+                const tr = document.createElement('tr');
+                const esEntregado = (p.estado_pedido_entrega === 'entregado');
+                const badgeEstado = esEntregado
+                    ? `<span class="badge badge-entregada">✅ Entregado</span>`
+                    : `<span class="badge badge-en_camino">🚚 En Reparto</span>`;
+
+                const btnConfirmar = esEntregado
+                    ? `<span style="color: var(--success); font-weight: 700; font-size: 0.88rem;">Completado</span>`
+                    : `<button class="clay-btn clay-btn-success" style="min-height: 32px; padding: 0.3rem 0.75rem; font-size: 0.88rem;" onclick="confirmarEntregaPedido(${e.id_entrega}, ${p.id_venta})" title="Confirmar entrega física realizada">
+                        ✅ Confirmar Entrega
+                       </button>`;
+
+                const btnRemito = p.id_remito
+                    ? `<button class="clay-btn clay-btn-secondary" style="min-height: 32px; padding: 0.3rem 0.75rem; font-size: 0.88rem;" onclick="verRemito(${p.id_remito})" title="Ver remito oficial">
+                        📄 Remito
+                       </button>`
+                    : '';
+
+                tr.innerHTML = `
+                    <td><strong style="color: var(--primary);">#PED-${p.id_venta.toString().padStart(4, '0')}</strong></td>
+                    <td><strong>${p.cliente_nombre}</strong></td>
+                    <td>${p.direccion}, ${p.localidad} <span class="badge-zona">${p.zona_nombre}</span></td>
+                    <td style="text-align: center;"><span class="badge-bultos">${p.total_bultos} b</span></td>
+                    <td style="text-align: right; font-weight: 700; color: #1E3A8A;">$${Number(p.total).toLocaleString('es-AR', {minimumFractionDigits: 2})}</td>
+                    <td style="text-align: center;">${badgeEstado}</td>
+                    <td style="text-align: center;">
+                        <div style="display: flex; gap: 0.35rem; justify-content: center; align-items: center; flex-wrap: wrap;">
+                            ${btnConfirmar}
+                            ${btnRemito}
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        document.getElementById('modalHojaRuta').style.display = 'flex';
+
+    } catch (err) {
+        console.error(err);
+        showToast('Error de comunicación con el servidor.', 'error');
+    }
+}
+
+function cerrarModalHojaRuta() {
+    document.getElementById('modalHojaRuta').style.display = 'none';
+}
+
+/**
+ * HU #3 (Issue #124): Confirmar pedido entregado por el chofer
+ */
+async function confirmarEntregaPedido(idEntrega, idVenta) {
+    if (!confirm(`¿Confirmar entrega física del pedido #PED-${idVenta.toString().padStart(4, '0')} al cliente?`)) {
+        return;
+    }
+
+    try {
+        const res = await fetch(`${API_BASE}/entregas/${idEntrega}/pedidos/${idVenta}/entregado`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ usuario_id: 1 })
+        });
+
+        const json = await res.json();
+
+        if (json.error) {
+            showToast('Error: ' + json.mensaje, 'error');
+            return;
+        }
+
+        showToast(json.mensaje, 'success');
+
+        // Refrescar modal de hoja de ruta si está abierto
+        abrirModalHojaRuta(idEntrega);
+        // Refrescar listado de viajes y pedidos pendientes
+        cargarEntregas();
+        cargarPedidosPendientes();
+
+    } catch (err) {
+        console.error(err);
+        showToast('Error al conectar con el servidor.', 'error');
+    }
+}
+
+/**
+ * Ver detalle de una entrega y abrir su primer remito
  */
 async function verDetalleEntrega(idEntrega) {
     try {
@@ -359,7 +483,6 @@ async function verDetalleEntrega(idEntrega) {
         if (!json.error && json.data) {
             const e = json.data;
             if (e.pedidos && e.pedidos.length > 0) {
-                // Abrir el remito del primer pedido de la entrega
                 const primerRemito = e.pedidos.find(p => p.id_remito);
                 if (primerRemito) {
                     verRemito(primerRemito.id_remito);
@@ -374,7 +497,7 @@ async function verDetalleEntrega(idEntrega) {
 }
 
 /**
- * Mostrar Comprobante de Remito Oficial en Modal
+ * Mostrar Comprobante de Remito Oficial en Modal con botón de confirmación de entrega
  */
 async function verRemito(idRemito) {
     try {
@@ -382,7 +505,7 @@ async function verRemito(idRemito) {
         const json = await res.json();
 
         if (json.error || !json.data) {
-            alert('No se pudo cargar el remito solicitado.');
+            showToast('No se pudo cargar el remito solicitado.', 'error');
             return;
         }
 
@@ -411,17 +534,67 @@ async function verRemito(idRemito) {
             tbody.appendChild(tr);
         });
 
+        // Configurar acción de entrega en el pie del remito
+        const contAccion = document.getElementById('remitoAccionEntrega');
+        if (contAccion) {
+            if (r.estado === 'entregado') {
+                contAccion.innerHTML = `<span class="badge badge-entregada" style="padding: 0.5rem 1rem; font-size: 0.95rem;">✅ Mercadería Entregada Conforme</span>`;
+            } else {
+                contAccion.innerHTML = `
+                    <button class="clay-btn clay-btn-success" onclick="confirmarEntregaPedido(${r.id_entrega}, ${r.id_venta}); cerrarModalRemito();">
+                        ✅ Confirmar Pedido como Entregado
+                    </button>
+                `;
+            }
+        }
+
         document.getElementById('modalRemito').style.display = 'flex';
 
     } catch (err) {
         console.error(err);
-        alert('Error al abrir el remito.');
+        showToast('Error al abrir el remito.', 'error');
     }
 }
 
 /**
- * Cerrar modal
+ * Cerrar modal de remito
  */
 function cerrarModalRemito() {
     document.getElementById('modalRemito').style.display = 'none';
 }
+
+/**
+ * Toast notifications
+ */
+function showToast(mensaje, tipo = 'info') {
+    const container = document.getElementById('toastContainer');
+    if (!container) return;
+    const icons = { success: '✅', error: '❌', info: 'ℹ️', warning: '⚠️' };
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${tipo}`;
+    toast.innerHTML = `<span>${icons[tipo] || 'ℹ️'}</span><span>${mensaje}</span>`;
+    container.appendChild(toast);
+    setTimeout(() => {
+        toast.classList.add('hiding');
+        setTimeout(() => toast.remove(), 320);
+    }, 3500);
+}
+
+// Cerrar modales con Escape y click fuera
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        cerrarModalArticulos();
+        cerrarModalRemito();
+        cerrarModalHojaRuta();
+    }
+});
+
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+            cerrarModalArticulos();
+            cerrarModalRemito();
+            cerrarModalHojaRuta();
+        }
+    });
+});

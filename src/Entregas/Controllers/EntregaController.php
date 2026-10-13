@@ -133,5 +133,37 @@ class EntregaController extends Controller
             Response::error($e->getMessage(), 500);
         }
     }
+
+    /**
+     * PATCH /api/v1/entregas/{id}/pedidos/{idVenta}/entregado
+     * POST /api/v1/entregas/confirmar-pedido-entregado
+     * HU #3 (Issue #124): Notificación de pedido entregado por el chofer
+     */
+    public function confirmarPedidoEntregado(Request $request, int|string|null $id = null, int|string|null $idVenta = null): void
+    {
+        try {
+            $body = $request->all();
+            $idEntrega = (int)($id ?? $body['id_entrega'] ?? 0);
+            $idPedido = (int)($idVenta ?? $body['id_venta'] ?? $body['id_pedido'] ?? 0);
+            $observaciones = $body['observaciones'] ?? null;
+            $idUsuario = (int)($body['usuario_id'] ?? 1);
+
+            if ($idEntrega <= 0 || $idPedido <= 0) {
+                Response::error("Debe proporcionar id_entrega e id_venta válidos.", 400);
+                return;
+            }
+
+            $resultado = $this->service->confirmarPedidoEntregado(
+                $idEntrega,
+                $idPedido,
+                $observaciones,
+                $idUsuario
+            );
+
+            Response::json($resultado, 200, $resultado['mensaje']);
+        } catch (Exception $e) {
+            Response::error($e->getMessage(), 400);
+        }
+    }
 }
 
