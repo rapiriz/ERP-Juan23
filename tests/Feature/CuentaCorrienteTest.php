@@ -4,41 +4,11 @@ namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
-use Illuminate\Database\Schema\Blueprint;
 use Tests\TestCase;
 
 class CuentaCorrienteTest extends TestCase
 {
     use RefreshDatabase;
-
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        Schema::create('venta', function (Blueprint $table): void {
-            $table->increments('id_venta');
-            $table->unsignedInteger('id_cliente');
-            $table->date('fecha');
-            $table->decimal('total', 10, 0);
-            $table->decimal('descuento_global', 10, 2)->default(0);
-            $table->string('numFactura', 50);
-            $table->string('estado');
-            $table->string('observaciones', 150);
-            $table->unsignedInteger('id_usuario');
-        });
-
-        Schema::create('detalle_venta', function (Blueprint $table): void {
-            $table->increments('id_detalle');
-            $table->unsignedInteger('id_venta');
-            $table->unsignedInteger('id_producto');
-            $table->unsignedInteger('id_promocion')->nullable();
-            $table->unsignedInteger('cantidad');
-            $table->decimal('precio_unitario', 10, 0);
-            $table->decimal('descuento', 10, 0);
-            $table->decimal('subtotal', 10, 0);
-        });
-    }
 
     public function test_partial_payment_is_saved_and_cannot_exceed_the_debt(): void
     {
