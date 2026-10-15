@@ -1,0 +1,109 @@
+### 1. Registrar cobro exitoso completo
+POST http://localhost:8000/api/v1/rendiciones/cobros
+Content-Type: application/json
+
+{
+    "id_rendicion": 1,
+    "id_cliente": 5,
+    "id_factura": 101,
+    "monto": 12500.00,
+    "medio_pago": "transferencia"
+}
+
+
+### 2. Error: Falta un campo obligatorio (ej. medio_pago)
+POST http://localhost:8000/api/v1/rendiciones/cobros
+Content-Type: application/json
+
+{
+    "id_rendicion": 1,
+    "id_cliente": 5,
+    "id_factura": 101,
+    "monto": 5000.00
+}
+
+
+### 3. Error: Medio de pago inválido
+POST http://localhost:8000/api/v1/rendiciones/cobros
+Content-Type: application/json
+
+{
+    "id_rendicion": 1,
+    "id_cliente": 5,
+    "id_factura": 101,
+    "monto": 5000.00,
+    "medio_pago": "trueque"
+}
+
+### 4. Registrar Rendición de Reparto Completa (Éxito esperado - RENDICIÓN #14)[cite: 6]
+POST http://localhost:8000/api/v1/rendiciones
+Content-Type: application/json
+
+{
+    "id_reparto": 45,
+    "id_repartidor": 12,
+    "observaciones": "Entrega completada sin inconvenientes, cliente de la zona sur abonó con transferencia.",
+    "remitos": [101, 102, 103],
+    "cobros": [
+    { "id_factura": 201, "monto": 15000.00, "medio_pago": "efectivo" },
+    { "id_factura": 202, "monto": 8500.50, "medio_pago": "transferencia" }
+    ]
+}
+
+### 5. Registrar Diferencia en Rendición (Ej: Faltante de caja - RENDICIÓN #12)
+POST http://localhost:8000/api/v1/rendiciones/diferencias
+Content-Type: application/json
+
+{
+    "id_rendicion": 15,
+    "total_esperado": 50000.00,
+    "total_rendido": 48500.00,
+    "motivo": "Diferencia de efectivo no justificada en el punto de cobro",
+    "observaciones": "Se deja pendiente de revisión para el cierre semanal."
+}
+
+### 6. Aprobar Rendición (Éxito esperado - RENDICIÓN #11)
+POST http://localhost:8000/api/v1/rendiciones/validar
+Content-Type: application/json
+
+{
+    "id_rendicion": 15,
+    "accion": "aprobada",
+    "id_usuario_validador": 3,
+    "observaciones": "Todo verificado correctamente contra caja."
+}
+
+
+### 7. Rechazar Rendición con Motivo (Éxito esperado - RENDICIÓN #11)
+POST http://localhost:8000/api/v1/rendiciones/validar
+Content-Type: application/json
+
+{
+    "id_rendicion": 18,
+    "accion": "rechazada",
+    "id_usuario_validador": 3,
+    "motivo_rechazo": "Faltan comprobantes físicos de los gastos declarados."
+}
+
+### 8. Consultar Historial Completo de Rendiciones (RENDICIÓN #10)
+GET http://localhost:8000/api/v1/rendiciones/historial
+
+
+### 9. Consultar Historial Filtrado por Estado (Ej: Reponder sólo las 'Aprobadas' - RENDICIÓN #10)
+GET http://localhost:8000/api/v1/rendiciones/historial?estado=Aprobada
+
+
+### 10. Consultar Historial Filtrado por Repartidor (Ej: id_repartidor 12 - RENDICIÓN #10)
+GET http://localhost:8000/api/v1/rendiciones/historial?id_repartidor=12
+
+### 11. Registrar Devolución en Rendición (RENDICIÓN #8)
+POST http://localhost:8000/api/v1/rendiciones/devoluciones
+Content-Type: application/json
+
+{
+    "id_rendicion": 15,
+    "id_pedido": 305,
+    "cliente": "Comercio El Amigo",
+    "motivo": "Negocio cerrado al momento de la visita",
+    "observaciones": "Se reprograma la entrega para el próximo recorrido."
+}
