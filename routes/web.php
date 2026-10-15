@@ -11,3 +11,4 @@ Route::get('/ventas', [VentaController::class, 'index'])->name('ventas');
 Route::post('/ventas', [VentaController::class, 'store'])->name('ventas.store');
 Route::get('/saldo', [CuentaCorrienteController::class, 'index'])->name('saldo');
 Route::post('/saldo/{cliente}/movimientos', [CuentaCorrienteController::class, 'registrarMovimiento'])->name('saldo.movimientos');
+Route::get('/historial-ventas', [VentaController::class, 'historial'])->name('ventas.historial');

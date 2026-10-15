@@ -17,7 +17,7 @@
            class="sidebar-link {{ request()->routeIs('saldo') ? 'active' : '' }}">
             <span class="ico">👥</span> Cuentas Corrientes
         </a>
-        <a href="#" class="sidebar-link">
+        <a href="{{ route('ventas.historial') }}" class="sidebar-link {{ request()->routeIs('ventas.historial') ? 'active' : '' }}">
             <span class="ico">🕓</span> Historial de Ventas
         </a>
     </nav>
