@@ -29,6 +29,7 @@ Route::prefix('v1')->group(function () {
 
     // --- CAJA (protegida con Sanctum) ---
     Route::middleware('auth:sanctum')->group(function () {
+        Route::get('/caja', [CajaController::class, 'listar']);
         Route::post('/caja/apertura', [CajaController::class, 'abrir']);
         Route::get('/caja/cierres', [CajaController::class, 'historialCierres']);
         Route::get('/caja/cierres/{id}', [CajaController::class, 'detalleCierre']);

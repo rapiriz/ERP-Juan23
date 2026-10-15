@@ -2,20 +2,21 @@
 
 namespace App\Caja\Controllers;
 
+use App\Caja\Models\Caja;
+use App\Caja\Models\CajaMovimiento;
 use App\Caja\Services\CajaService;
 use App\Shared\Http\Controllers\Controller;
 use App\Shared\Http\Response;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 /**
  * Controller único para el módulo Caja.
  * Toda la lógica de negocio vive en CajaService — este Controller solo valida
  * el request y traduce el resultado del Service a HTTP.
  *
- * A partir de ahora usa sesión real (Sanctum): todas las rutas de Caja están
- * protegidas con el middleware auth:sanctum (ver routes/api.php), y
- * $request->user() devuelve el App\Shared\Models\Usuario autenticado — ya no
- * se recibe id_usuario en el body.
+ * Todas las rutas de Caja están protegidas con auth:sanctum (ver routes/api.php),
+ * y $request->user() devuelve el App\Shared\Models\Usuario autenticado.
  */
 class CajaController extends Controller
 {
@@ -35,16 +36,35 @@ class CajaController extends Controller
 
         $resultado = $this->service->abrirCaja(
             $request->user()->id_usuario,
+            $request->user()->rol,
             (float) $datos['monto_inicial'],
             $datos['observaciones'] ?? null
         );
 
         if ($resultado['error'] ?? false) {
-            Response::error($resultado['mensaje'], 409);
+            Response::json($resultado, 409); // incluye id_caja_pendiente y vencida
             return;
         }
 
         Response::json($resultado, 201);
+    }
+
+    /**
+     * GET /caja?estado=abierta&id_usuario=3
+     */
+    public function listar(Request $request)
+    {
+        $datos = $request->validate([
+            'estado' => ['nullable', Rule::in([Caja::ESTADO_ABIERTA, Caja::ESTADO_CERRADA])],
+            'id_usuario' => ['nullable', 'integer'],
+        ]);
+
+        // Quien no es admin solo ve sus propias cajas
+        $idUsuario = $request->user()->rol === 'admin'
+            ? ($datos['id_usuario'] ?? null)
+            : $request->user()->id_usuario;
+
+        Response::json($this->service->listarCajas($datos['estado'] ?? null, $idUsuario));
     }
 
     /**
@@ -132,7 +152,7 @@ class CajaController extends Controller
     {
         $datos = $request->validate([
             'id_caja' => ['required', 'integer'],
-            'tipo' => ['required', 'string'],
+            'tipo' => ['required', Rule::in(CajaMovimiento::TIPOS_VALIDOS)],
             'concepto' => ['required', 'string', 'max:200'],
             'monto' => ['required', 'numeric', 'min:0.01'],
         ]);
@@ -140,6 +160,7 @@ class CajaController extends Controller
         $resultado = $this->service->registrarMovimiento(
             (int) $datos['id_caja'],
             $request->user()->id_usuario,
+            $request->user()->rol,
             $datos['tipo'],
             $datos['concepto'],
             (float) $datos['monto']
@@ -175,9 +196,6 @@ class CajaController extends Controller
 
     /**
      * PATCH /caja/movimiento/{id} — solo admin
-     * Rol "administrativo" de las HU mapeado a 'admin' (decisión confirmada
-     * con el equipo). Ahora se lee directo del usuario autenticado, ya no
-     * hace falta consultar la BD aparte.
      */
     public function modificarMovimiento(Request $request, int $id)
     {

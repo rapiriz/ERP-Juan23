@@ -23,6 +23,7 @@ class Caja extends Model
         'estado',
         'id_usuario_cierre',
         'fecha_hora_apertura',
+        'fecha_hora_vencimiento',
         'fecha_hora_cierre',
         'observaciones',
     ];
@@ -33,6 +34,7 @@ class Caja extends Model
         'monto_final' => 'decimal:2',
         'diferencia' => 'decimal:2',
         'fecha_hora_apertura' => 'datetime',
+        'fecha_hora_vencimiento' => 'datetime',
         'fecha_hora_cierre' => 'datetime',
     ];
 
