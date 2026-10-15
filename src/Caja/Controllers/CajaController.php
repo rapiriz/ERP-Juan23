@@ -2,15 +2,21 @@
 
 namespace App\Caja\Controllers;
 
+use App\Caja\Models\Caja;
+use App\Caja\Models\CajaMovimiento;
 use App\Caja\Services\CajaService;
 use App\Shared\Http\Controllers\Controller;
 use App\Shared\Http\Response;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 /**
  * Controller único para el módulo Caja.
  * Toda la lógica de negocio vive en CajaService — este Controller solo valida
  * el request y traduce el resultado del Service a HTTP.
+ *
+ * Todas las rutas de Caja están protegidas con auth:sanctum (ver routes/api.php),
+ * y $request->user() devuelve el App\Shared\Models\Usuario autenticado.
  */
 class CajaController extends Controller
 {
@@ -26,23 +32,39 @@ class CajaController extends Controller
         $datos = $request->validate([
             'monto_inicial' => ['required', 'numeric', 'min:0'],
             'observaciones' => ['nullable', 'string', 'max:500'],
-            // TODO: reemplazar por el usuario de la sesión cuando la
-            // autenticación esté resuelta (ver SesionMiddleware, pendiente).
-            'id_usuario' => ['required', 'integer'],
         ]);
 
         $resultado = $this->service->abrirCaja(
-            $datos['id_usuario'],
+            $request->user()->id_usuario,
+            $request->user()->rol,
             (float) $datos['monto_inicial'],
             $datos['observaciones'] ?? null
         );
 
         if ($resultado['error'] ?? false) {
-            Response::error($resultado['mensaje'], 409);
+            Response::json($resultado, 409); // incluye id_caja_pendiente y vencida
             return;
         }
 
         Response::json($resultado, 201);
+    }
+
+    /**
+     * GET /caja?estado=abierta&id_usuario=3
+     */
+    public function listar(Request $request)
+    {
+        $datos = $request->validate([
+            'estado' => ['nullable', Rule::in([Caja::ESTADO_ABIERTA, Caja::ESTADO_CERRADA])],
+            'id_usuario' => ['nullable', 'integer'],
+        ]);
+
+        // Quien no es admin solo ve sus propias cajas
+        $idUsuario = $request->user()->rol === 'admin'
+            ? ($datos['id_usuario'] ?? null)
+            : $request->user()->id_usuario;
+
+        Response::json($this->service->listarCajas($datos['estado'] ?? null, $idUsuario));
     }
 
     /**
@@ -76,12 +98,11 @@ class CajaController extends Controller
         $datos = $request->validate([
             'monto_final' => ['required', 'numeric', 'min:0'],
             'observaciones' => ['nullable', 'string', 'max:500'],
-            'id_usuario' => ['required', 'integer'],
         ]);
 
         $resultado = $this->service->cerrarCaja(
             $id,
-            $datos['id_usuario'],
+            $request->user()->id_usuario,
             (float) $datos['monto_final'],
             $datos['observaciones'] ?? null
         );
@@ -131,15 +152,15 @@ class CajaController extends Controller
     {
         $datos = $request->validate([
             'id_caja' => ['required', 'integer'],
-            'tipo' => ['required', 'string'],
+            'tipo' => ['required', Rule::in(CajaMovimiento::TIPOS_VALIDOS)],
             'concepto' => ['required', 'string', 'max:200'],
             'monto' => ['required', 'numeric', 'min:0.01'],
-            'id_usuario' => ['required', 'integer'],
         ]);
 
         $resultado = $this->service->registrarMovimiento(
             (int) $datos['id_caja'],
-            $datos['id_usuario'],
+            $request->user()->id_usuario,
+            $request->user()->rol,
             $datos['tipo'],
             $datos['concepto'],
             (float) $datos['monto']
@@ -175,12 +196,14 @@ class CajaController extends Controller
 
     /**
      * PATCH /caja/movimiento/{id} — solo admin
-     * TODO: rol "administrativo" usado en las HU no existe en el enum de
-     * USUARIO (admin|vendedor|repartidor) — sin validación de rol real acá
-     * todavía porque no hay sesión implementada (ver SesionMiddleware).
      */
     public function modificarMovimiento(Request $request, int $id)
     {
+        if ($request->user()->rol !== 'admin') {
+            Response::error('Solo un administrador puede modificar un movimiento.', 403);
+            return;
+        }
+
         $datos = $request->validate([
             'concepto' => ['required', 'string', 'max:200'],
             'monto' => ['required', 'numeric', 'min:0.01'],

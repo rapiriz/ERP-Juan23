@@ -47,6 +47,26 @@ class CajaRepository
         return Caja::where('fecha', $fecha)->get();
     }
 
+    /**
+     * Lista cajas filtrando opcionalmente por estado (abierta/cerrada) y
+     * por usuario. Sirve para encontrar la caja de Diego aunque abarque
+     * varios días.
+     */
+    public function listarFiltradas(?string $estado, ?int $idUsuario): Collection
+    {
+        $query = Caja::query();
+
+        if ($estado !== null) {
+            $query->where('estado', $estado);
+        }
+
+        if ($idUsuario !== null) {
+            $query->where('id_usuario', $idUsuario);
+        }
+
+        return $query->orderByDesc('fecha_hora_apertura')->get();
+    }
+
     public function crear(array $datos): Caja
     {
         return Caja::create($datos);

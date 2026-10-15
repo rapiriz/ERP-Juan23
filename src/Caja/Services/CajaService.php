@@ -14,28 +14,28 @@ class CajaService
     }
 
     /**
-     * CAJ-01: solo se puede abrir si no hay NINGUNA caja abierta del
-     * usuario (sin importar el dia). Si hay una de un dia anterior sin
-     * cerrar, se avisa con el id de esa caja para que el usuario vaya a
-     * cerrarla primero (no se cierra sola).
+     * CAJ-01: una sola caja abierta por usuario. Si ya tiene una (de hoy o
+     * de días anteriores) se bloquea la apertura y se avisa, indicando si
+     * está vencida, para que la cierre antes de abrir otra.
      */
-    public function abrirCaja(int $idUsuarioSesion, float $montoInicial, ?string $observaciones = null): array
+    public function abrirCaja(int $idUsuarioSesion, string $rol, float $montoInicial, ?string $observaciones = null): array
     {
-        $hoy = Carbon::now()->toDateString();
+        $ahora = Carbon::now();
 
         $cajaAbierta = $this->repositorio->buscarCualquierAbiertaDeUsuario($idUsuarioSesion);
 
         if ($cajaAbierta !== null) {
-            $fechaCajaAbierta = $cajaAbierta->fecha->toDateString();
-
-            if ($fechaCajaAbierta === $hoy) {
-                return ['error' => true, 'mensaje' => 'Ya existe una caja abierta hoy para este usuario.'];
-            }
+            $vencida = $cajaAbierta->fecha_hora_vencimiento !== null
+                && $ahora->greaterThan($cajaAbierta->fecha_hora_vencimiento);
 
             return [
                 'error' => true,
-                'mensaje' => 'Tenés una caja sin cerrar del ' . $cajaAbierta->fecha->format('d/m/Y') . '. Cerrala antes de abrir una nueva.',
+                'mensaje' => 'Tenés una caja abierta desde el '
+                    . $cajaAbierta->fecha_hora_apertura->format('d/m/Y H:i')
+                    . ($vencida ? ' que ya venció' : '')
+                    . '. Cerrala antes de abrir otra.',
                 'id_caja_pendiente' => $cajaAbierta->id_caja,
+                'vencida' => $vencida,
             ];
         }
 
@@ -45,14 +45,28 @@ class CajaService
 
         $caja = $this->repositorio->crear([
             'id_usuario' => $idUsuarioSesion,
-            'fecha' => $hoy,
+            'fecha' => $ahora->toDateString(),
             'monto_inicial' => $montoInicial,
             'estado' => Caja::ESTADO_ABIERTA,
-            'fecha_hora_apertura' => Carbon::now(),
+            'fecha_hora_apertura' => $ahora,
+            'fecha_hora_vencimiento' => $this->calcularVencimiento($rol, $ahora),
             'observaciones' => $observaciones,
         ]);
 
         return $caja->toArray();
+    }
+
+    /**
+     * Repartidor: 72 h. Resto (Diego/admin): 7 días o fin de mes, lo que
+     * ocurra primero.
+     */
+    private function calcularVencimiento(string $rol, Carbon $apertura): Carbon
+    {
+        if ($rol === 'repartidor') {
+            return $apertura->copy()->addHours(72);
+        }
+
+        return $apertura->copy()->addDays(7)->min($apertura->copy()->endOfMonth());
     }
 
     public function obtenerCajasDeFecha(string $fecha): array
@@ -65,6 +79,11 @@ class CajaService
         $caja = $this->repositorio->buscarPorUsuarioYFecha($idUsuario, $fecha);
 
         return $caja?->toArray();
+    }
+
+    public function listarCajas(?string $estado, ?int $idUsuario): array
+    {
+        return $this->repositorio->listarFiltradas($estado, $idUsuario)->toArray();
     }
 
     public function obtenerCaja(int $idCaja): ?array
@@ -129,6 +148,7 @@ class CajaService
     public function registrarMovimiento(
         int $idCaja,
         int $idUsuarioSesion,
+        string $rol,
         string $tipo,
         string $concepto,
         float $monto
@@ -146,22 +166,25 @@ class CajaService
         if (!$caja->estaAbierta()) {
             return [
                 'error' => true,
-                'mensaje' => 'No se pueden registrar movimientos en una caja cerrada. Los movimientos pendientes se cargan en la caja del día siguiente.',
+                'mensaje' => 'No se pueden registrar movimientos en una caja cerrada. Abrí una caja nueva para cargarlos.',
             ];
         }
 
-        if (!in_array($tipo, CajaMovimiento::TIPOS_VALIDOS, true)) {
-            return ['error' => true, 'mensaje' => 'Tipo de movimiento inválido.'];
+        if (!in_array($tipo, CajaMovimiento::tiposPermitidosPara($rol), true)) {
+            return ['error' => true, 'mensaje' => 'Tipo de movimiento no permitido para tu rol.'];
         }
 
         if ($monto <= 0) {
             return ['error' => true, 'mensaje' => 'El monto debe ser mayor a cero.'];
         }
 
+        $ahora = Carbon::now();
+
         $movimiento = $this->repositorio->crearMovimiento([
             'id_caja' => $idCaja,
             'id_usuario' => $idUsuarioSesion,
-            'fecha' => Carbon::now()->toDateString(),
+            'fecha' => $ahora->toDateString(),
+            'fecha_hora_carga' => $ahora,
             'tipo' => $tipo,
             'concepto' => $concepto,
             'monto' => $monto,

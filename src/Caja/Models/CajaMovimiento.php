@@ -21,17 +21,28 @@ class CajaMovimiento extends Model
     public const TIPO_INGRESO_MANUAL = 'ingreso_manual';
     public const TIPO_EGRESO = 'egreso';
     public const TIPO_EXTRACCION = 'extraccion';
+    public const TIPO_PAGO_PROVEEDOR = 'pago_proveedor';
+    public const TIPO_IMPUESTO = 'impuesto';
 
     public const TIPOS_VALIDOS = [
         self::TIPO_COBRO,
         self::TIPO_INGRESO_MANUAL,
         self::TIPO_EGRESO,
         self::TIPO_EXTRACCION,
+        self::TIPO_PAGO_PROVEEDOR,
+        self::TIPO_IMPUESTO,
+    ];
+
+    /** Tipos que puede registrar un repartidor (cobros y gastos del reparto). */
+    public const TIPOS_REPARTIDOR = [
+        self::TIPO_COBRO,
+        self::TIPO_EGRESO,
     ];
 
     protected $fillable = [
         'id_caja',
         'fecha',
+        'fecha_hora_carga',
         'monto',
         'tipo',
         'concepto',
@@ -40,6 +51,7 @@ class CajaMovimiento extends Model
 
     protected $casts = [
         'fecha' => 'date',
+        'fecha_hora_carga' => 'datetime',
         'monto' => 'decimal:2',
     ];
 
@@ -51,5 +63,10 @@ class CajaMovimiento extends Model
     public function esIngreso(): bool
     {
         return in_array($this->tipo, [self::TIPO_COBRO, self::TIPO_INGRESO_MANUAL], true);
+    }
+
+    public static function tiposPermitidosPara(string $rol): array
+    {
+        return $rol === 'repartidor' ? self::TIPOS_REPARTIDOR : self::TIPOS_VALIDOS;
     }
 }
