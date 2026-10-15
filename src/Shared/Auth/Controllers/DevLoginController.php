@@ -20,6 +20,9 @@ class DevLoginController extends Controller
 {
     public function login(Request $request)
     {
+        // Solo disponible en entorno local. Fuera de local responde 404.
+        abort_unless(app()->environment('local'), 404);
+
         $datos = $request->validate([
             'user' => ['required', 'string'],
             'password' => ['required', 'string'],

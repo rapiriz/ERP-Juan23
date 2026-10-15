@@ -8,8 +8,10 @@ use App\Caja\Controllers\CajaController;
 use App\Shared\Auth\Controllers\DevLoginController;
 use App\Cobros\Controllers\CobroController;
 
-// Login de desarrollo
-Route::post('/auth/dev-login', [DevLoginController::class, 'login']);
+// Login de desarrollo (solo se registra en entorno local)
+if (app()->environment('local')) {
+    Route::post('/auth/dev-login', [DevLoginController::class, 'login']);
+}
 
 Route::prefix('v1')->group(function () {
 
