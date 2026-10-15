@@ -11,6 +11,11 @@ use Illuminate\Http\Request;
  * Controller único para el módulo Caja.
  * Toda la lógica de negocio vive en CajaService — este Controller solo valida
  * el request y traduce el resultado del Service a HTTP.
+ *
+ * A partir de ahora usa sesión real (Sanctum): todas las rutas de Caja están
+ * protegidas con el middleware auth:sanctum (ver routes/api.php), y
+ * $request->user() devuelve el App\Shared\Models\Usuario autenticado — ya no
+ * se recibe id_usuario en el body.
  */
 class CajaController extends Controller
 {
@@ -26,13 +31,10 @@ class CajaController extends Controller
         $datos = $request->validate([
             'monto_inicial' => ['required', 'numeric', 'min:0'],
             'observaciones' => ['nullable', 'string', 'max:500'],
-            // TODO: reemplazar por el usuario de la sesión cuando la
-            // autenticación esté resuelta (ver SesionMiddleware, pendiente).
-            'id_usuario' => ['required', 'integer'],
         ]);
 
         $resultado = $this->service->abrirCaja(
-            $datos['id_usuario'],
+            $request->user()->id_usuario,
             (float) $datos['monto_inicial'],
             $datos['observaciones'] ?? null
         );
@@ -76,12 +78,11 @@ class CajaController extends Controller
         $datos = $request->validate([
             'monto_final' => ['required', 'numeric', 'min:0'],
             'observaciones' => ['nullable', 'string', 'max:500'],
-            'id_usuario' => ['required', 'integer'],
         ]);
 
         $resultado = $this->service->cerrarCaja(
             $id,
-            $datos['id_usuario'],
+            $request->user()->id_usuario,
             (float) $datos['monto_final'],
             $datos['observaciones'] ?? null
         );
@@ -134,12 +135,11 @@ class CajaController extends Controller
             'tipo' => ['required', 'string'],
             'concepto' => ['required', 'string', 'max:200'],
             'monto' => ['required', 'numeric', 'min:0.01'],
-            'id_usuario' => ['required', 'integer'],
         ]);
 
         $resultado = $this->service->registrarMovimiento(
             (int) $datos['id_caja'],
-            $datos['id_usuario'],
+            $request->user()->id_usuario,
             $datos['tipo'],
             $datos['concepto'],
             (float) $datos['monto']
@@ -175,12 +175,17 @@ class CajaController extends Controller
 
     /**
      * PATCH /caja/movimiento/{id} — solo admin
-     * TODO: rol "administrativo" usado en las HU no existe en el enum de
-     * USUARIO (admin|vendedor|repartidor) — sin validación de rol real acá
-     * todavía porque no hay sesión implementada (ver SesionMiddleware).
+     * Rol "administrativo" de las HU mapeado a 'admin' (decisión confirmada
+     * con el equipo). Ahora se lee directo del usuario autenticado, ya no
+     * hace falta consultar la BD aparte.
      */
     public function modificarMovimiento(Request $request, int $id)
     {
+        if ($request->user()->rol !== 'admin') {
+            Response::error('Solo un administrador puede modificar un movimiento.', 403);
+            return;
+        }
+
         $datos = $request->validate([
             'concepto' => ['required', 'string', 'max:200'],
             'monto' => ['required', 'numeric', 'min:0.01'],
