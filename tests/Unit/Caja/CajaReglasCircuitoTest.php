@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Unit;
+namespace Tests\Unit\Caja;
 
 use App\Caja\Models\Caja;
 use App\Caja\Models\CajaMovimiento;
@@ -14,7 +14,7 @@ use Tests\TestCase;
  * Tests de las reglas del circuito de cajas. El repositorio se simula
  * (Mockery), así que no tocan la base de datos.
  */
-class CajaServiceTest extends TestCase
+class CajaReglasCircuitoTest extends TestCase
 {
     protected function tearDown(): void
     {

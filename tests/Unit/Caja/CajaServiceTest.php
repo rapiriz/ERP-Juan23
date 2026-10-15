@@ -15,7 +15,7 @@ use Tests\TestCase;
  *   php artisan test --filter=CajaServiceTest
  *
  * Las reglas del circuito de cajas (vencimiento por rol, tipos por rol, hora
- * de carga) se testean en tests/Unit/CajaServiceTest.php.
+ * de carga) se testean en tests/Unit/Caja/CajaReglasCircuitoTest.php.
  */
 class CajaServiceTest extends TestCase
 {
