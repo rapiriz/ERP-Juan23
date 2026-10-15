@@ -27,8 +27,7 @@ Route::prefix('v1')->group(function () {
     Route::patch('/cheques/{id}/depositar', [ChequeController::class, 'depositar']);
     Route::patch('/cheques/{id}/rechazar', [ChequeController::class, 'rechazar']);
 
-    // --- CAJA ---
-    // Protegida con autenticación Sanctum
+    // --- CAJA (protegida con Sanctum) ---
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/caja/apertura', [CajaController::class, 'abrir']);
         Route::get('/caja/cierres', [CajaController::class, 'historialCierres']);
@@ -41,10 +40,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/caja/{fecha}', [CajaController::class, 'porFecha']);
     });
 
-});
-
-// --- ENTREGAS (Grupo 2) ---
-Route::prefix('v1')->group(function () {
+    // --- ENTREGAS ---
     Route::get('/entregas/pendientes-despacho', [EntregaController::class, 'pedidosPendientes']);
     Route::post('/entregas', [EntregaController::class, 'crearEntrega']);
     Route::get('/entregas', [EntregaController::class, 'listar']);
@@ -53,36 +49,7 @@ Route::prefix('v1')->group(function () {
     Route::get('/zonas', [EntregaController::class, 'zonas']);
     Route::get('/repartidores', [EntregaController::class, 'repartidores']);
 
-    // --- COBROS (Grupo 2) ---
+    // --- COBROS ---
     Route::post('/cobros', [CobroController::class, 'store']);
     Route::get('/cobros/clientes/{idCliente}/saldo', [CobroController::class, 'saldo']);
 });
-
-// Compatibilidad con el router nativo / standalone del proyecto
-if (isset($router)) {
-
-    // --- ENTREGAS ---
-    $router->get('/api/v1/entregas/pendientes-despacho', [EntregaController::class, 'pedidosPendientes']);
-    $router->post('/api/v1/entregas', [EntregaController::class, 'crearEntrega']);
-    $router->get('/api/v1/entregas', [EntregaController::class, 'listar']);
-    $router->get('/api/v1/entregas/{id}', [EntregaController::class, 'detalle']);
-    $router->get('/api/v1/remitos/{id}', [EntregaController::class, 'verRemito']);
-    $router->get('/api/v1/zonas', [EntregaController::class, 'zonas']);
-    $router->get('/api/v1/repartidores', [EntregaController::class, 'repartidores']);
-
-    // --- CONCILIACIÓN BANCARIA ---
-    if (class_exists(ConciliacionController::class)) {
-        $router->get('/api/v1/conciliacion', [ConciliacionController::class, 'index']);
-        $router->get('/api/v1/conciliacion/{id}', [ConciliacionController::class, 'show']);
-        $router->post('/api/v1/conciliacion', [ConciliacionController::class, 'store']);
-        $router->patch('/api/v1/conciliacion/{id}/conciliar', [ConciliacionController::class, 'conciliarAutomatico']);
-        $router->post('/api/v1/conciliacion/movimientos/{id}/conciliar-manual', [ConciliacionController::class, 'conciliarManual']);
-        $router->patch('/api/v1/conciliacion/{id}/cerrar', [ConciliacionController::class, 'cerrar']);
-    }
-
-    // --- COBROS ---
-    if (class_exists(CobroController::class)) {
-        $router->post('/api/v1/cobros', [CobroController::class, 'store']);
-        $router->get('/api/v1/cobros/clientes/{idCliente}/saldo', [CobroController::class, 'saldo']);
-    }
-}
