@@ -198,4 +198,18 @@ class CuentaCorrienteTest extends TestCase
             ->assertSee('id="ventasHistorialData"', false)
             ->assertSee('id="sinResultados"', false);
     }
+
+    public function test_current_accounts_page_renders_date_filter_modes_and_empty_results_message(): void
+    {
+        $this->get('/saldo')
+            ->assertOk()
+            ->assertSee('id="modoFecha"', false)
+            ->assertSee('<option value="todas" selected>Todas</option>', false)
+            ->assertSee('<option value="especifica">Fecha específica</option>', false)
+            ->assertSee('<option value="periodo">Período</option>', false)
+            ->assertSee('id="fechaEspecifica"', false)
+            ->assertSee('id="fechaDesde"', false)
+            ->assertSee('id="fechaHasta"', false)
+            ->assertSee('No se encontraron registros con los filtros aplicados.');
+    }
 }

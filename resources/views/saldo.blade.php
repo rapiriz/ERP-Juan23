@@ -13,6 +13,52 @@
     }
     .saldo-heading h1 { margin: 0; font-size: 1.05rem; font-weight: 800; }
     .saldo-heading .ico { color: var(--primary); }
+    .filtros-movimientos {
+        display: grid;
+        grid-template-columns: minmax(220px, .8fr) minmax(0, 2fr) auto;
+        align-items: end;
+        gap: .85rem;
+        padding: 1rem;
+    }
+    .filtro-campo { display: flex; flex-direction: column; gap: .35rem; min-width: 0; }
+    .filtro-campo label {
+        color: var(--muted);
+        font-size: .72rem;
+        font-weight: 700;
+        letter-spacing: .4px;
+        text-transform: uppercase;
+    }
+    .filtro-campo select,
+    .filtro-campo input {
+        width: 100%;
+        min-height: 44px;
+        padding: 0 .75rem;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: #fff;
+        color: var(--text);
+        font: inherit;
+        font-size: .9rem;
+    }
+    .filtro-fechas { display: flex; align-items: end; gap: .75rem; }
+    .filtro-fechas[hidden] { display: none; }
+    .filtro-fechas .filtro-campo { flex: 1; }
+    .filtro-alerta { grid-column: 2 / -1; margin: 0; color: var(--danger); font-size: .82rem; }
+    .filtros-acciones { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
+    .filtros-resumen { margin: 0; color: var(--muted); font-size: .82rem; white-space: nowrap; }
+    .filtros-limpiar {
+        min-height: 42px;
+        padding: 0 .9rem;
+        border: 0;
+        border-radius: 10px;
+        background: transparent;
+        color: var(--primary);
+        font: inherit;
+        font-size: .88rem;
+        font-weight: 600;
+        cursor: pointer;
+    }
+    .filtros-limpiar:hover { background: #eff6ff; }
     .saldo-layout {
         display: grid;
         grid-template-columns: minmax(230px, 30%) minmax(0, 1fr);
@@ -157,6 +203,9 @@
     .movimientos-table .saldo { text-align: right; white-space: nowrap; font-weight: 700; }
     .movimientos-vacios { padding: 1.25rem; color: var(--muted); text-align: center; font-size: .88rem; }
     @media (max-width: 760px) {
+        .filtros-movimientos { grid-template-columns: 1fr; }
+        .filtro-alerta { grid-column: auto; }
+        .filtros-acciones { align-items: flex-start; flex-direction: column; }
         .saldo-layout { grid-template-columns: 1fr; min-height: 0; }
         .clientes-panel { max-height: 280px; }
         .resumen-cuenta { align-items: flex-start; flex-direction: column; }
@@ -177,6 +226,40 @@
         <span class="ico" aria-hidden="true">♙</span>
         <h1>CUENTAS CORRIENTES</h1>
     </header>
+
+    <section class="clay-card filtros-movimientos" aria-label="Filtros de movimientos">
+        <div class="filtro-campo">
+            <label for="modoFecha">Filtrar por fecha</label>
+            <select id="modoFecha" class="clay-input">
+                <option value="todas" selected>Todas</option>
+                <option value="especifica">Fecha específica</option>
+                <option value="periodo">Período</option>
+            </select>
+        </div>
+        <div class="filtro-fechas" id="filtroFechaEspecifica" hidden>
+            <div class="filtro-campo">
+                <label for="fechaEspecifica">Fecha</label>
+                <input id="fechaEspecifica" type="date" class="clay-input">
+            </div>
+        </div>
+        <div class="filtro-fechas" id="filtroPeriodo" hidden>
+            <div class="filtro-campo">
+                <label for="fechaDesde">Desde</label>
+                <input id="fechaDesde" type="date" class="clay-input">
+            </div>
+            <div class="filtro-campo">
+                <label for="fechaHasta">Hasta</label>
+                <input id="fechaHasta" type="date" class="clay-input">
+            </div>
+        </div>
+        <div class="filtros-acciones">
+            <p class="filtros-resumen" id="resumenFiltros" aria-live="polite"></p>
+            <button type="button" class="filtros-limpiar" id="limpiarFiltrosSaldo">Limpiar filtros</button>
+        </div>
+        <p class="filtro-alerta" id="errorRangoFechas" role="alert" hidden>
+            La fecha «Desde» no puede ser posterior a «Hasta».
+        </p>
+    </section>
 
     <div class="saldo-layout">
         <aside class="clay-card clientes-panel" aria-label="Listado de clientes">
@@ -201,7 +284,7 @@
                         <span id="domicilioCliente"></span>
                     </div>
                     <div class="resumen-monto">
-                        <span class="label">Saldo actual</span>
+                        <span class="label" id="etiquetaSaldo">Saldo actual</span>
                         <strong id="saldoActual"></strong>
                         <span id="estadoSaldo"></span>
                     </div>
@@ -232,7 +315,7 @@
                             <tbody id="tablaMovimientos"></tbody>
                         </table>
                         <div class="movimientos-vacios" id="movimientosVacios" hidden>
-                            Este cliente todavía no tiene movimientos.
+                            <span id="mensajeMovimientosVacios">Este cliente todavía no tiene movimientos.</span>
                         </div>
                     </div>
                 </section>
@@ -292,9 +375,44 @@
         maximumFractionDigits: 2
     });
     let clienteSeleccionado = null;
+    const filters = {
+        search: '',
+        modoFecha: 'todas',
+        fecha: '',
+        fechaDesde: '',
+        fechaHasta: ''
+    };
+
+    function fechaDelMovimiento(movimiento) {
+        return String(movimiento.fecha ?? '').slice(0, 10);
+    }
+
+    function filtrarMovimientos(movimientos, filtros) {
+        return movimientos.filter(movimiento => {
+            const fecha = fechaDelMovimiento(movimiento);
+            if (filtros.modoFecha === 'especifica') return !filtros.fecha || fecha === filtros.fecha;
+            if (filtros.modoFecha !== 'periodo') return true;
+            if (filtros.fechaDesde && fecha < filtros.fechaDesde) return false;
+            if (filtros.fechaHasta && fecha > filtros.fechaHasta) return false;
+            return true;
+        });
+    }
+
+    function movimientosVisibles(cliente) {
+        return filtrarMovimientos(cliente.movimientos, filters);
+    }
+
+    function hayFiltroFechaActivo() {
+        return (filters.modoFecha === 'especifica' && Boolean(filters.fecha))
+            || (filters.modoFecha === 'periodo' && Boolean(filters.fechaDesde || filters.fechaHasta));
+    }
 
     function saldoDe(cliente) {
         return cliente.movimientos.reduce((total, movimiento) => total + Number(movimiento.monto), 0);
+    }
+
+    function saldoVisibleDe(cliente) {
+        return movimientosVisibles(cliente).reduce((total, movimiento) => total + Number(movimiento.monto), 0);
     }
 
     function formatoSaldo(monto) {
@@ -321,15 +439,18 @@
         })[caracter]);
     }
 
-    function renderClientes(filtro = '') {
-        const consulta = filtro.trim().toLocaleLowerCase('es-AR');
-        const clientesVisibles = CLIENTES.filter(cliente =>
-            `${cliente.nombre} ${cliente.cuit}`.toLocaleLowerCase('es-AR').includes(consulta)
-        );
+    function renderClientes() {
+        const consulta = filters.search.trim().toLocaleLowerCase('es-AR');
+        const clientesVisibles = CLIENTES.filter(cliente => {
+            const coincideBusqueda = `${cliente.nombre} ${cliente.cuit}`.toLocaleLowerCase('es-AR').includes(consulta);
+            const tieneMovimientosEnFecha = !hayFiltroFechaActivo()
+                || movimientosVisibles(cliente).length > 0;
+            return coincideBusqueda && tieneMovimientosEnFecha;
+        });
 
         $('listaClientes').innerHTML = clientesVisibles.length
             ? clientesVisibles.map(cliente => {
-                const saldo = saldoDe(cliente);
+                const saldo = saldoVisibleDe(cliente);
                 return `
                     <button type="button"
                         class="cliente-item ${clienteSeleccionado?.id === cliente.id ? 'active' : ''}"
@@ -340,12 +461,19 @@
                     </button>
                 `;
             }).join('')
-            : '<p class="cliente-no-encontrado">No se encontraron clientes.</p>';
+            : `<p class="cliente-no-encontrado">${
+                !hayFiltroFechaActivo()
+                    ? 'No se encontraron clientes.'
+                    : 'No se encontraron registros con los filtros aplicados.'
+            }</p>`;
+        $('resumenFiltros').textContent = `${clientesVisibles.length} clientes · ${
+            clientesVisibles.reduce((total, cliente) => total + movimientosVisibles(cliente).length, 0)
+        } movimientos`;
     }
 
     function renderMovimientos() {
         let saldoAcumulado = 0;
-        const movimientos = [...clienteSeleccionado.movimientos]
+        const movimientos = [...movimientosVisibles(clienteSeleccionado)]
             .sort((a, b) => a.fecha.localeCompare(b.fecha));
 
         $('tablaMovimientos').innerHTML = movimientos.map(movimiento => {
@@ -363,10 +491,13 @@
         }).join('');
 
         $('movimientosVacios').hidden = movimientos.length > 0;
+        $('mensajeMovimientosVacios').textContent = filters.modoFecha === 'todas'
+            ? 'Este cliente todavía no tiene movimientos.'
+            : 'No se encontraron registros con los filtros aplicados.';
     }
 
     function renderDetalle() {
-        const saldo = saldoDe(clienteSeleccionado);
+        const saldo = saldoVisibleDe(clienteSeleccionado);
         const hayDeuda = saldo < 0;
 
         $('detalleVacio').hidden = true;
@@ -376,12 +507,60 @@
         $('domicilioCliente').textContent = clienteSeleccionado.domicilio;
         $('saldoActual').textContent = formatoSaldo(saldo);
         $('saldoActual').className = claseSaldo(saldo);
+        $('etiquetaSaldo').textContent = hayFiltroFechaActivo() ? 'Saldo filtrado' : 'Saldo actual';
         $('estadoSaldo').textContent = hayDeuda ? 'Deuda pendiente' : saldo > 0 ? 'Saldo a favor' : 'Sin deuda pendiente';
         $('estadoSaldo').className = claseSaldo(saldo);
         $('pagoFeedback').hidden = true;
         $('pagoFeedback').textContent = '';
         renderMovimientos();
-        renderClientes($('buscarCliente').value);
+        renderClientes();
+    }
+
+    function renderFiltros() {
+        $('filtroFechaEspecifica').hidden = filters.modoFecha !== 'especifica';
+        $('filtroPeriodo').hidden = filters.modoFecha !== 'periodo';
+        renderClientes();
+
+        if (clienteSeleccionado && !CLIENTES.includes(clienteSeleccionado)) {
+            clienteSeleccionado = null;
+        }
+        if (clienteSeleccionado && !clientesConFiltro().some(cliente => cliente.id === clienteSeleccionado.id)) {
+            clienteSeleccionado = null;
+        }
+
+        if (clienteSeleccionado) {
+            renderDetalle();
+        } else {
+            $('detalleVacio').hidden = false;
+            $('detalleCuenta').hidden = true;
+            $('detalleVacio').querySelector('p').textContent = !hayFiltroFechaActivo()
+                ? 'Seleccione un cliente de la lista'
+                : 'No se encontraron registros con los filtros aplicados';
+        }
+    }
+
+    function clientesConFiltro() {
+        const consulta = filters.search.trim().toLocaleLowerCase('es-AR');
+        return CLIENTES.filter(cliente => {
+            const coincideBusqueda = `${cliente.nombre} ${cliente.cuit}`.toLocaleLowerCase('es-AR').includes(consulta);
+            return coincideBusqueda && (!hayFiltroFechaActivo() || movimientosVisibles(cliente).length > 0);
+        });
+    }
+
+    function actualizarFiltrosFecha() {
+        const fechaDesde = $('fechaDesde').value;
+        const fechaHasta = $('fechaHasta').value;
+        const rangoInvalido = filters.modoFecha === 'periodo'
+            && fechaDesde
+            && fechaHasta
+            && fechaDesde > fechaHasta;
+        $('errorRangoFechas').hidden = !rangoInvalido;
+        if (rangoInvalido) return;
+
+        filters.fecha = filters.modoFecha === 'especifica' ? $('fechaEspecifica').value : '';
+        filters.fechaDesde = filters.modoFecha === 'periodo' ? fechaDesde : '';
+        filters.fechaHasta = filters.modoFecha === 'periodo' ? fechaHasta : '';
+        renderFiltros();
     }
 
     $('listaClientes').addEventListener('click', evento => {
@@ -392,7 +571,34 @@
     });
 
     $('buscarCliente').addEventListener('input', evento => {
-        renderClientes(evento.target.value);
+        filters.search = evento.target.value;
+        renderFiltros();
+    });
+
+    $('modoFecha').addEventListener('change', evento => {
+        filters.modoFecha = evento.target.value;
+        $('fechaEspecifica').value = '';
+        $('fechaDesde').value = '';
+        $('fechaHasta').value = '';
+        $('errorRangoFechas').hidden = true;
+        actualizarFiltrosFecha();
+    });
+    ['fechaEspecifica', 'fechaDesde', 'fechaHasta'].forEach(id => {
+        $(id).addEventListener('change', actualizarFiltrosFecha);
+    });
+    $('limpiarFiltrosSaldo').addEventListener('click', () => {
+        $('buscarCliente').value = '';
+        $('modoFecha').value = 'todas';
+        $('fechaEspecifica').value = '';
+        $('fechaDesde').value = '';
+        $('fechaHasta').value = '';
+        filters.search = '';
+        filters.modoFecha = 'todas';
+        filters.fecha = '';
+        filters.fechaDesde = '';
+        filters.fechaHasta = '';
+        $('errorRangoFechas').hidden = true;
+        renderFiltros();
     });
 
     const modalMovimiento = $('modalMovimiento');
@@ -480,6 +686,6 @@
         }
     });
 
-    renderClientes();
+    renderFiltros();
 </script>
 @endpush
