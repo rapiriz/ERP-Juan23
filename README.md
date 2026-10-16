@@ -212,3 +212,5 @@ El detalle completo de la migración está en [MIGRATION.md](MIGRATION.md).
 ## Integración entre grupos
 
 La API JSON de G1 y los contratos HTTP esperados de G2, G3 y G4 se documentan en [docs/integracion-microservicios.md](docs/integracion-microservicios.md). No existe un modo de datos locales para ventas o productos externos. El login API es publico; las demas rutas aceptan un token de usuario o, segun sus permisos, `INTERNAL_API_TOKEN`. Ningun token debe incluirse en el repositorio.
+
+La guía para integrar el login web, probar los tres roles y consumir el login API está en [docs/integracion-login-roles.md](docs/integracion-login-roles.md). La prueba específica de visibilidad y autorización por rol está en `tests/Feature/LoginRoleVisibilityTest.php`.
