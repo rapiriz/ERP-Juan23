@@ -2,10 +2,12 @@
 
 namespace App\Logging\VentaLogging;
 
+use App\Exceptions\Ventas\VentaException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
 /**
@@ -19,8 +21,11 @@ use Throwable;
  * Las líneas se van juntando en memoria y se escriben TODAS JUNTAS al final.
  * Así, aunque entren dos ventas al mismo tiempo, cada una queda en un bloque sin mezclarse.
  *
+ * Se usa para TODAS las operaciones que cambian una venta: modificar, anular,
+ * restaurar y cambiar de estado (App\Http\Controllers\Api\VentaApiController).
+ *
  * Uso desde el controlador:
- *   $log = new VentaLogger($request);
+ *   $log = new VentaLogger($request, 'MODIFICAR VENTA', 'VentaApiController@update', 7);
  *   $log->paso('Validación del cliente', 'El sistema comprueba que el cliente exista.');
  *   $log->ok('Cliente #123 encontrado');
  *   ...
@@ -31,8 +36,6 @@ class VentaLogger
     // Ancho de las líneas separadoras del informe.
     private const ANCHO = 78;
 
-    // Cantidad total de pasos de una venta (para mostrar "PASO 3/7").
-    private const TOTAL_PASOS = 7;
 
     // Código corto que identifica esta venta en el log (ej: "8EM2TM9t").
     private string $operacion;
@@ -47,19 +50,28 @@ class VentaLogger
     // Líneas acumuladas del informe.
     private array $lineas = [];
 
-    public function __construct(Request $request)
-    {
+    /**
+     * @param  string  $titulo  qué operación es, ej: "MODIFICAR VENTA" (aparece en el encabezado)
+     * @param  string  $controlador  método que la atiende, ej: "VentaApiController@update"
+     * @param  int  $totalPasos  cantidad de pasos de esta operación (para mostrar "PASO 3/7")
+     */
+    public function __construct(
+        Request $request,
+        string $titulo = 'NUEVA VENTA',
+        string $controlador = 'App\Http\Controllers\VentaController@store',
+        private readonly int $totalPasos = 7,
+    ) {
         $this->operacion = Str::random(8);
         $this->inicio = microtime(true);
 
         // Encabezado del informe.
         $this->lineas[] = '';
         $this->lineas[] = str_repeat('=', self::ANCHO);
-        $this->lineas[] = $this->centrar("INICIA LA VENTA  ·  Operación #{$this->operacion}  ·  ".now()->format('d/m/Y H:i:s'));
+        $this->lineas[] = $this->centrar("{$titulo}  ·  Operación #{$this->operacion}  ·  ".now()->format('d/m/Y H:i:s'));
         $this->lineas[] = str_repeat('=', self::ANCHO);
         $this->lineas[] = '  Endpoint ......: '.$request->method().' /'.$request->path();
-        $this->lineas[] = '  Ruta definida en: routes/VentaRoutes/api.php';
-        $this->lineas[] = '  Controlador ...: App\Http\Controllers\VentaControllers\VentasController@store';
+        $this->lineas[] = '  Ruta definida en: routes/api.php';
+        $this->lineas[] = '  Controlador ...: '.$controlador;
         $this->lineas[] = '  Datos recibidos del front:';
         $this->lineas[] = $this->json($request->all());
     }
@@ -73,7 +85,7 @@ class VentaLogger
         $this->pasoActual = $titulo;
 
         $this->lineas[] = '';
-        $this->lineas[] = "  [PASO {$this->numeroPaso}/".self::TOTAL_PASOS."] {$titulo}";
+        $this->lineas[] = "  [PASO {$this->numeroPaso}/{$this->totalPasos}] {$titulo}";
         $this->lineas[] = "     Qué hace ...: {$queHace}";
     }
 
@@ -94,15 +106,37 @@ class VentaLogger
     }
 
     /**
-     * La venta terminó bien: se escribe el informe con lo que se devolvió al front.
+     * La operación terminó bien: se escribe el informe con lo que se devolvió al front.
+     *
+     * @param  string  $resultado  ej: "VENTA MODIFICADA"
      */
-    public function exito(array $respuesta, int $codigoHttp): void
+    public function exito(array $respuesta, int $codigoHttp, string $resultado = 'VENTA REGISTRADA'): void
     {
         $this->cerrar(
             'info',
-            "✔ VENTA REGISTRADA  ·  Respuesta HTTP {$codigoHttp} Created",
+            "✔ {$resultado}  ·  Respuesta HTTP {$codigoHttp} ".self::textoHttp($codigoHttp),
             null,
             $respuesta
+        );
+    }
+
+    /**
+     * La operación NO se hizo por una regla de negocio (404 venta inexistente,
+     * 409 venta pagada, 503 otro módulo caído...). No se guardó nada.
+     */
+    public function bloqueada(VentaException $e): void
+    {
+        $this->lineas[] = "     ✘ {$e->getMessage()}";
+
+        $this->cerrar(
+            'warning',
+            '✘ OPERACIÓN RECHAZADA  ·  Respuesta HTTP '.$e->codigoHttp().' '.self::textoHttp($e->codigoHttp()),
+            [
+                "Falló en ......: PASO {$this->numeroPaso} - {$this->pasoActual}",
+                'Motivo ........: '.$e->codigo(),
+                'Base de datos .: no se guardó nada.',
+            ],
+            $e->render()->getData(true)
         );
     }
 
@@ -138,13 +172,13 @@ class VentaLogger
 
         $this->cerrar(
             'error',
-            '✘ ERROR AL GUARDAR LA VENTA  ·  Respuesta HTTP 500 Internal Server Error',
+            '✘ ERROR AL PROCESAR LA VENTA  ·  Respuesta HTTP 500 Internal Server Error',
             [
                 "Falló en ......: PASO {$this->numeroPaso} - {$this->pasoActual}",
                 'Tipo de error .: '.get_class($e),
                 'Mensaje .......: '.$e->getMessage(),
                 'En nuestro código: '.$this->lineaDeNuestroCodigo($e),
-                'Base de datos .: transacción deshecha, NO se guardó nada (ni venta, ni detalles, ni cuenta corriente).',
+                'Base de datos .: transacción deshecha, NO se guardó nada (ni venta, ni detalles, ni cuenta corriente, ni historial).',
                 'Qué revisar ...: que MySQL esté encendido, que existan las tablas/columnas y las claves foráneas.',
             ],
             $respuesta
@@ -190,7 +224,7 @@ class VentaLogger
 
         foreach ($lugares as $lugar) {
             if (isset($lugar['file']) && str_starts_with($lugar['file'], $carpetaApp)) {
-                // Muestra la ruta relativa, ej: app/Http/Controllers/VentaControllers/VentasController.php:245
+                // Muestra la ruta relativa, ej: app/Services/Ventas/VentaService.php:245
                 return 'app'.str_replace('\\', '/', substr($lugar['file'], strlen($carpetaApp))).':'.$lugar['line'];
             }
         }
@@ -217,6 +251,14 @@ class VentaLogger
         $espacios = max(0, intdiv(self::ANCHO - mb_strlen($texto), 2));
 
         return str_repeat(' ', $espacios).$texto;
+    }
+
+    /**
+     * Texto estándar de un código HTTP, ej: 409 → "Conflict".
+     */
+    private static function textoHttp(int $codigo): string
+    {
+        return Response::$statusTexts[$codigo] ?? '';
     }
 
     /**

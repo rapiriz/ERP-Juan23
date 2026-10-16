@@ -264,7 +264,10 @@ class VentaController extends Controller
             'usuario'       => $nombreUsuario,
             'metodo'        => $esCC ? 'Cuenta Corriente' : ucfirst(str_replace('_', ' ', $medios[0])),
             'cc'            => $esCC,
-            'detalle' => ($detalles->get($v->id_venta) ?? collect())->map(function ($d) use ($productosMock) {
+            // Flags para los botones Modificar / Eliminar / Restaurar y para mostrar la venta en gris si está anulada.
+            // Reglas en app/Enums/EstadoVenta.php → agrega: anulada, puede_modificar, puede_eliminar, puede_restaurar.
+            ...\App\Enums\EstadoVenta::accionesPara($v->estado),
+            'detalle' =>($detalles->get($v->id_venta) ?? collect())->map(function ($d) use ($productosMock) {
                 $prod = $productosMock[$d->id_producto] ?? null;
 
                 return [
