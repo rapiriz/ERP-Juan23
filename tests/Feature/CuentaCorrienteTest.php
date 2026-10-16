@@ -99,7 +99,7 @@ class CuentaCorrienteTest extends TestCase
 
     public function test_sale_is_saved_and_decreases_the_selected_customer_balance(): void
     {
-        $this->postJson('/api/ventas', [
+        $this->postJson('/ventas', [
             'cliente_id' => 915736,
             'lista' => 'mayorista',
             'observaciones' => 'Entregar el viernes por la mañana.',
@@ -138,7 +138,7 @@ class CuentaCorrienteTest extends TestCase
 
     public function test_sale_applies_global_discount_after_per_item_discounts_and_saves_final_total(): void
     {
-        $this->postJson('/api/ventas', [
+        $this->postJson('/ventas', [
             'cliente_id' => 915736,
             'lista' => 'mayorista',
             'descuento_global' => ['modo' => 'porcentaje', 'valor' => 10],
@@ -170,7 +170,7 @@ class CuentaCorrienteTest extends TestCase
 
     public function test_sale_rejects_global_percentage_above_one_hundred(): void
     {
-        $this->postJson('/api/ventas', [
+        $this->postJson('/ventas', [
             'cliente_id' => 915736,
             'lista' => 'mayorista',
             'descuento_global' => ['modo' => 'porcentaje', 'valor' => 101],
@@ -186,7 +186,7 @@ class CuentaCorrienteTest extends TestCase
 
     public function test_sale_rejects_clients_outside_the_mock_customer_api(): void
     {
-        $this->postJson('/api/ventas', [
+        $this->postJson('/ventas', [
             'cliente_id' => 999999,
             'lista' => 'minorista',
             'items' => [

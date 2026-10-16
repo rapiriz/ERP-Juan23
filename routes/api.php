@@ -24,10 +24,7 @@ Route::put('/promociones/{id}', [PromocionController::class, 'update']);    // E
 Route::delete('/promociones/{id}', [PromocionController::class, 'destroy']); // Eliminar una promocion
 Route::patch('/promociones/{id}/estado', [PromocionController::class, 'updateEstado']); // Reactivación / Cambio de estado
 
-// ==========================================
-// MÓDULO: VENTAS
-// ==========================================
-Route::get('/ventas/productos-simulados', [VentaController::class, 'obtenerProductosSimulados']); // Lo usa promociones.js
-
-// Rutas del módulo (GET/POST /api/ventas, GET /api/ventas/{id}) -> routes/VentaRoutes/api.php
-require base_path('routes/VentaRoutes/api.php');
+// Módulo de Ventas
+Route::get('/ventas/productos-simulados', [VentaController::class, 'obtenerProductosSimulados']);
+Route::post('/ventas', [VentaController::class, 'store']);
+Route::get('/ventas', [VentaController::class, 'index']);
