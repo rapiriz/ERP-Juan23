@@ -979,7 +979,7 @@
         // Datos que vienen del controlador (por ahora hardcodeados en VentaController)
         const PRODUCTOS = @json($productos);
         const CLIENTES = @json($clientes);
-        const URL_VENTAS = @json(url('/api/ventas')); // Endpoint del módulo: app/Modules/Venta/Routes/api.php
+        const URL_VENTAS = @json(url('/api/ventas')); // Endpoint del módulo: routes/VentaRoutes/api.php
         const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]').content;
 
         // ---------- Estado ----------

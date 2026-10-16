@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Modules\Venta\Logging;
+namespace App\Logging\VentaLogging;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -58,8 +58,8 @@ class VentaLogger
         $this->lineas[] = $this->centrar("INICIA LA VENTA  ·  Operación #{$this->operacion}  ·  ".now()->format('d/m/Y H:i:s'));
         $this->lineas[] = str_repeat('=', self::ANCHO);
         $this->lineas[] = '  Endpoint ......: '.$request->method().' /'.$request->path();
-        $this->lineas[] = '  Ruta definida en: app/Modules/Venta/Routes/api.php';
-        $this->lineas[] = '  Controlador ...: App\Modules\Venta\Controllers\VentasController@store';
+        $this->lineas[] = '  Ruta definida en: routes/VentaRoutes/api.php';
+        $this->lineas[] = '  Controlador ...: App\Http\Controllers\VentaControllers\VentasController@store';
         $this->lineas[] = '  Datos recibidos del front:';
         $this->lineas[] = $this->json($request->all());
     }
@@ -190,7 +190,7 @@ class VentaLogger
 
         foreach ($lugares as $lugar) {
             if (isset($lugar['file']) && str_starts_with($lugar['file'], $carpetaApp)) {
-                // Muestra la ruta relativa, ej: app/Modules/Venta/Controllers/VentasController.php:245
+                // Muestra la ruta relativa, ej: app/Http/Controllers/VentaControllers/VentasController.php:245
                 return 'app'.str_replace('\\', '/', substr($lugar['file'], strlen($carpetaApp))).':'.$lugar['line'];
             }
         }

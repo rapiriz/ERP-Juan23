@@ -1,8 +1,8 @@
 <?php
 
-// El namespace tiene que coincidir con la carpeta: app/Modules/Venta/Models
+// El namespace tiene que coincidir con la carpeta: app/Models/VentaModels
 // (composer.json mapea "App\" a la carpeta "app/").
-namespace App\Modules\Venta\Models;
+namespace App\Models\VentaModels;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;

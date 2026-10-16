@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Modules\Venta\Models;
+namespace App\Models\VentaModels;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;

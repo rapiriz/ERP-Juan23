@@ -1,11 +1,11 @@
 <?php
 
-namespace App\Modules\Venta\Controllers;
+namespace App\Http\Controllers\VentaControllers;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\VentaController;
-use App\Modules\Venta\Logging\VentaLogger;
-use App\Modules\Venta\Models\Venta;
+use App\Logging\VentaLogging\VentaLogger;
+use App\Models\VentaModels\Venta;
 use App\Services\MockClienteApi;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -218,7 +218,7 @@ class VentasController extends Controller
                 // Inserta la cabecera en la tabla "venta".
                 $log->paso(
                     'Guardar la venta',
-                    'El sistema inserta la cabecera de la venta en la tabla "venta" (modelo App\Modules\Venta\Models\Venta).'
+                    'El sistema inserta la cabecera de la venta en la tabla "venta" (modelo App\Models\VentaModels\Venta).'
                 );
                 $venta = Venta::create([
                     'id_cliente' => $cliente['id'],

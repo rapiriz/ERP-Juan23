@@ -6,7 +6,7 @@
  * empiezan automáticamente con "/api" (ej: /api/ventas).
  */
 
-use App\Modules\Venta\Controllers\VentasController;
+use App\Http\Controllers\VentaControllers\VentasController;
 use Illuminate\Support\Facades\Route;
 
 // GET  /api/ventas       -> lista todas las ventas con sus detalles

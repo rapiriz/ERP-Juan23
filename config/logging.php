@@ -74,7 +74,7 @@ return [
         ],
 
         // Log propio del módulo Ventas: un archivo por día en storage/logs/ventas/
-        // (ej: ventas-2026-10-10.log). Lo escribe App\Modules\Venta\Logging\VentaLogger.
+        // (ej: ventas-2026-10-10.log). Lo escribe App\Logging\VentaLogging\VentaLogger.
         'ventas' => [
             'driver' => 'daily',
             'path' => storage_path('logs/ventas/ventas.log'),

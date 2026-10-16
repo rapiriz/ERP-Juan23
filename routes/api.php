@@ -29,5 +29,5 @@ Route::patch('/promociones/{id}/estado', [PromocionController::class, 'updateEst
 // ==========================================
 Route::get('/ventas/productos-simulados', [VentaController::class, 'obtenerProductosSimulados']); // Lo usa promociones.js
 
-// Rutas del módulo (GET/POST /api/ventas, GET /api/ventas/{id}) -> app/Modules/Venta/Routes/api.php
-require base_path('app/Modules/Venta/Routes/api.php');
+// Rutas del módulo (GET/POST /api/ventas, GET /api/ventas/{id}) -> routes/VentaRoutes/api.php
+require base_path('routes/VentaRoutes/api.php');
