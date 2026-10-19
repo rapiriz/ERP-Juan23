@@ -2,10 +2,10 @@
 
 namespace Tests\Feature\Ventas;
 
-use App\Contracts\Integraciones\ProductoGateway;
-use App\Contracts\Integraciones\StockGateway;
-use App\Exceptions\Ventas\IntegracionNoDisponibleException;
-use App\Services\Integraciones\MockStockApi;
+use App\Modules\Ventas\Contracts\ProductoGateway;
+use App\Modules\Ventas\Contracts\StockGateway;
+use App\Modules\Ventas\Exceptions\IntegracionNoDisponibleException;
+use App\Modules\Ventas\Integraciones\MockStockApi;
 use App\Services\MockProductoApi;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -405,6 +405,6 @@ class ModificarVentaApiTest extends TestCase
         $log = $this->logVentas();
         $this->assertStringContainsString('.ERROR:', $log);
         $this->assertStringContainsString('Falló en ......: PASO 6 - Registrar en el historial', $log);
-        $this->assertStringContainsString('En nuestro código: app/Services/Ventas/VentaService.php:', $log);
+        $this->assertStringContainsString('En nuestro código: app/Modules/Ventas/Services/VentaService.php:', $log);
     }
 }

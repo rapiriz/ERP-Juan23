@@ -2,14 +2,14 @@
 
 namespace Tests\Unit\Integraciones;
 
-use App\Contracts\Integraciones\ClienteGateway;
-use App\Contracts\Integraciones\ProductoGateway;
-use App\Contracts\Integraciones\StockGateway;
-use App\Exceptions\Ventas\IntegracionNoDisponibleException;
-use App\Services\Integraciones\HttpClienteApi;
-use App\Services\Integraciones\HttpProductoApi;
-use App\Services\Integraciones\HttpStockApi;
-use App\Services\Integraciones\MockStockApi;
+use App\Modules\Ventas\Contracts\ClienteGateway;
+use App\Modules\Ventas\Contracts\ProductoGateway;
+use App\Modules\Ventas\Contracts\StockGateway;
+use App\Modules\Ventas\Exceptions\IntegracionNoDisponibleException;
+use App\Modules\Ventas\Integraciones\HttpClienteApi;
+use App\Modules\Ventas\Integraciones\HttpProductoApi;
+use App\Modules\Ventas\Integraciones\HttpStockApi;
+use App\Modules\Ventas\Integraciones\MockStockApi;
 use App\Services\MockClienteApi;
 use App\Services\MockProductoApi;
 use Illuminate\Http\Client\Request;
@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 /**
- * Tests de la API REAL de stock (app/Services/Integraciones/HttpStockApi.php)
+ * Tests de la API REAL de stock (app/Modules/Ventas/Integraciones/HttpStockApi.php)
  * y del interruptor mock/http (app/Providers/AppServiceProvider.php).
  */
 class HttpStockApiTest extends TestCase

@@ -330,7 +330,7 @@
                             <span>Productos vendidos ({{ count($v['detalle']) }})</span>
 
                             {{-- BOTONES DE PRUEBA (sin estilos) para probar el back de modificar / anular / estados.
-                                 Se muestran según los flags que manda VentaController@historial (reglas en app/Enums/EstadoVenta.php). --}}
+                                 Se muestran según los flags que manda VentaController@historial (reglas en app/Modules/Ventas/Enums/EstadoVenta.php). --}}
                             <span>
                                 @if ($v['puede_modificar'])
                                     <button type="button" data-accion="modificar" data-id="{{ $v['id'] }}">Modificar</button>
@@ -426,7 +426,7 @@
     });
 
     // ---------- BOTONES DE PRUEBA: modificar / eliminar / restaurar / cambiar estado ----------
-    // Llaman a la API de app/Http/Controllers/Api/VentaApiController.php (ver docs/VENTAS-BACKEND.md).
+    // Llaman a la API de app/Modules/Ventas/Controllers/VentaApiController.php (ver docs/VENTAS-BACKEND.md).
     // Muestran la respuesta del back en un alert y recargan la página.
     async function llamarApi(metodo, url, body) {
         const respuesta = await fetch(url, {

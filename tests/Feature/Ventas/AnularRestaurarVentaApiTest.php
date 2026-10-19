@@ -2,8 +2,8 @@
 
 namespace Tests\Feature\Ventas;
 
-use App\Contracts\Integraciones\StockGateway;
-use App\Services\Integraciones\MockStockApi;
+use App\Modules\Ventas\Contracts\StockGateway;
+use App\Modules\Ventas\Integraciones\MockStockApi;
 use App\Services\MockProductoApi;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;

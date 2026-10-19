@@ -2,12 +2,12 @@
 
 namespace Tests\Unit\Ventas;
 
-use App\Enums\EstadoVenta;
+use App\Modules\Ventas\Enums\EstadoVenta;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Tests UNITARIOS de las reglas de estados (app/Enums/EstadoVenta.php).
+ * Tests UNITARIOS de las reglas de estados (app/Modules/Ventas/Enums/EstadoVenta.php).
  * No usan base de datos: prueban solo la lógica pura.
  */
 class EstadoVentaTest extends TestCase

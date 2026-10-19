@@ -2,13 +2,13 @@
 
 namespace App\Providers;
 
-use App\Contracts\Integraciones\ClienteGateway;
-use App\Contracts\Integraciones\ProductoGateway;
-use App\Contracts\Integraciones\StockGateway;
-use App\Services\Integraciones\HttpClienteApi;
-use App\Services\Integraciones\HttpProductoApi;
-use App\Services\Integraciones\HttpStockApi;
-use App\Services\Integraciones\MockStockApi;
+use App\Modules\Ventas\Contracts\ClienteGateway;
+use App\Modules\Ventas\Contracts\ProductoGateway;
+use App\Modules\Ventas\Contracts\StockGateway;
+use App\Modules\Ventas\Integraciones\HttpClienteApi;
+use App\Modules\Ventas\Integraciones\HttpProductoApi;
+use App\Modules\Ventas\Integraciones\HttpStockApi;
+use App\Modules\Ventas\Integraciones\MockStockApi;
 use App\Services\MockClienteApi;
 use App\Services\MockProductoApi;
 use Illuminate\Support\ServiceProvider;

@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Contracts\Integraciones\ClienteGateway;
+use App\Modules\Ventas\Contracts\ClienteGateway;
 
 // Cumple el contrato ClienteGateway: Ventas lo usa sin saber que es un mock (ver config/ventas.php).
 class MockClienteApi implements ClienteGateway

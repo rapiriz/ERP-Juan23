@@ -11,7 +11,7 @@ return [
     /*
     | ¿De dónde salen productos, clientes y stock?
     |   "mock" → datos de prueba (App\Services\Mock*). ES EL VALOR POR DEFECTO.
-    |   "http" → APIs reales de los otros grupos (App\Services\Integraciones\Http*).
+    |   "http" → APIs reales de los otros grupos (App\Modules\Ventas\Integraciones\Http*).
     | El cambio se aplica en app/Providers/AppServiceProvider.php.
     */
     'integracion' => env('VENTAS_INTEGRACION', 'mock'),

@@ -2,12 +2,12 @@
 
 namespace Tests\Unit\Ventas;
 
-use App\Services\Ventas\CalculadoraVenta;
+use App\Modules\Ventas\Services\CalculadoraVenta;
 use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
 /**
- * Tests UNITARIOS de app/Services/Ventas/CalculadoraVenta.php.
+ * Tests UNITARIOS de app/Modules/Ventas/Services/CalculadoraVenta.php.
  * No usan base de datos. Extienden Tests\TestCase solo porque
  * ValidationException necesita a Laravel encendido para armar el mensaje.
  */

@@ -39,35 +39,35 @@ Cada paso se probó antes de pasar al siguiente.
 
 ### Paso 1 — Acá integramos la lógica del back que define los estados y sus reglas
 
-- `app/Enums/EstadoVenta.php`: los 7 estados y **todas** las reglas (qué se puede modificar, anular, restaurar, a qué estado se puede pasar).
-- `app/Exceptions/Ventas/*`: los errores de negocio (404, 409, 503) con su respuesta JSON.
+- `app/Modules/Ventas/Enums/EstadoVenta.php`: los 7 estados y **todas** las reglas (qué se puede modificar, anular, restaurar, a qué estado se puede pasar).
+- `app/Modules/Ventas/Exceptions/*`: los errores de negocio (404, 409, 503) con su respuesta JSON.
 - ✅ Tests: `tests/Unit/Ventas/EstadoVentaTest.php`. Prueba las **49 combinaciones** de transición (7 × 7).
 
 ### Paso 2 — Acá integramos la calculadora del total (la misma cuenta para crear y modificar)
 
-- `app/Services/Ventas/CalculadoraVenta.php`: calcula subtotales, descuentos y total con los **precios del servidor**. Usa las mismas reglas que `VentaController@store`.
+- `app/Modules/Ventas/Services/CalculadoraVenta.php`: calcula subtotales, descuentos y total con los **precios del servidor**. Usa las mismas reglas que `VentaController@store`.
 - ✅ Tests: `tests/Unit/Ventas/CalculadoraVentaTest.php` (descuentos, redondeo, límites).
 
 ### Paso 3 — Acá dejamos lista la conexión con otros módulos (productos, clientes, stock)
 
-- `app/Contracts/Integraciones/*`: **contratos** (interfaces). Ventas pide productos, clientes y stock sin saber de dónde vienen.
+- `app/Modules/Ventas/Contracts/*`: **contratos** (interfaces). Ventas pide productos, clientes y stock sin saber de dónde vienen.
 - Los **mocks actuales siguen activos**. Solo se les agregó `implements`, así que el front se ve igual que antes.
-- `app/Services/Integraciones/Http*Api.php`: el **código real** para cuando los otros grupos publiquen sus APIs. Está **testeado con respuestas simuladas** (`Http::fake`), pero apagado.
+- `app/Modules/Ventas/Integraciones/Http*Api.php`: el **código real** para cuando los otros grupos publiquen sus APIs. Está **testeado con respuestas simuladas** (`Http::fake`), pero apagado.
 - Interruptor en `.env`: `VENTAS_INTEGRACION=mock` (por defecto) o `http`. Ver `config/ventas.php`.
 - ✅ Tests: `tests/Unit/Integraciones/*` (formato, 404, servidor caído → 503, el interruptor).
 
 ### Paso 4 — Acá agregamos el historial de cambios de cada venta
 
 - Tabla nueva **`venta_historial`**: guarda quién, qué, cuándo y por qué. Es la que permite **restaurar** una venta al estado que tenía antes de anularla.
-- Modelo `app/Models/VentaHistorial.php`. Al modelo `Venta` se le agregó la relación `historial()` y el método `estadoActual()`.
+- Modelo `app/Modules/Ventas/Models/VentaHistorial.php`. Al modelo `Venta` se le agregó la relación `historial()` y el método `estadoActual()`.
 
 ### Paso 5 — Acá registramos la lógica del back de los botones Modificar y Eliminar (y de los cambios de estado)
 
-- `app/Services/Ventas/VentaService.php`: **el cerebro**. Ahí están modificar, anular, restaurar y cambiar estado, todo en transacción y con la venta bloqueada mientras se cambia.
-- `app/Http/Controllers/Api/VentaApiController.php`: recibe el pedido, llama al servicio y responde.
-- `app/Http/Requests/Ventas/*`: validan los datos antes de llegar al controller (si están mal → `422`).
-- `app/Http/Resources/VentaResource.php`: el formato JSON de una venta (igual en todas las rutas).
-- `routes/api.php`: rutas nuevas, y se **arregló `GET /api/ventas`**, que devolvía HTML por error. Ninguna pantalla lo usaba, así que no rompe nada.
+- `app/Modules/Ventas/Services/VentaService.php`: **el cerebro**. Ahí están modificar, anular, restaurar y cambiar estado, todo en transacción y con la venta bloqueada mientras se cambia.
+- `app/Modules/Ventas/Controllers/VentaApiController.php`: recibe el pedido, llama al servicio y responde.
+- `app/Modules/Ventas/Requests/*`: validan los datos antes de llegar al controller (si están mal → `422`).
+- `app/Modules/Ventas/Resources/VentaResource.php`: el formato JSON de una venta (igual en todas las rutas).
+- `app/Modules/Ventas/routes/api.php`: rutas nuevas, y se **arregló `GET /api/ventas`**, que devolvía HTML por error. Ninguna pantalla lo usaba, así que no rompe nada.
 - `VentaLogger`: ahora deja el **paso a paso** de cada operación en `storage/logs/ventas/`.
 - ✅ Tests: `tests/Feature/Ventas/*` (cada endpoint con casos buenos, 404, 409, 422, 500 con rollback, 503 y log).
 
@@ -87,7 +87,7 @@ Cada paso se probó antes de pasar al siguiente.
 
 ## 3. Estados de una venta
 
-Fuente única de verdad: **`app/Enums/EstadoVenta.php`**.
+Fuente única de verdad: **`app/Modules/Ventas/Enums/EstadoVenta.php`**.
 
 ```
 pendiente → confirmada → preparada → entregada → pagada → facturada
@@ -118,7 +118,7 @@ pendiente → confirmada → preparada → entregada → pagada → facturada
 
 ## 4. Endpoints
 
-Todos en `routes/api.php` y atendidos por `app/Http/Controllers/Api/VentaApiController.php`.
+Todos en `app/Modules/Ventas/routes/api.php` y atendidos por `app/Modules/Ventas/Controllers/VentaApiController.php`.
 
 | Método | Ruta | Para qué | Body / filtros | Respuestas |
 |---|---|---|---|---|
@@ -251,32 +251,32 @@ La tabla `cuenta_corriente_movimientos` es del módulo de cuenta corriente y tie
 
 | Archivo | Para qué sirve | Por qué es importante |
 |---|---|---|
-| `app/Enums/EstadoVenta.php` | Los 7 estados y sus reglas | Es la **única** fuente de verdad. Cambiar una regla = cambiar un solo archivo. |
-| `app/Exceptions/Ventas/VentaException.php` | Base de los errores de negocio | Todas responden JSON con `message` + `codigo` sin código extra en el controller. |
-| `app/Exceptions/Ventas/VentaNoEncontradaException.php` | 404 | Mensaje claro en castellano en vez del genérico de Laravel. |
-| `app/Exceptions/Ventas/VentaNoEditableException.php` | 409 | Bloquea modificar o eliminar después del pago **aunque el front se equivoque**. |
-| `app/Exceptions/Ventas/TransicionEstadoInvalidaException.php` | 409 | Impide saltos de fase inválidos y dice cuáles **sí** se pueden hacer. |
-| `app/Exceptions/Ventas/IntegracionNoDisponibleException.php` | 503 | Si otro módulo se cae, el usuario ve "probá en unos minutos" y no un error 500. |
-| `app/Services/Ventas/CalculadoraVenta.php` | Cuenta del total | Crear y modificar calculan **exactamente igual**. Sin base de datos, fácil de testear. |
-| `app/Services/Ventas/VentaService.php` | Lógica de modificar, anular, restaurar y cambiar estado | Transacción, bloqueo de la venta, historial, cuenta corriente y stock en un solo lugar. Rendiciones lo va a reutilizar. |
-| `app/Http/Controllers/Api/VentaApiController.php` | Atiende las rutas `/api/ventas` | Controller fino: recibe, delega y responde. Es **nuevo** para no tocar el `VentaController` del equipo. |
-| `app/Http/Requests/Ventas/VentaRequest.php` | Base de las validaciones | Si la validación falla, también queda en el log de ventas. |
-| `app/Http/Requests/Ventas/ModificarVentaRequest.php` | Valida el PUT | Mensajes en castellano; prohíbe cambiar el cliente. |
-| `app/Http/Requests/Ventas/AnularVentaRequest.php` | Valida el DELETE | El motivo es obligatorio: toda anulación tiene que poder explicarse. |
-| `app/Http/Requests/Ventas/CambiarEstadoVentaRequest.php` | Valida el PATCH | Solo acepta los 7 estados; tolera mayúsculas y espacios. |
-| `app/Http/Requests/Ventas/ListarVentasRequest.php` | Valida los filtros del GET | Fechas con formato correcto, `hasta ≥ desde`, máximo 100 por página. |
-| `app/Http/Resources/VentaResource.php` | Formato JSON de una venta | Todas las rutas devuelven la venta **con la misma forma**, con los flags de los botones. |
-| `app/Contracts/Integraciones/ProductoGateway.php` | Contrato de productos | Ventas no depende de si los productos son mock o API real. |
-| `app/Contracts/Integraciones/ClienteGateway.php` | Contrato de clientes | Ídem para clientes. |
-| `app/Contracts/Integraciones/StockGateway.php` | Contrato de stock | Deja **apuntada la API de Stock** con la convención de signos (− sale, + vuelve). |
-| `app/Services/Integraciones/MockStockApi.php` | Stock simulado (activo) | No descuenta nada real; los tests verifican qué se le avisó. |
-| `app/Services/Integraciones/HttpProductoApi.php` | API real de productos (apagada) | Código listo y testeado para el día de la integración. |
-| `app/Services/Integraciones/HttpClienteApi.php` | API real de clientes (apagada) | Ídem. |
-| `app/Services/Integraciones/HttpStockApi.php` | API real de stock (apagada) | Ídem. |
-| `app/Models/VentaHistorial.php` | Modelo de `venta_historial` | Auditoría: quién, qué, cuándo y por qué. |
+| `app/Modules/Ventas/Enums/EstadoVenta.php` | Los 7 estados y sus reglas | Es la **única** fuente de verdad. Cambiar una regla = cambiar un solo archivo. |
+| `app/Modules/Ventas/Exceptions/VentaException.php` | Base de los errores de negocio | Todas responden JSON con `message` + `codigo` sin código extra en el controller. |
+| `app/Modules/Ventas/Exceptions/VentaNoEncontradaException.php` | 404 | Mensaje claro en castellano en vez del genérico de Laravel. |
+| `app/Modules/Ventas/Exceptions/VentaNoEditableException.php` | 409 | Bloquea modificar o eliminar después del pago **aunque el front se equivoque**. |
+| `app/Modules/Ventas/Exceptions/TransicionEstadoInvalidaException.php` | 409 | Impide saltos de fase inválidos y dice cuáles **sí** se pueden hacer. |
+| `app/Modules/Ventas/Exceptions/IntegracionNoDisponibleException.php` | 503 | Si otro módulo se cae, el usuario ve "probá en unos minutos" y no un error 500. |
+| `app/Modules/Ventas/Services/CalculadoraVenta.php` | Cuenta del total | Crear y modificar calculan **exactamente igual**. Sin base de datos, fácil de testear. |
+| `app/Modules/Ventas/Services/VentaService.php` | Lógica de modificar, anular, restaurar y cambiar estado | Transacción, bloqueo de la venta, historial, cuenta corriente y stock en un solo lugar. Rendiciones lo va a reutilizar. |
+| `app/Modules/Ventas/Controllers/VentaApiController.php` | Atiende las rutas `/api/ventas` | Controller fino: recibe, delega y responde. Es **nuevo** para no tocar el `VentaController` del equipo. |
+| `app/Modules/Ventas/Requests/VentaRequest.php` | Base de las validaciones | Si la validación falla, también queda en el log de ventas. |
+| `app/Modules/Ventas/Requests/ModificarVentaRequest.php` | Valida el PUT | Mensajes en castellano; prohíbe cambiar el cliente. |
+| `app/Modules/Ventas/Requests/AnularVentaRequest.php` | Valida el DELETE | El motivo es obligatorio: toda anulación tiene que poder explicarse. |
+| `app/Modules/Ventas/Requests/CambiarEstadoVentaRequest.php` | Valida el PATCH | Solo acepta los 7 estados; tolera mayúsculas y espacios. |
+| `app/Modules/Ventas/Requests/ListarVentasRequest.php` | Valida los filtros del GET | Fechas con formato correcto, `hasta ≥ desde`, máximo 100 por página. |
+| `app/Modules/Ventas/Resources/VentaResource.php` | Formato JSON de una venta | Todas las rutas devuelven la venta **con la misma forma**, con los flags de los botones. |
+| `app/Modules/Ventas/Contracts/ProductoGateway.php` | Contrato de productos | Ventas no depende de si los productos son mock o API real. |
+| `app/Modules/Ventas/Contracts/ClienteGateway.php` | Contrato de clientes | Ídem para clientes. |
+| `app/Modules/Ventas/Contracts/StockGateway.php` | Contrato de stock | Deja **apuntada la API de Stock** con la convención de signos (− sale, + vuelve). |
+| `app/Modules/Ventas/Integraciones/MockStockApi.php` | Stock simulado (activo) | No descuenta nada real; los tests verifican qué se le avisó. |
+| `app/Modules/Ventas/Integraciones/HttpProductoApi.php` | API real de productos (apagada) | Código listo y testeado para el día de la integración. |
+| `app/Modules/Ventas/Integraciones/HttpClienteApi.php` | API real de clientes (apagada) | Ídem. |
+| `app/Modules/Ventas/Integraciones/HttpStockApi.php` | API real de stock (apagada) | Ídem. |
+| `app/Modules/Ventas/Models/VentaHistorial.php` | Modelo de `venta_historial` | Auditoría: quién, qué, cuándo y por qué. |
 | `config/ventas.php` | Configuración del módulo | Interruptor mock/http, URLs de los otros módulos, timeout, paginación. |
-| `database/migrations/2026_10_16_000000_create_venta_historial_table.php` | Crea `venta_historial` | Tabla propia; no toca ninguna tabla existente. |
-| `database/migrations/2026_10_16_000001_agregar_estados_preparada_entregada_a_venta.php` | Agrega `preparada` y `entregada` al ENUM de MySQL | **Sin esto, MySQL rechaza esos estados** (ver pendientes). |
+| `app/Modules/Ventas/database/migrations/2026_10_16_000000_create_venta_historial_table.php` | Crea `venta_historial` | Tabla propia; no toca ninguna tabla existente. |
+| `app/Modules/Ventas/database/migrations/2026_10_16_000001_agregar_estados_preparada_entregada_a_venta.php` | Agrega `preparada` y `entregada` al ENUM de MySQL | **Sin esto, MySQL rechaza esos estados** (ver pendientes). |
 | `tests/Concerns/PreparaModuloVentas.php` | Ayuda compartida de tests | Crea las tablas `venta` y `detalle_venta` como en MySQL y ventas de prueba. |
 | `tests/Unit/Ventas/*`, `tests/Unit/Integraciones/*`, `tests/Feature/Ventas/*` | Tests | Ver [paso 7](#paso-7--acá-verificamos-que-no-se-rompió-nada). |
 
@@ -284,10 +284,10 @@ La tabla `cuenta_corriente_movimientos` es del módulo de cuenta corriente y tie
 
 | Archivo | Qué cambió |
 |---|---|
-| `routes/api.php` | `GET /api/ventas` ahora devuelve JSON (antes HTML por error) + 6 rutas nuevas. |
-| `app/Http/Controllers/VentaController.php` | `historial()` agrega 4 flags a cada venta (3 líneas). |
-| `app/Models/Venta.php` | + relación `historial()` y método `estadoActual()`. |
-| `app/Logging/VentaLogging/VentaLogger.php` | Sirve para todas las operaciones (título, controller y cantidad de pasos) + método `bloqueada()`. |
+| `app/Modules/Ventas/routes/api.php` (antes en `routes/api.php`) | `GET /api/ventas` ahora devuelve JSON (antes HTML por error) + 6 rutas nuevas. |
+| `app/Modules/Ventas/Controllers/VentaController.php` | `historial()` agrega 4 flags a cada venta (3 líneas). |
+| `app/Modules/Ventas/Models/Venta.php` | + relación `historial()` y método `estadoActual()`. |
+| `app/Modules/Ventas/Logging/VentaLogger.php` | Sirve para todas las operaciones (título, controller y cantidad de pasos) + método `bloqueada()`. |
 | `app/Providers/AppServiceProvider.php` | Interruptor mock/http de los contratos. |
 | `app/Services/MockClienteApi.php`, `MockProductoApi.php` | Solo `implements ...Gateway`. Los datos no cambiaron. |
 | `tests/Feature/VentasApiTest.php` | Los 14 tests que fallaban se adaptaron al formato nuevo. |
@@ -308,13 +308,13 @@ La tabla `cuenta_corriente_movimientos` es del módulo de cuenta corriente y tie
 | 8 | Alta sin log | `VentaController@store` (develop-g4) todavía no escribe el log paso a paso. | Opcional: sumarle `VentaLogger`. |
 | 9 | Front | En `/historial-ventas` hay botones **de prueba sin estilos**: Modificar (editor para agregar, quitar y cambiar cantidades con total en vivo), Eliminar, Restaurar y Cambiar estado. Falta el diseño final, el modal de motivo y el gris. | Darles estilo usando los flags de la [sección 4](#lo-que-el-front-tiene-que-hacer). |
 
-> En la máquina de Benja las migraciones de los puntos 1 y 2 **ya se corrieron** (2026-10-16). Cada integrante tiene que correrlas en su MySQL.
+> Cada integrante tiene que correr las migraciones de los puntos 1 y 2 en su propio MySQL (una sola vez).
 
 **Migraciones (solo estas dos, sin tocar otras):**
 
 ```bash
-php artisan migrate --path=database/migrations/2026_10_16_000000_create_venta_historial_table.php
-php artisan migrate --path=database/migrations/2026_10_16_000001_agregar_estados_preparada_entregada_a_venta.php
+php artisan migrate --path=app/Modules/Ventas/database/migrations/2026_10_16_000000_create_venta_historial_table.php
+php artisan migrate --path=app/Modules/Ventas/database/migrations/2026_10_16_000001_agregar_estados_preparada_entregada_a_venta.php
 ```
 
 Ambas tienen vuelta atrás (`php artisan migrate:rollback --step=1`). La del ENUM, al deshacerse, pasa las ventas `preparada` o `entregada` a `confirmada`.

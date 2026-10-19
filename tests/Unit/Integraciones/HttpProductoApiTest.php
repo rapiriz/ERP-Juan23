@@ -2,14 +2,14 @@
 
 namespace Tests\Unit\Integraciones;
 
-use App\Exceptions\Ventas\IntegracionNoDisponibleException;
-use App\Services\Integraciones\HttpProductoApi;
+use App\Modules\Ventas\Exceptions\IntegracionNoDisponibleException;
+use App\Modules\Ventas\Integraciones\HttpProductoApi;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 /**
- * Tests de la API REAL de productos (app/Services/Integraciones/HttpProductoApi.php).
+ * Tests de la API REAL de productos (app/Modules/Ventas/Integraciones/HttpProductoApi.php).
  * Http::fake() reemplaza internet por respuestas inventadas: no se llama a
  * ningún servidor de verdad.
  */

@@ -2,14 +2,14 @@
 
 namespace Tests\Unit\Integraciones;
 
-use App\Exceptions\Ventas\IntegracionNoDisponibleException;
-use App\Services\Integraciones\HttpClienteApi;
+use App\Modules\Ventas\Exceptions\IntegracionNoDisponibleException;
+use App\Modules\Ventas\Integraciones\HttpClienteApi;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 /**
- * Tests de la API REAL de clientes (app/Services/Integraciones/HttpClienteApi.php).
+ * Tests de la API REAL de clientes (app/Modules/Ventas/Integraciones/HttpClienteApi.php).
  */
 class HttpClienteApiTest extends TestCase
 {

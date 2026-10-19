@@ -10,7 +10,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 /**
- * Tests de la API del módulo Ventas (routes/api.php):
+ * Tests de la API del módulo Ventas (app/Modules/Ventas/routes/api.php):
  *   POST /api/ventas       → alta (VentaController@store, de develop-g4)
  *   GET  /api/ventas       → lista (VentaApiController@index)
  *   GET  /api/ventas/{id}  → una venta (VentaApiController@show)
@@ -465,7 +465,7 @@ class VentasApiTest extends TestCase
         $log = $this->log();
         $this->assertStringContainsString('.INFO:', $log);
         $this->assertStringContainsString("Endpoint ......: PATCH /api/ventas/{$id}/estado", $log);
-        $this->assertStringContainsString('Ruta definida en: routes/api.php', $log);
+        $this->assertStringContainsString('Ruta definida en: app/Modules/Ventas/routes/api.php', $log);
         $this->assertStringContainsString('ESTADO CAMBIADO  ·  Respuesta HTTP 200 OK', $log);
     }
 
@@ -491,6 +491,6 @@ class VentasApiTest extends TestCase
         $log = $this->log();
         $this->assertStringContainsString('.ERROR:', $log);
         $this->assertStringContainsString('Falló en ......: PASO 4 - Corregir la cuenta corriente', $log);
-        $this->assertStringContainsString('En nuestro código: app/Services/Ventas/VentaService.php:', $log);
+        $this->assertStringContainsString('En nuestro código: app/Modules/Ventas/Services/VentaService.php:', $log);
     }
 }
