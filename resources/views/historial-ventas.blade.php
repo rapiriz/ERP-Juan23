@@ -328,10 +328,31 @@
                     <div class="hv-detalle">
                         <div class="hv-detalle-header">
                             <span>Productos vendidos ({{ count($v['detalle']) }})</span>
+
+                            {{-- BOTONES DE PRUEBA (sin estilos) para probar el back de modificar / anular / estados.
+                                 Se muestran según los flags que manda VentaController@historial (reglas en app/Modules/Ventas/Enums/EstadoVenta.php). --}}
+                            <span>
+                                @if ($v['puede_modificar'])
+                                    <button type="button" data-accion="modificar" data-id="{{ $v['id'] }}">Modificar</button>
+                                @endif
+                                @if ($v['puede_eliminar'])
+                                    <button type="button" data-accion="eliminar" data-id="{{ $v['id'] }}">Eliminar</button>
+                                @endif
+                                @if ($v['puede_restaurar'])
+                                    <button type="button" data-accion="restaurar" data-id="{{ $v['id'] }}">Restaurar</button>
+                                @endif
+                                @if (! $v['anulada'] && $v['estado'] !== 'facturada')
+                                    <button type="button" data-accion="estado" data-id="{{ $v['id'] }}" data-estado="{{ $v['estado'] }}">Cambiar estado</button>
+                                @endif
+                            </span>
+
                             @if (!empty($v['observaciones']))
                                 <span class="obs">📝 {{ $v['observaciones'] }}</span>
                             @endif
                         </div>
+
+                        {{-- Editor de "Modificar" (se arma con JS al apretar el botón; ver abrirEditor() abajo) --}}
+                        <div data-editor="{{ $v['id'] }}" hidden></div>
 
                         @if (count($v['detalle']))
                             <table class="hv-detalle-tabla">
@@ -402,6 +423,226 @@
 
     ['fCliente', 'fProducto', 'fDesde', 'fHasta'].forEach(id => {
         document.getElementById(id).addEventListener('change', () => form.submit());
+    });
+
+    // ---------- BOTONES DE PRUEBA: modificar / eliminar / restaurar / cambiar estado ----------
+    // Llaman a la API de app/Modules/Ventas/Controllers/VentaApiController.php (ver docs/VENTAS-BACKEND.md).
+    // Muestran la respuesta del back en un alert y recargan la página.
+    async function llamarApi(metodo, url, body) {
+        const respuesta = await fetch(url, {
+            method: metodo,
+            headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+            body: body ? JSON.stringify(body) : undefined,
+        });
+        const json = await respuesta.json().catch(() => ({}));
+
+        // 422 trae "errors" campo por campo; 404/409/500/503 traen "message".
+        const errores = json.errors ? '\n\n' + Object.values(json.errors).flat().join('\n') : '';
+        alert(`HTTP ${respuesta.status}\n${json.message ?? ''}${errores}`);
+
+        if (respuesta.ok) location.reload();
+    }
+
+    // ---------- EDITOR DE "MODIFICAR" (sin estilos) ----------
+    // Permite cambiar cantidades y descuentos, QUITAR productos, AGREGAR productos
+    // del catálogo, elegir la lista de precios y el descuento global.
+    // El total que se ve es una ESTIMACIÓN: el total real lo calcula el back
+    // (CalculadoraVenta) con los precios del servidor al guardar.
+    //
+    // Datos que usa:
+    //   GET /api/ventas/{id}         → la venta con sus productos (id_producto, cantidad, descuento)
+    //   GET /api/ventas/productos    → catálogo (hoy mock; mañana la API de Productos)
+    //   PUT /api/ventas/{id}         → guarda los cambios
+    const pesos = n => '$ ' + Number(n).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const escapar = t => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    let catalogo = null; // se pide una sola vez
+
+    async function getJson(url) {
+        const r = await fetch(url, { headers: { 'Accept': 'application/json' } });
+        const json = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(`HTTP ${r.status}: ${json.message ?? 'error'}`);
+        return json.data;
+    }
+
+    async function abrirEditor(id) {
+        const contenedor = document.querySelector(`[data-editor="${id}"]`);
+
+        let venta;
+        try {
+            catalogo ??= await getJson('/api/ventas/productos');
+            venta = await getJson(`/api/ventas/${id}`);
+        } catch (e) {
+            alert('No se pudo cargar la venta: ' + e.message);
+            return;
+        }
+
+        const porId = Object.fromEntries(catalogo.map(p => [p.id, p]));
+
+        // La venta no guarda la lista de precios: se deduce del precio del primer producto.
+        const primero = venta.detalles[0];
+        const lista = primero && porId[primero.id_producto]
+            && Number(primero.precio_unitario) === Number(porId[primero.id_producto].precioMay)
+            && porId[primero.id_producto].precioMay !== porId[primero.id_producto].precioMin
+            ? 'mayorista' : 'minorista';
+
+        // Estado del editor (lo que se va a mandar al guardar).
+        const editor = {
+            lista,
+            descuentoGlobal: venta.descuento_global,
+            items: venta.detalles.map(d => ({ id: d.id_producto, cantidad: d.cantidad, descuento: d.descuento })),
+        };
+
+        const precio = idProducto => {
+            const p = porId[idProducto];
+            if (!p) return 0;
+            return editor.lista === 'mayorista' ? p.precioMay : p.precioMin;
+        };
+
+        function dibujar() {
+            const filas = editor.items.map((item, i) => {
+                const p = porId[item.id];
+                const subtotal = item.cantidad * (precio(item.id) - item.descuento);
+                return `<tr>
+                    <td>${escapar(p?.codigo ?? '')}</td>
+                    <td>${escapar(p?.nombre ?? 'Producto #' + item.id)}</td>
+                    <td>${pesos(precio(item.id))}</td>
+                    <td><input type="number" min="1" max="9999" step="1" value="${item.cantidad}" data-campo="cantidad" data-i="${i}" style="width:70px"></td>
+                    <td><input type="number" min="0" step="0.01" value="${item.descuento}" data-campo="descuento" data-i="${i}" style="width:90px"></td>
+                    <td>${pesos(subtotal)}</td>
+                    <td><button type="button" data-quitar="${i}">Quitar</button></td>
+                </tr>`;
+            }).join('');
+
+            const subtotal = editor.items.reduce((s, it) => s + it.cantidad * (precio(it.id) - it.descuento), 0);
+            const total = subtotal - Math.min(Number(editor.descuentoGlobal) || 0, subtotal);
+
+            const opciones = catalogo.map(p =>
+                `<option value="${p.id}">${escapar(p.codigo)} - ${escapar(p.nombre)} (${pesos(editor.lista === 'mayorista' ? p.precioMay : p.precioMin)})</option>`
+            ).join('');
+
+            contenedor.innerHTML = `
+                <hr>
+                <strong>Modificar venta #${venta.id}</strong>
+                <p>
+                    Lista de precios:
+                    <select data-campo="lista">
+                        <option value="minorista" ${editor.lista === 'minorista' ? 'selected' : ''}>Minorista</option>
+                        <option value="mayorista" ${editor.lista === 'mayorista' ? 'selected' : ''}>Mayorista</option>
+                    </select>
+                </p>
+                <table border="1" cellpadding="4">
+                    <thead><tr><th>Código</th><th>Producto</th><th>Precio</th><th>Cantidad</th><th>Desc. c/u ($)</th><th>Subtotal</th><th></th></tr></thead>
+                    <tbody>${filas || '<tr><td colspan="7">Sin productos: agregá al menos uno.</td></tr>'}</tbody>
+                </table>
+                <p>
+                    Agregar producto:
+                    <select data-nuevo-producto>${opciones}</select>
+                    Cantidad: <input type="number" min="1" value="1" data-nueva-cantidad style="width:70px">
+                    <button type="button" data-agregar>Agregar</button>
+                </p>
+                <p>
+                    Descuento global ($): <input type="number" min="0" step="0.01" value="${editor.descuentoGlobal}" data-campo="descuentoGlobal" style="width:100px">
+                </p>
+                <p><strong>Total estimado: ${pesos(total)}</strong> (antes: ${pesos(venta.total)})</p>
+                <p data-errores style="color:red"></p>
+                <button type="button" data-guardar>Guardar cambios</button>
+                <button type="button" data-cancelar>Cancelar</button>
+                <hr>`;
+        }
+
+        // Un solo "escuchador" para todo el editor (se re-dibuja después de cada cambio).
+        contenedor.onchange = e => {
+            const campo = e.target.dataset.campo;
+            if (!campo) return;
+            if (campo === 'lista') editor.lista = e.target.value;
+            if (campo === 'descuentoGlobal') editor.descuentoGlobal = Number(e.target.value) || 0;
+            if (campo === 'cantidad' || campo === 'descuento') {
+                editor.items[e.target.dataset.i][campo] = Number(e.target.value) || 0;
+            }
+            dibujar();
+        };
+
+        contenedor.onclick = async e => {
+            const t = e.target;
+
+            if (t.dataset.quitar !== undefined) {
+                editor.items.splice(Number(t.dataset.quitar), 1);
+                dibujar();
+            }
+
+            if (t.hasAttribute('data-agregar')) {
+                const idNuevo = Number(contenedor.querySelector('[data-nuevo-producto]').value);
+                const cantidad = Number(contenedor.querySelector('[data-nueva-cantidad]').value) || 1;
+                const existente = editor.items.find(it => it.id === idNuevo);
+                // Si el producto ya estaba, se suma la cantidad en vez de repetir la fila.
+                if (existente) existente.cantidad += cantidad;
+                else editor.items.push({ id: idNuevo, cantidad, descuento: 0 });
+                dibujar();
+            }
+
+            if (t.hasAttribute('data-cancelar')) {
+                contenedor.hidden = true;
+                contenedor.innerHTML = '';
+            }
+
+            if (t.hasAttribute('data-guardar')) {
+                const cuerpo = { lista: editor.lista, items: editor.items };
+                if (Number(editor.descuentoGlobal) > 0) {
+                    cuerpo.descuento_global = { modo: 'monto', valor: Number(editor.descuentoGlobal) };
+                }
+
+                const r = await fetch(`/api/ventas/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+                    body: JSON.stringify(cuerpo),
+                });
+                const json = await r.json().catch(() => ({}));
+
+                if (r.ok) {
+                    alert(`${json.message}\nNuevo total: ${pesos(json.data.total)}`);
+                    location.reload();
+                    return;
+                }
+
+                // Errores del back (422 campo por campo, o 409/404/500 con "message").
+                const errores = json.errors ? Object.values(json.errors).flat() : [];
+                contenedor.querySelector('[data-errores]').textContent =
+                    `HTTP ${r.status}: ${json.message ?? ''} ${errores.length ? '→ ' + errores.join(' | ') : ''}`;
+            }
+        };
+
+        dibujar();
+        contenedor.hidden = false;
+    }
+
+    document.querySelectorAll('[data-accion]').forEach(boton => {
+        boton.addEventListener('click', async () => {
+            const id = boton.dataset.id;
+            const url = `/api/ventas/${id}`;
+
+            if (boton.dataset.accion === 'modificar') {
+                await abrirEditor(id);
+            }
+
+            if (boton.dataset.accion === 'eliminar') {
+                const motivo = prompt('Motivo de la anulación (mínimo 5 caracteres):');
+                if (motivo === null) return;
+                await llamarApi('DELETE', url, { motivo });
+            }
+
+            if (boton.dataset.accion === 'restaurar') {
+                if (!confirm('¿Restaurar la venta anulada?')) return;
+                await llamarApi('POST', `${url}/restaurar`);
+            }
+
+            if (boton.dataset.accion === 'estado') {
+                const estado = prompt(
+                    `Estado actual: ${boton.dataset.estado}\nNuevo estado (pendiente, confirmada, preparada, entregada, pagada, facturada):`
+                );
+                if (estado === null) return;
+                await llamarApi('PATCH', `${url}/estado`, { estado });
+            }
+        });
     });
 </script>
 @endpush

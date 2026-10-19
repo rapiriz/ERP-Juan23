@@ -1,9 +1,11 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Modules\Promociones\Controllers;
 
 use Illuminate\Http\Request;
-use App\Models\Promocion;
+use App\Http\Controllers\Controller;
+use App\Modules\Promociones\Models\Promocion;
+use App\Modules\Ventas\Controllers\VentaController; // VentaController se mudó al módulo Ventas
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 

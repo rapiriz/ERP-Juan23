@@ -1,6 +1,8 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Modules\Ventas\Controllers;
+
+use App\Http\Controllers\Controller;
 use App\Services\MockProductoApi;
 use App\Services\MockClienteApi;
 use App\Services\MockUsuarioApi;
@@ -264,7 +266,10 @@ class VentaController extends Controller
             'usuario'       => $nombreUsuario,
             'metodo'        => $esCC ? 'Cuenta Corriente' : ucfirst(str_replace('_', ' ', $medios[0])),
             'cc'            => $esCC,
-            'detalle' => ($detalles->get($v->id_venta) ?? collect())->map(function ($d) use ($productosMock) {
+            // Flags para los botones Modificar / Eliminar / Restaurar y para mostrar la venta en gris si está anulada.
+            // Reglas en app/Modules/Ventas/Enums/EstadoVenta.php → agrega: anulada, puede_modificar, puede_eliminar, puede_restaurar.
+            ...\App\Modules\Ventas\Enums\EstadoVenta::accionesPara($v->estado),
+            'detalle' =>($detalles->get($v->id_venta) ?? collect())->map(function ($d) use ($productosMock) {
                 $prod = $productosMock[$d->id_producto] ?? null;
 
                 return [

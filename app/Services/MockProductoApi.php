@@ -2,7 +2,10 @@
 
 namespace App\Services;
 
-class MockProductoApi
+use App\Modules\Ventas\Contracts\ProductoGateway;
+
+// Cumple el contrato ProductoGateway: Ventas lo usa sin saber que es un mock (ver config/ventas.php).
+class MockProductoApi implements ProductoGateway
 {
     /**
      * Datos de productos mock. Estructura pensada para cubrir:
