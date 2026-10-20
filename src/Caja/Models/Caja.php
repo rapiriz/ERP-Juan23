@@ -14,11 +14,15 @@ class Caja extends Model
     public const ESTADO_ABIERTA = 'abierta';
     public const ESTADO_CERRADA = 'cerrada';
 
+    public const ROL_ADMIN = 'admin';
+    public const ROL_REPARTIDOR = 'repartidor';
+
     protected $fillable = [
         'id_usuario',
         'fecha',
         'monto_inicial',
         'monto_final',
+        'monto_esperado',
         'diferencia',
         'estado',
         'id_usuario_cierre',
@@ -32,6 +36,7 @@ class Caja extends Model
         'fecha' => 'date',
         'monto_inicial' => 'decimal:2',
         'monto_final' => 'decimal:2',
+        'monto_esperado' => 'decimal:2',
         'diferencia' => 'decimal:2',
         'fecha_hora_apertura' => 'datetime',
         'fecha_hora_vencimiento' => 'datetime',
@@ -51,5 +56,13 @@ class Caja extends Model
     public function perteneceA(int $idUsuario): bool
     {
         return (int) $this->id_usuario === $idUsuario;
+    }
+
+    /**
+     * Solo admin y repartidor manejan caja. El vendedor no.
+     */
+    public static function rolManejaCaja(string $rol): bool
+    {
+        return in_array($rol, [self::ROL_ADMIN, self::ROL_REPARTIDOR], true);
     }
 }

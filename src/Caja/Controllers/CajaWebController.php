@@ -2,23 +2,30 @@
 
 namespace App\Caja\Controllers;
 
+use App\Caja\Models\Caja;
 use App\Caja\Services\CajaService;
 use App\Shared\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 
 class CajaWebController extends Controller
 {
+    // PROVISORIO: usuario y rol fijos hasta que G1 termine el login.
     private const ID_USUARIO_PROVISORIO = 1;
+    private const ROL_PROVISORIO = Caja::ROL_REPARTIDOR;
 
     public function __construct(private CajaService $service)
     {
     }
 
+    /**
+     * Pantalla principal: muestra la caja ABIERTA del usuario (sea de hoy o de
+     * días anteriores). Si no tiene ninguna abierta, muestra el formulario de
+     * apertura. Así se puede abrir otra caja el mismo día si la anterior ya
+     * se cerró, y no se ofrece abrir una si hay una abierta pendiente.
+     */
     public function diaActual()
     {
-        $hoy = Carbon::now()->toDateString();
-        $caja = $this->service->obtenerCajaDeUsuarioYFecha(self::ID_USUARIO_PROVISORIO, $hoy);
+        $caja = $this->service->obtenerCajaAbiertaDeUsuario(self::ID_USUARIO_PROVISORIO);
 
         if ($caja === null) {
             return view('caja.abrir');
@@ -41,7 +48,7 @@ class CajaWebController extends Controller
             abort(404, 'Caja no encontrada');
         }
 
-        $montoActual = $caja['estado'] === 'abierta' ? $this->service->obtenerMontoActual($id) : null;
+        $montoActual = $caja['estado'] === Caja::ESTADO_ABIERTA ? $this->service->obtenerMontoActual($id) : null;
 
         return view('caja.dia', ['caja' => $caja, 'montoActual' => $montoActual]);
     }
@@ -55,6 +62,7 @@ class CajaWebController extends Controller
 
         $resultado = $this->service->abrirCaja(
             self::ID_USUARIO_PROVISORIO,
+            self::ROL_PROVISORIO,
             (float) $datos['monto_inicial'],
             $datos['observaciones'] ?? null
         );
@@ -65,7 +73,7 @@ class CajaWebController extends Controller
                 ->with('id_caja_pendiente', $resultado['id_caja_pendiente'] ?? null);
         }
 
-        $montoFormateado = number_format($resultado['monto_inicial'], 2, ',', '.');
+        $montoFormateado = number_format((float) $resultado['monto_inicial'], 2, ',', '.');
 
         return redirect()
             ->route('caja.dia')
@@ -83,6 +91,7 @@ class CajaWebController extends Controller
         $resultado = $this->service->registrarMovimiento(
             $id,
             self::ID_USUARIO_PROVISORIO,
+            self::ROL_PROVISORIO,
             $datos['tipo'],
             $datos['concepto'],
             (float) $datos['monto']

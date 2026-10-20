@@ -34,12 +34,17 @@ class CajaRepository
             ->first();
     }
 
-    public function buscarPorUsuarioYFecha(int $idUsuario, string $fecha): ?Caja
+    /**
+     * Puede haber varias cajas del mismo usuario el mismo dia (una se cierra
+     * y se abre otra), por eso devuelve una lista.
+     */
+    public function listarPorUsuarioYFecha(int $idUsuario, string $fecha): Collection
     {
         return Caja::with('movimientos')
             ->where('id_usuario', $idUsuario)
             ->where('fecha', $fecha)
-            ->first();
+            ->orderBy('fecha_hora_apertura')
+            ->get();
     }
 
     public function listarPorFecha(string $fecha): Collection
@@ -130,9 +135,13 @@ class CajaRepository
         return CajaMovimiento::where('id_caja', $idCaja)->get();
     }
 
+    /**
+     * Saldo neto de los movimientos de la caja (ingresos - egresos),
+     * redondeado a 2 decimales para evitar errores de float.
+     */
     public function calcularSaldoMovimientos(int $idCaja): float
     {
-        return (float) $this->listarMovimientosDeCaja($idCaja)
-            ->sum(fn (CajaMovimiento $m) => $m->esIngreso() ? (float) $m->monto : -1 * (float) $m->monto);
+        return round((float) $this->listarMovimientosDeCaja($idCaja)
+            ->sum(fn (CajaMovimiento $m) => $m->esIngreso() ? (float) $m->monto : -1 * (float) $m->monto), 2);
     }
 }

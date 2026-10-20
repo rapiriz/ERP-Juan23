@@ -41,18 +41,24 @@ class CajaMovimiento extends Model
 
     protected $fillable = [
         'id_caja',
+        'id_cobro',
         'fecha',
         'fecha_hora_carga',
         'monto',
         'tipo',
         'concepto',
         'id_usuario',
+        'monto_anterior',
+        'id_usuario_modificacion',
+        'fecha_hora_modificacion',
     ];
 
     protected $casts = [
         'fecha' => 'date',
         'fecha_hora_carga' => 'datetime',
+        'fecha_hora_modificacion' => 'datetime',
         'monto' => 'decimal:2',
+        'monto_anterior' => 'decimal:2',
     ];
 
     public function caja()
@@ -65,8 +71,16 @@ class CajaMovimiento extends Model
         return in_array($this->tipo, [self::TIPO_COBRO, self::TIPO_INGRESO_MANUAL], true);
     }
 
+    /**
+     * Admin: todos los tipos. Repartidor: cobro y egreso.
+     * Cualquier otro rol (ej. vendedor) no maneja caja: lista vacía.
+     */
     public static function tiposPermitidosPara(string $rol): array
     {
-        return $rol === 'repartidor' ? self::TIPOS_REPARTIDOR : self::TIPOS_VALIDOS;
+        return match ($rol) {
+            Caja::ROL_REPARTIDOR => self::TIPOS_REPARTIDOR,
+            Caja::ROL_ADMIN => self::TIPOS_VALIDOS,
+            default => [],
+        };
     }
 }

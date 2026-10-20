@@ -214,7 +214,7 @@ class CajaServiceTest extends TestCase
         $repo->method('buscarMovimientoPorId')->willReturn($movimiento);
         $repo->expects($this->never())->method('guardarMovimiento');
 
-        $resultado = (new CajaService($repo))->modificarMovimiento(1, 'Nuevo concepto', -5.0);
+        $resultado = (new CajaService($repo))->modificarMovimiento(1, 'Nuevo concepto', -5.0, 1);
 
         $this->assertTrue($resultado['error']);
     }
@@ -224,7 +224,7 @@ class CajaServiceTest extends TestCase
         $repo = $this->createMock(CajaRepository::class);
         $repo->method('buscarMovimientoPorId')->willReturn(null);
 
-        $resultado = (new CajaService($repo))->modificarMovimiento(999, 'X', 10.0);
+        $resultado = (new CajaService($repo))->modificarMovimiento(999, 'X', 10.0, 1);
 
         $this->assertNull($resultado);
     }
