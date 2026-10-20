@@ -6,14 +6,16 @@ use App\Caja\Models\Caja;
 use App\Caja\Models\CajaMovimiento;
 use App\Caja\Repositories\CajaRepository;
 use App\Caja\Services\CajaService;
-use PHPUnit\Framework\TestCase;
+use Illuminate\Support\Carbon;
+use Tests\TestCase;
 
 /**
  * Tests unitarios de CajaService: se mockea CajaRepository (sin BD real), así
  * se testea solo la lógica de negocio. Correr con:
- *   vendor/bin/phpunit tests/Unit/Caja/CajaServiceTest.php
- * No pude ejecutarlos yo (sin PHP disponible en mi entorno) — avisar si algo
- * no se comporta como se espera.
+ *   php artisan test --filter=CajaServiceTest
+ *
+ * Las reglas del circuito de cajas (vencimiento por rol, tipos por rol, hora
+ * de carga) se testean en tests/Unit/Caja/CajaReglasCircuitoTest.php.
  */
 class CajaServiceTest extends TestCase
 {
@@ -31,37 +33,45 @@ class CajaServiceTest extends TestCase
     public function test_abrir_caja_crea_caja_cuando_no_hay_una_abierta(): void
     {
         $repo = $this->createMock(CajaRepository::class);
-        $repo->method('buscarAbiertaDeUsuario')->willReturn(null);
+        $repo->method('buscarCualquierAbiertaDeUsuario')->willReturn(null);
         $repo->expects($this->once())
             ->method('crear')
             ->willReturn($this->cajaFake(['id_caja' => 1, 'id_usuario' => 7, 'monto_inicial' => 100.0, 'estado' => Caja::ESTADO_ABIERTA]));
 
-        $resultado = (new CajaService($repo))->abrirCaja(7, 100.0);
+        $resultado = (new CajaService($repo))->abrirCaja(7, 'repartidor', 100.0);
 
         $this->assertArrayNotHasKey('error', $resultado);
         $this->assertEquals(7, $resultado['id_usuario']);
     }
 
-    public function test_abrir_caja_devuelve_error_si_ya_hay_una_abierta_ese_dia(): void
+    public function test_abrir_caja_devuelve_error_si_ya_hay_una_abierta(): void
     {
         $repo = $this->createMock(CajaRepository::class);
-        $repo->method('buscarAbiertaDeUsuario')
-            ->willReturn($this->cajaFake(['id_caja' => 1, 'id_usuario' => 7, 'estado' => Caja::ESTADO_ABIERTA]));
+        $repo->method('buscarCualquierAbiertaDeUsuario')
+            ->willReturn($this->cajaFake([
+                'id_caja' => 1,
+                'id_usuario' => 7,
+                'estado' => Caja::ESTADO_ABIERTA,
+                'fecha_hora_apertura' => Carbon::now()->subHour(),
+                'fecha_hora_vencimiento' => Carbon::now()->addDays(2),
+            ]));
         $repo->expects($this->never())->method('crear');
 
-        $resultado = (new CajaService($repo))->abrirCaja(7, 100.0);
+        $resultado = (new CajaService($repo))->abrirCaja(7, 'repartidor', 100.0);
 
         $this->assertTrue($resultado['error']);
-        $this->assertSame('Ya existe una caja abierta hoy para este usuario.', $resultado['mensaje']);
+        $this->assertSame(1, $resultado['id_caja_pendiente']);
+        $this->assertFalse($resultado['vencida']);
+        $this->assertStringContainsString('Tenés una caja abierta', $resultado['mensaje']);
     }
 
     public function test_abrir_caja_devuelve_error_si_monto_inicial_es_negativo(): void
     {
         $repo = $this->createMock(CajaRepository::class);
-        $repo->method('buscarAbiertaDeUsuario')->willReturn(null);
+        $repo->method('buscarCualquierAbiertaDeUsuario')->willReturn(null);
         $repo->expects($this->never())->method('crear');
 
-        $resultado = (new CajaService($repo))->abrirCaja(7, -10.0);
+        $resultado = (new CajaService($repo))->abrirCaja(7, 'repartidor', -10.0);
 
         $this->assertTrue($resultado['error']);
     }
@@ -136,7 +146,7 @@ class CajaServiceTest extends TestCase
             ->with($this->callback(fn (array $d) => $d['id_caja'] === 5 && $d['tipo'] === CajaMovimiento::TIPO_EGRESO && $d['monto'] === 25.0))
             ->willReturn(new CajaMovimiento(['id_caja' => 5, 'tipo' => CajaMovimiento::TIPO_EGRESO, 'monto' => 25.0, 'concepto' => 'Compra de bolsas']));
 
-        $resultado = (new CajaService($repo))->registrarMovimiento(5, 7, CajaMovimiento::TIPO_EGRESO, 'Compra de bolsas', 25.0);
+        $resultado = (new CajaService($repo))->registrarMovimiento(5, 7, 'repartidor', CajaMovimiento::TIPO_EGRESO, 'Compra de bolsas', 25.0);
 
         $this->assertEquals(CajaMovimiento::TIPO_EGRESO, $resultado['tipo']);
     }
@@ -149,7 +159,7 @@ class CajaServiceTest extends TestCase
         $repo->method('buscarPorId')->willReturn($caja);
         $repo->expects($this->never())->method('crearMovimiento');
 
-        $resultado = (new CajaService($repo))->registrarMovimiento(5, 99, CajaMovimiento::TIPO_EGRESO, 'Test', 10.0);
+        $resultado = (new CajaService($repo))->registrarMovimiento(5, 99, 'repartidor', CajaMovimiento::TIPO_EGRESO, 'Test', 10.0);
 
         $this->assertTrue($resultado['error']);
     }
@@ -162,7 +172,7 @@ class CajaServiceTest extends TestCase
         $repo->method('buscarPorId')->willReturn($caja);
         $repo->expects($this->never())->method('crearMovimiento');
 
-        $resultado = (new CajaService($repo))->registrarMovimiento(5, 7, CajaMovimiento::TIPO_EGRESO, 'Test', 10.0);
+        $resultado = (new CajaService($repo))->registrarMovimiento(5, 7, 'repartidor', CajaMovimiento::TIPO_EGRESO, 'Test', 10.0);
 
         $this->assertTrue($resultado['error']);
     }
@@ -175,7 +185,7 @@ class CajaServiceTest extends TestCase
         $repo->method('buscarPorId')->willReturn($caja);
         $repo->expects($this->never())->method('crearMovimiento');
 
-        $resultado = (new CajaService($repo))->registrarMovimiento(5, 7, 'tipo_inventado', 'Test', 10.0);
+        $resultado = (new CajaService($repo))->registrarMovimiento(5, 7, 'repartidor', 'tipo_inventado', 'Test', 10.0);
 
         $this->assertTrue($resultado['error']);
     }
@@ -188,7 +198,7 @@ class CajaServiceTest extends TestCase
         $repo->method('buscarPorId')->willReturn($caja);
         $repo->expects($this->never())->method('crearMovimiento');
 
-        $resultado = (new CajaService($repo))->registrarMovimiento(5, 7, CajaMovimiento::TIPO_EGRESO, 'Test', 0.0);
+        $resultado = (new CajaService($repo))->registrarMovimiento(5, 7, 'repartidor', CajaMovimiento::TIPO_EGRESO, 'Test', 0.0);
 
         $this->assertTrue($resultado['error']);
     }
@@ -204,7 +214,7 @@ class CajaServiceTest extends TestCase
         $repo->method('buscarMovimientoPorId')->willReturn($movimiento);
         $repo->expects($this->never())->method('guardarMovimiento');
 
-        $resultado = (new CajaService($repo))->modificarMovimiento(1, 'Nuevo concepto', -5.0);
+        $resultado = (new CajaService($repo))->modificarMovimiento(1, 'Nuevo concepto', -5.0, 1);
 
         $this->assertTrue($resultado['error']);
     }
@@ -214,7 +224,7 @@ class CajaServiceTest extends TestCase
         $repo = $this->createMock(CajaRepository::class);
         $repo->method('buscarMovimientoPorId')->willReturn(null);
 
-        $resultado = (new CajaService($repo))->modificarMovimiento(999, 'X', 10.0);
+        $resultado = (new CajaService($repo))->modificarMovimiento(999, 'X', 10.0, 1);
 
         $this->assertNull($resultado);
     }

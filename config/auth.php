@@ -42,6 +42,13 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+
+        // Guard usado por Caja (y cualquier módulo que necesite sesión real)
+        // vía Sanctum, apuntando al provider 'usuarios' de abajo.
+        'api' => [
+            'driver' => 'sanctum',
+            'provider' => 'usuarios',
+        ],
     ],
 
     /*
@@ -65,6 +72,13 @@ return [
         'users' => [
             'driver' => 'eloquent',
             'model' => env('AUTH_MODEL', User::class),
+        ],
+
+        // Provider real del proyecto: apunta a la tabla USUARIO, no a la
+        // tabla `users` de Laravel.
+        'usuarios' => [
+            'driver' => 'eloquent',
+            'model' => \App\Shared\Models\Usuario::class,
         ],
 
         // 'users' => [
