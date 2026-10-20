@@ -166,4 +166,50 @@ class CuentaCorrienteTest extends TestCase
 
         $this->assertDatabaseCount('venta', 0);
     }
+
+    public function test_sales_history_loads_all_sales_without_applying_server_side_filters(): void
+    {
+        DB::table('venta')->insert([
+            'id_venta' => 1,
+            'id_cliente' => 915736,
+            'fecha' => '2026-10-15',
+            'total' => 4400,
+            'descuento_global' => 100,
+            'numFactura' => 'FAC-1001',
+            'estado' => 'confirmada',
+            'observaciones' => 'Venta de prueba',
+            'id_usuario' => 1,
+        ]);
+        DB::table('detalle_venta')->insert([
+            'id_venta' => 1,
+            'id_producto' => 1,
+            'cantidad' => 2,
+            'precio_unitario' => 2200,
+            'descuento' => 10,
+            'subtotal' => 4380,
+        ]);
+
+        $this->get('/historial-ventas?texto=sin-coincidencias')
+            ->assertOk()
+            ->assertSee('FAC-1001')
+            ->assertSee('María González')
+            ->assertSee('Buenos Aires')
+            ->assertSee('id="fLocalidad"', false)
+            ->assertSee('id="ventasHistorialData"', false)
+            ->assertSee('id="sinResultados"', false);
+    }
+
+    public function test_current_accounts_page_renders_date_filter_modes_and_empty_results_message(): void
+    {
+        $this->get('/saldo')
+            ->assertOk()
+            ->assertSee('id="modoFecha"', false)
+            ->assertSee('<option value="todas" selected>Todas</option>', false)
+            ->assertSee('<option value="especifica">Fecha específica</option>', false)
+            ->assertSee('<option value="periodo">Período</option>', false)
+            ->assertSee('id="fechaEspecifica"', false)
+            ->assertSee('id="fechaDesde"', false)
+            ->assertSee('id="fechaHasta"', false)
+            ->assertSee('No se encontraron registros con los filtros aplicados.');
+    }
 }

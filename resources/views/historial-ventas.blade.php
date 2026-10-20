@@ -36,7 +36,7 @@
     .hv-limpiar:hover { background: #EFF6FF; }
 
     .hv-filtros-grid {
-        display: grid; grid-template-columns: 1.2fr 1fr 1fr 1fr 1fr; gap: .75rem;
+        display: grid; grid-template-columns: 1.2fr repeat(5, 1fr); gap: .75rem;
     }
     .hv-campo { display: flex; flex-direction: column; gap: .35rem; min-width: 0; }
     .hv-campo label {
@@ -207,27 +207,27 @@
             <span class="icono">🧾</span>
             HISTORIAL DE VENTAS
         </div>
-        <span class="hv-contador">{{ $kpis['cantidad'] }} ventas</span>
+        <span class="hv-contador" id="contadorVentas">{{ $kpis['cantidad'] }} ventas</span>
     </div>
 
     {{-- Filtros --}}
-    <form method="GET" action="{{ route('ventas.historial') }}" class="clay-card" id="formFiltros">
+    <form class="clay-card" id="formFiltros">
         <div class="hv-filtros-header">
             <span class="hv-filtros-titulo">🔽 Filtros</span>
-            <a href="{{ route('ventas.historial') }}" class="hv-limpiar">Limpiar filtros</a>
+            <button type="button" class="hv-limpiar" id="limpiarFiltros">Limpiar filtros</button>
         </div>
 
         <div class="hv-filtros-grid">
             <div class="hv-campo">
                 <label for="fTexto">Buscar (cliente / #)</label>
-                <input type="text" id="fTexto" name="texto" value="{{ $filtros['texto'] }}" placeholder="Texto...">
+                <input type="text" id="fTexto" name="texto" placeholder="Texto...">
             </div>
             <div class="hv-campo">
                 <label for="fCliente">👤 Cliente</label>
                 <select id="fCliente" name="cliente">
                     <option value="">Todos</option>
                     @foreach ($clientesFiltro as $c)
-                        <option value="{{ $c['id'] }}" @selected($filtros['cliente'] == $c['id'])>
+                        <option value="{{ $c['id'] }}">
                             {{ $c['nombre'] }}
                         </option>
                     @endforeach
@@ -238,19 +238,25 @@
                 <select id="fProducto" name="producto">
                     <option value="">Todos</option>
                 @foreach ($productosFiltro as $p)
-                    <option value="{{ $p['id_producto'] }}" @selected($filtros['producto'] == $p['id_producto'])>
+                    <option value="{{ $p['id_producto'] }}">
                         {{ $p['nombre'] }}
                     </option>
                 @endforeach
                 </select>
             </div>
             <div class="hv-campo">
+                <label for="fLocalidad">📍 Localidad</label>
+                <select id="fLocalidad" name="localidad">
+                    <option value="">Todas</option>
+                </select>
+            </div>
+            <div class="hv-campo">
                 <label for="fDesde">📅 Desde</label>
-                <input type="date" id="fDesde" name="desde" value="{{ $filtros['desde'] }}">
+                <input type="date" id="fDesde" name="desde">
             </div>
             <div class="hv-campo">
                 <label for="fHasta">📅 Hasta</label>
-                <input type="date" id="fHasta" name="hasta" value="{{ $filtros['hasta'] }}">
+                <input type="date" id="fHasta" name="hasta">
             </div>
         </div>
     </form>
@@ -259,19 +265,19 @@
     <div class="hv-resumen">
         <div class="clay-card hv-kpi">
             <span class="label">Total vendido</span>
-            <span class="valor azul">$ {{ number_format($kpis['total_vendido'], 2, ',', '.') }}</span>
+            <span class="valor azul" data-kpi="total-vendido">$ {{ number_format($kpis['total_vendido'], 2, ',', '.') }}</span>
         </div>
         <div class="clay-card hv-kpi">
             <span class="label">Descuentos otorgados</span>
-            <span class="valor naranja">$ {{ number_format($kpis['descuentos'], 2, ',', '.') }}</span>
+            <span class="valor naranja" data-kpi="descuentos">$ {{ number_format($kpis['descuentos'], 2, ',', '.') }}</span>
         </div>
         <div class="clay-card hv-kpi">
             <span class="label">En cuenta corriente</span>
-            <span class="valor rojo">$ {{ number_format($kpis['en_cc'], 2, ',', '.') }}</span>
+            <span class="valor rojo" data-kpi="en-cc">$ {{ number_format($kpis['en_cc'], 2, ',', '.') }}</span>
         </div>
         <div class="clay-card hv-kpi">
             <span class="label">Ventas realizadas</span>
-            <span class="valor azul">{{ $kpis['cantidad'] }}</span>
+            <span class="valor azul" data-kpi="cantidad">{{ $kpis['cantidad'] }}</span>
         </div>
     </div>
 
@@ -289,7 +295,7 @@
         </div>
 
         <div class="hv-tabla-body">
-            @forelse ($ventas as $v)
+            @foreach ($ventas as $v)
                 <div class="hv-grupo" data-venta-id="{{ $v['id'] }}">
                     <div class="hv-row" data-toggle-detalle>
                         <span class="factura" title="{{ $v['factura'] }}">{{ $v['factura'] }}</span>
@@ -390,11 +396,10 @@
                         @endif
                     </div>
                 </div>
-            @empty
-                <div style="padding:2rem; text-align:center; color:var(--muted);">
-                    No se encontraron ventas con los filtros aplicados.
-                </div>
-            @endforelse
+            @endforeach
+            <div id="sinResultados" style="padding:2rem; text-align:center; color:var(--muted);" @if ($ventas->isNotEmpty()) hidden @endif>
+                No se encontraron ventas con los filtros aplicados
+            </div>
         </div>
     </div>
 
@@ -645,4 +650,5 @@
         });
     });
 </script>
+<script type="application/json" id="ventasHistorialData">@json($ventas, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT)</script>
 @endpush

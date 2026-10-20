@@ -1,4 +1,5 @@
 import './bootstrap';
+import './historial-ventas';
 
 const sidebarLayout = document.querySelector('.app-layout');
 const sidebarToggle = document.querySelector('[data-sidebar-toggle]');

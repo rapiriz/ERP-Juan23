@@ -39,8 +39,12 @@
             <span class="ico" aria-hidden="true">&#x1F465;</span>
             <span class="sidebar-label">Cuentas Corrientes</span>
         </a>
-        <a href="{{ route('ventas.historial') }}" class="sidebar-link {{ request()->routeIs('ventas.historial') ? 'active' : '' }}">
-            <span class="ico">🕓</span> Historial de Ventas
+        <a href="{{ route('ventas.historial') }}"
+           class="sidebar-link {{ request()->routeIs('ventas.historial') ? 'active' : '' }}"
+           aria-label="Historial de Ventas"
+           title="Historial de Ventas">
+            <span class="ico" aria-hidden="true">&#x1F4C2;</span>
+            <span class="sidebar-label">Historial de Ventas</span>
         </a>
     </nav>
 </aside>

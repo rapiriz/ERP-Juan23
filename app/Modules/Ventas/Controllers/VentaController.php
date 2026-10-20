@@ -3,8 +3,8 @@
 namespace App\Modules\Ventas\Controllers;
 
 use App\Http\Controllers\Controller;
-use App\Services\MockProductoApi;
 use App\Services\MockClienteApi;
+use App\Services\MockProductoApi;
 use App\Services\MockUsuarioApi;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -14,7 +14,6 @@ use Illuminate\Validation\ValidationException;
 
 class VentaController extends Controller
 {
-
     public function index(MockClienteApi $clientes, MockProductoApi $productos)
     {
         return view('ventas', [
@@ -25,7 +24,7 @@ class VentaController extends Controller
 
     public function obtenerProductosSimulados(MockProductoApi $productos)
     {
-         return response()->json($productos->todos());
+        return response()->json($productos->todos());
     }
 
     public function store(Request $request, MockClienteApi $clientes, MockProductoApi $productos)
@@ -143,172 +142,129 @@ class VentaController extends Controller
             'total' => $total,
         ], 201);
     }
-    public function historial(Request $request, MockClienteApi $clientes, MockUsuarioApi $usuarios, MockProductoApi $productos)
-{
-    // ---------------------------------------------------------------
-    // 1) Filtros
-    // ---------------------------------------------------------------
-    $filtros = [
-        'texto'    => trim((string) $request->query('texto', '')),
-        'cliente'  => $request->query('cliente'),
-        'producto' => $request->query('producto'),
-        'desde'    => $request->query('desde'),
-        'hasta'    => $request->query('hasta'),
-    ];
 
-    // ---------------------------------------------------------------
-    // 2) Query principal: SOLO venta + usuario
-    //    (no joineamos con cliente porque es responsabilidad de otro módulo)
-    // ---------------------------------------------------------------
-    $query = DB::table('venta as v')
-        ->select(
-            'v.id_venta',
-            'v.id_cliente',
-            'v.numFactura as factura',
-            'v.fecha',
-            'v.total',
-            'v.descuento_global as descuento',
-            'v.estado',
-            'v.observaciones',
-            'v.id_usuario'
-        )
-        ->orderByDesc('v.fecha')
-        ->orderByDesc('v.id_venta');
+    public function historial(MockClienteApi $clientes, MockUsuarioApi $usuarios, MockProductoApi $productos)
+    {
+        $ventas = DB::table('venta as v')
+            ->select(
+                'v.id_venta',
+                'v.id_cliente',
+                'v.numFactura as factura',
+                'v.fecha',
+                'v.total',
+                'v.descuento_global as descuento',
+                'v.estado',
+                'v.observaciones',
+                'v.id_usuario'
+            )
+            ->orderByDesc('v.fecha')
+            ->orderByDesc('v.id_venta')
+            ->get();
 
-    if ($filtros['texto'] !== '') {
-        $query->where(function ($q) use ($filtros) {
-            $q->where('v.numFactura', 'like', "%{$filtros['texto']}%")
-              ->orWhere('v.observaciones', 'like', "%{$filtros['texto']}%");
-        });
-    }
-
-    if (!empty($filtros['cliente'])) {
-        $query->where('v.id_cliente', $filtros['cliente']);
-    }
-
-    if (!empty($filtros['desde'])) {
-        $query->whereDate('v.fecha', '>=', $filtros['desde']);
-    }
-    if (!empty($filtros['hasta'])) {
-        $query->whereDate('v.fecha', '<=', $filtros['hasta']);
-    }
-
-    $ventas = $query->get();
-
-    // ---------------------------------------------------------------
-    // 3) Índice de clientes mock (id => datos)
-    //    Traemos todos UNA vez y los consultamos en memoria.
-    // ---------------------------------------------------------------
-    $clientesMock = collect($clientes->todos())->keyBy('id');
-
-    // ---------------------------------------------------------------
-    // 4) Detalle de todas las ventas en una sola query
-    // ---------------------------------------------------------------
-    $idsVentas = $ventas->pluck('id_venta')->all();
-
-    $detalles = collect();
-    if (!empty($idsVentas)) {
-        $detalles = DB::table('detalle_venta as dv')
-        ->whereIn('dv.id_venta', $idsVentas)
-        ->select(
-            'dv.id_venta',
-            'dv.id_producto',
-            'dv.cantidad',
-            'dv.precio_unitario',
-            'dv.descuento',
-            'dv.subtotal'
-        )
-        ->get()
-        ->groupBy('id_venta');
-    }
-
-    // ---------------------------------------------------------------
-    // 5) Método de pago (si existe tabla cobro_venta / cobro)
-    //    Envolvemos en try/catch por si esas tablas todavía no existen.
-    // ---------------------------------------------------------------
-    $metodosPago = collect();
-    if (!empty($idsVentas)) {
-        try {
-            $metodosPago = DB::table('cobro_venta as cv')
-                ->join('cobro as c', 'c.id_cobro', '=', 'cv.id_cobro')
-                ->whereIn('cv.id_venta', $idsVentas)
-                ->select('cv.id_venta', 'c.medio_pago')
-                ->get()
-                ->groupBy('id_venta')
-                ->map(fn ($g) => $g->pluck('medio_pago')->unique()->values()->all());
-        } catch (\Throwable $e) {
-            // Si las tablas no existen todavía, todas las ventas caen como CC
-            $metodosPago = collect();
-        }
-    }
-
-    // ---------------------------------------------------------------
-    // 6) Armar estructura final cruzando con cliente mock
-    // ---------------------------------------------------------------
-    $ventas = $ventas->map(function ($v) use ($detalles, $metodosPago, $clientesMock, $usuarios, $productos) {
-        $clienteMock = $clientesMock->get($v->id_cliente);
+        $clientesMock = collect($clientes->todos())->keyBy('id');
         $productosMock = $productos->indexado();
-        $nombreCliente = $clienteMock['nombre'] ?? "Cliente #{$v->id_cliente}";
-        $nombreUsuario = $usuarios->nombre((int) $v->id_usuario);
-        $medios = $metodosPago->get($v->id_venta, []);
-        $esCC   = empty($medios);
+        $idsVentas = $ventas->pluck('id_venta')->all();
+        $detalles = empty($idsVentas)
+            ? collect()
+            : DB::table('detalle_venta as dv')
+                ->whereIn('dv.id_venta', $idsVentas)
+                ->select(
+                    'dv.id_venta',
+                    'dv.id_producto',
+                    'dv.cantidad',
+                    'dv.precio_unitario',
+                    'dv.descuento',
+                    'dv.subtotal'
+                )
+                ->get()
+                ->groupBy('id_venta');
 
-        return [
-            'id'            => $v->id_venta,
-            'factura'       => $v->factura ?? ('#' . $v->id_venta),
-            'fecha'         => $v->fecha,
-            'fecha_iso'     => $v->fecha,
-            'cliente'       => $nombreCliente,
-            'total'         => (float) $v->total,
-            'descuento'     => (float) ($v->descuento ?? 0),
-            'estado'        => $v->estado ?? 'pendiente',
-            'observaciones' => $v->observaciones,
-            'usuario'       => $nombreUsuario,
-            'metodo'        => $esCC ? 'Cuenta Corriente' : ucfirst(str_replace('_', ' ', $medios[0])),
-            'cc'            => $esCC,
-            // Flags para los botones Modificar / Eliminar / Restaurar y para mostrar la venta en gris si está anulada.
-            // Reglas en app/Modules/Ventas/Enums/EstadoVenta.php → agrega: anulada, puede_modificar, puede_eliminar, puede_restaurar.
-            ...\App\Modules\Ventas\Enums\EstadoVenta::accionesPara($v->estado),
-            'detalle' =>($detalles->get($v->id_venta) ?? collect())->map(function ($d) use ($productosMock) {
-                $prod = $productosMock[$d->id_producto] ?? null;
 
-                return [
-                    'codigo'          => $prod['codigo'] ?? '',
-                    'producto'        => $prod['nombre'] ?? "Producto #{$d->id_producto}",
-                    'cantidad'        => (int) $d->cantidad,
-                    'precio_unitario' => (float) $d->precio_unitario,
-                    'descuento'       => (float) $d->descuento,
-                    'subtotal'        => (float) $d->subtotal,
-                ];
-            })->all(),
+        $metodosPago = collect();
+
+        if (! empty($idsVentas)) {
+            try {
+                $metodosPago = DB::table('cobro_venta as cv')
+                    ->join('cobro as c', 'c.id_cobro', '=', 'cv.id_cobro')
+                    ->whereIn('cv.id_venta', $idsVentas)
+                    ->select('cv.id_venta', 'c.medio_pago')
+                    ->get()
+                    ->groupBy('id_venta')
+                    ->map(fn ($grupo) => $grupo->pluck('medio_pago')->unique()->values()->all());
+            } catch (\Throwable $e) {
+                $metodosPago = collect();
+            }
+        }
+
+        $ventas = $ventas->map(function ($venta) use (
+            $detalles,
+            $metodosPago,
+            $clientesMock,
+            $usuarios,
+            $productosMock
+        ) {
+            $cliente = $clientesMock->get($venta->id_cliente);
+
+            $detalle = ($detalles->get($venta->id_venta) ?? collect())
+                ->map(function ($item) use ($productosMock) {
+                    $producto = $productosMock[$item->id_producto] ?? null;
+
+                    return [
+                        'id_producto' => (int) $item->id_producto,
+                        'codigo' => $producto['codigo'] ?? '',
+                        'producto' => $producto['nombre'] ?? "Producto #{$item->id_producto}",
+                        'cantidad' => (int) $item->cantidad,
+                        'precio_unitario' => (float) $item->precio_unitario,
+                        'descuento' => (float) $item->descuento,
+                        'subtotal' => (float) $item->subtotal,
+                    ];
+                })->all();
+
+            $medios = $metodosPago->get($venta->id_venta, []);
+            $esCC = empty($medios);
+
+            return [
+                'id' => (int) $venta->id_venta,
+                'cliente_id' => (int) $venta->id_cliente,
+                'factura' => $venta->factura ?? ('#' . $venta->id_venta),
+                'fecha' => $venta->fecha,
+                'fecha_iso' => substr((string) $venta->fecha, 0, 10),
+                'cliente' => $cliente['nombre'] ?? "Cliente #{$venta->id_cliente}",
+                'localidad' => $cliente['localidad'] ?? '',
+                'total' => (float) $venta->total,
+                'descuento' => (float) ($venta->descuento ?? 0)
+                    + collect($detalle)->sum(fn ($item) => $item['descuento'] * $item['cantidad']),
+                'estado' => $venta->estado ?? 'pendiente',
+                'observaciones' => $venta->observaciones,
+                'usuario' => $usuarios->nombre((int) $venta->id_usuario),
+                'metodo' => $esCC
+                    ? 'Cuenta Corriente'
+                    : ucfirst(str_replace('_', ' ', $medios[0])),
+                'cc' => $esCC,
+
+                // Conserva las acciones que ya tenía develop-g4.
+                ...\App\Modules\Ventas\Enums\EstadoVenta::accionesPara($venta->estado),
+
+                'detalle' => $detalle,
+            ];
+        })->values();
+
+
+        $kpis = [
+            'total_vendido' => $ventas->sum('total'),
+            'descuentos' => $ventas->sum('descuento'),
+            'en_cc' => $ventas->where('cc', true)->sum('total'),
+            'cantidad' => $ventas->count(),
         ];
-    });
+        $clientesFiltro = collect($clientes->todos())
+            ->map(fn ($cliente) => ['id' => $cliente['id'], 'nombre' => $cliente['nombre']])
+            ->values();
+        $productosFiltro = collect($productos->todos())
+            ->map(fn ($producto) => ['id_producto' => $producto['id'], 'nombre' => $producto['nombre']])
+            ->values();
 
-    // ---------------------------------------------------------------
-    // 7) KPIs
-    // ---------------------------------------------------------------
-    $kpis = [
-        'total_vendido' => $ventas->sum('total'),
-        'descuentos'    => $ventas->sum('descuento'),
-        'en_cc'         => $ventas->where('cc', true)->sum('total'),
-        'cantidad'      => $ventas->count(),
-    ];
-
-    // ---------------------------------------------------------------
-    // 8) Listas para los selects de filtros
-    //    - Clientes: vienen del mock
-    //    - Productos: sí salen de la BD porque es parte de tu módulo
-    // ---------------------------------------------------------------
-    $clientesFiltro = collect($clientes->todos())
-        ->map(fn ($c) => ['id' => $c['id'], 'nombre' => $c['nombre']])
-        ->values();
-
-    $productosFiltro = collect($productos->todos())
-        ->map(fn ($p) => ['id_producto' => $p['id'], 'nombre' => $p['nombre']])
-        ->values();
-
-    return view('historial-ventas', compact(
-        'ventas', 'kpis', 'clientesFiltro', 'productosFiltro', 'filtros'
-    ));
-}
+        return view('historial-ventas', compact(
+            'ventas', 'kpis', 'clientesFiltro', 'productosFiltro'
+        ));
+    }
 }
