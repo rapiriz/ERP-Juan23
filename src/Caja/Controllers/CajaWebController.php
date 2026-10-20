@@ -3,6 +3,7 @@
 namespace App\Caja\Controllers;
 
 use App\Caja\Models\Caja;
+use App\Caja\Models\CajaMovimiento;
 use App\Caja\Services\CajaService;
 use App\Shared\Http\Controllers\Controller;
 use Illuminate\Http\Request;
@@ -10,7 +11,8 @@ use Illuminate\Http\Request;
 class CajaWebController extends Controller
 {
     // PROVISORIO: usuario y rol fijos hasta que G1 termine el login.
-    private const ID_USUARIO_PROVISORIO = 1;
+    // 3 = matias (repartidor). Para probar como Diego: 1 y Caja::ROL_ADMIN.
+    private const ID_USUARIO_PROVISORIO = 3;
     private const ROL_PROVISORIO = Caja::ROL_REPARTIDOR;
 
     public function __construct(private CajaService $service)
@@ -31,9 +33,7 @@ class CajaWebController extends Controller
             return view('caja.abrir');
         }
 
-        $montoActual = $this->service->obtenerMontoActual($caja['id_caja']);
-
-        return view('caja.dia', ['caja' => $caja, 'montoActual' => $montoActual]);
+        return $this->vistaCaja($caja, $this->service->obtenerMontoActual($caja['id_caja']));
     }
 
     /**
@@ -50,7 +50,17 @@ class CajaWebController extends Controller
 
         $montoActual = $caja['estado'] === Caja::ESTADO_ABIERTA ? $this->service->obtenerMontoActual($id) : null;
 
-        return view('caja.dia', ['caja' => $caja, 'montoActual' => $montoActual]);
+        return $this->vistaCaja($caja, $montoActual);
+    }
+
+    private function vistaCaja(array $caja, ?float $montoActual)
+    {
+        return view('caja.dia', [
+            'caja' => $caja,
+            'montoActual' => $montoActual,
+            // Solo los tipos de movimiento que el rol puede cargar.
+            'tiposPermitidos' => CajaMovimiento::tiposPermitidosPara(self::ROL_PROVISORIO),
+        ]);
     }
 
     public function abrir(Request $request)
@@ -132,7 +142,8 @@ class CajaWebController extends Controller
             $id,
             self::ID_USUARIO_PROVISORIO,
             (float) $datos['monto_final'],
-            $datos['observaciones'] ?? null
+            $datos['observaciones'] ?? null,
+            self::ROL_PROVISORIO
         );
 
         if ($resultado === null) {

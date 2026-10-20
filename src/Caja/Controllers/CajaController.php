@@ -106,7 +106,8 @@ class CajaController extends Controller
     }
 
     /**
-     * PATCH /caja/{id}/cerrar — la cierra su dueño, sin aprobación
+     * PATCH /caja/{id}/cerrar — la cierra su dueño, sin aprobación.
+     * El admin también puede cerrar la caja de un repartidor.
      */
     public function cerrar(Request $request, int $id)
     {
@@ -119,7 +120,8 @@ class CajaController extends Controller
             $id,
             $request->user()->id_usuario,
             (float) $datos['monto_final'],
-            $datos['observaciones'] ?? null
+            $datos['observaciones'] ?? null,
+            $request->user()->rol
         );
 
         if ($resultado === null) {

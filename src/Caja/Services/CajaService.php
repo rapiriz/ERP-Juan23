@@ -115,17 +115,23 @@ class CajaService
 
     /**
      * Cierra la caja. Solo la cierra su dueño (repartidor o Diego), sin
-     * aprobación. Guarda el monto esperado y la diferencia (final - esperado).
+     * aprobación; el admin también puede cerrar la de un repartidor. Guarda el
+     * monto esperado y la diferencia (final - esperado).
      */
-    public function cerrarCaja(int $idCaja, int $idUsuarioSesion, float $montoFinal, ?string $observaciones = null): ?array
-    {
+    public function cerrarCaja(
+        int $idCaja,
+        int $idUsuarioSesion,
+        float $montoFinal,
+        ?string $observaciones = null,
+        string $rolSesion = Caja::ROL_REPARTIDOR
+    ): ?array {
         $caja = $this->repositorio->buscarPorId($idCaja);
 
         if ($caja === null) {
             return null;
         }
 
-        if (!$caja->perteneceA($idUsuarioSesion)) {
+        if (!$caja->perteneceA($idUsuarioSesion) && !$this->puedeCerrarCajaAjena($caja, $rolSesion)) {
             return ['error' => true, 'mensaje' => 'No podés cerrar la caja de otro usuario.'];
         }
 
@@ -148,6 +154,18 @@ class CajaService
         }
 
         return $this->repositorio->guardar($caja)->toArray();
+    }
+
+    /**
+     * El admin (Diego) puede cerrar la caja de un repartidor, por ejemplo si
+     * el repartidor no la cerró. No puede cerrar la caja de otro admin.
+     * La diferencia queda asociada al dueño de la caja (id_usuario) y
+     * id_usuario_cierre guarda quién la cerró.
+     */
+    private function puedeCerrarCajaAjena(Caja $caja, string $rolSesion): bool
+    {
+        return $rolSesion === Caja::ROL_ADMIN
+            && $this->repositorio->rolDeUsuario((int) $caja->id_usuario) === Caja::ROL_REPARTIDOR;
     }
 
     public function obtenerHistorialCierres(?int $idUsuario = null, ?string $desde = null, ?string $hasta = null): array

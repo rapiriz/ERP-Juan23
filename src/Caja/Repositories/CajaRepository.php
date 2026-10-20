@@ -72,6 +72,15 @@ class CajaRepository
         return $query->orderByDesc('fecha_hora_apertura')->get();
     }
 
+    /**
+     * Rol del usuario dueño de una caja (tabla USUARIO, de G1). Lo usa el
+     * Service para saber si un admin puede cerrar esa caja.
+     */
+    public function rolDeUsuario(int $idUsuario): ?string
+    {
+        return \App\Shared\Models\Usuario::where('id_usuario', $idUsuario)->value('rol');
+    }
+
     public function crear(array $datos): Caja
     {
         return Caja::create($datos);
