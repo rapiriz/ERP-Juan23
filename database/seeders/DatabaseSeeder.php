@@ -155,6 +155,7 @@ class DatabaseSeeder extends Seeder
                     'monto_final' => null,
                     'monto_esperado' => null,
                     'diferencia' => null,
+                    'cierre_automatico' => false,
                     'estado' => 'abierta',
                     'id_usuario_cierre' => null,
                     'fecha_hora_apertura' => now()->startOfDay()->addHours(8),
@@ -163,6 +164,27 @@ class DatabaseSeeder extends Seeder
                     'observaciones' => 'Caja de administración central.',
                 ],
             ], ['id_caja'], ['id_usuario', 'fecha', 'monto_inicial', 'estado', 'observaciones']);
+        }
+
+        // 2.2 Movimientos iniciales de Caja
+        if (Schema::hasTable('CAJA_MOVIMIENTO')) {
+            DB::table('CAJA_MOVIMIENTO')->upsert([
+                [
+                    'id_movimiento_caja' => 1,
+                    'id_caja' => 1,
+                    'fecha' => now()->toDateString(),
+                    'fecha_hora_carga' => now()->startOfDay()->addHours(9),
+                    'monto' => 45500.00,
+                    'tipo' => 'cobro',
+                    'medio_pago' => 'efectivo',
+                    'concepto' => 'Cobro liquidación Rendición #1 en Efectivo',
+                    'id_usuario' => 1,
+                    'id_cobro' => null,
+                    'monto_anterior' => null,
+                    'id_usuario_modificacion' => null,
+                    'fecha_hora_modificacion' => null,
+                ],
+            ], ['id_movimiento_caja'], ['id_caja', 'fecha', 'monto', 'tipo', 'medio_pago', 'concepto', 'id_usuario']);
         }
 
         // ================================================================

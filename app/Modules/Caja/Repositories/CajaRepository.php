@@ -72,6 +72,45 @@ class CajaRepository
         return $query->orderByDesc('fecha_hora_apertura')->get();
     }
 
+    /**
+     * Última caja del usuario que se cerró sola y todavía no tiene el
+     * conteo cargado (sin monto final).
+     */
+    public function buscarPendienteDeConteoDeUsuario(int $idUsuario): ?Caja
+    {
+        return Caja::where('id_usuario', $idUsuario)
+            ->where('estado', Caja::ESTADO_CERRADA)
+            ->where('cierre_automatico', true)
+            ->whereNull('monto_final')
+            ->orderByDesc('fecha_hora_cierre')
+            ->first();
+    }
+
+    /**
+     * Cajas abiertas, vencidas, cuyo dueño es repartidor. Son las que se
+     * cierran solas (la caja del admin no se cierra automáticamente).
+     */
+    public function listarVencidasDeRepartidores(\Illuminate\Support\Carbon $ahora): Collection
+    {
+        return Caja::where('estado', Caja::ESTADO_ABIERTA)
+            ->whereNotNull('fecha_hora_vencimiento')
+            ->where('fecha_hora_vencimiento', '<', $ahora)
+            ->whereIn(
+                'id_usuario',
+                \App\Modules\Shared\Models\Usuario::where('rol', Caja::ROL_REPARTIDOR)->select('id_usuario')
+            )
+            ->get();
+    }
+
+    /**
+     * Rol del usuario dueño de una caja (tabla USUARIO, de G1). Lo usa el
+     * Service para saber si un admin puede cerrar esa caja.
+     */
+    public function rolDeUsuario(int $idUsuario): ?string
+    {
+        return \App\Modules\Shared\Models\Usuario::where('id_usuario', $idUsuario)->value('rol');
+    }
+
     public function crear(array $datos): Caja
     {
         return Caja::create($datos);
@@ -133,6 +172,28 @@ class CajaRepository
     public function listarMovimientosDeCaja(int $idCaja): Collection
     {
         return CajaMovimiento::where('id_caja', $idCaja)->get();
+    }
+
+    /**
+     * Subtotales con signo de los movimientos de la caja: efectivo por un
+     * lado y valores (cheques, transferencias, otros) por el otro.
+     */
+    public function calcularSubtotalesPorMedio(int $idCaja): array
+    {
+        $efectivo = 0.0;
+        $valores = 0.0;
+
+        foreach ($this->listarMovimientosDeCaja($idCaja) as $m) {
+            $importe = $m->esIngreso() ? (float) $m->monto : -1 * (float) $m->monto;
+
+            if ($m->esEfectivo()) {
+                $efectivo += $importe;
+            } else {
+                $valores += $importe;
+            }
+        }
+
+        return ['efectivo' => round($efectivo, 2), 'valores' => round($valores, 2)];
     }
 
     /**

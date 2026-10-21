@@ -2,18 +2,72 @@
 
 @section('titulo', 'Caja del dia')
 
+@php
+    // Etiquetas de los tipos de movimiento. Solo se muestran los que el rol puede usar
+    // ($tiposPermitidos viene del controller).
+    $etiquetasTipo = [
+        'cobro' => 'Cobro',
+        'ingreso_manual' => 'Ingreso manual',
+        'egreso' => 'Egreso',
+        'extraccion' => 'Extracción',
+        'pago_proveedor' => 'Pago a proveedor',
+        'impuesto' => 'Impuesto',
+        'reversion' => 'Reversión de cobro',
+    ];
+
+    $etiquetasMedio = [
+        'efectivo' => 'Efectivo',
+        'cheque' => 'Cheque',
+        'transferencia' => 'Transferencia',
+        'otro' => 'Otro',
+    ];
+
+    $vencimiento = !empty($caja['fecha_hora_vencimiento'])
+        ? \Illuminate\Support\Carbon::parse($caja['fecha_hora_vencimiento'])->timezone(config('app.timezone'))
+        : null;
+    $vencida = $caja['estado'] === 'abierta' && $vencimiento !== null && $vencimiento->isPast();
+
+    // Recordatorio: faltan menos de 24 horas para el vencimiento y todavía no venció.
+    $porVencer = $caja['estado'] === 'abierta'
+        && $vencimiento !== null
+        && !$vencida
+        && $vencimiento->lte(now()->addHours(24));
+@endphp
+
 @section('contenido')
+    @if ($porVencer)
+        <div class="alerta" style="background:#FFF4D6;color:#6B4E00;border:1px solid #F0D98A;margin-bottom:16px;">
+            <strong>Recordatorio:</strong> esta caja vence el {{ $vencimiento->format('d/m/Y H:i') }} (faltan menos de 24 horas).
+            Cerrala antes de esa hora{{ !empty($cierreAutomatico) ? ': de lo contrario se cerrará automáticamente.' : '.' }}
+        </div>
+    @endif
+
     <div class="clay-card">
         <div class="encabezado-flex-inicio">
             <div>
                 <h2>Caja del {{ \Illuminate\Support\Carbon::parse($caja['fecha'])->format('d/m/Y') }}</h2>
                 <p class="subtitulo">
                     <span class="badge badge-{{ $caja['estado'] === 'abierta' ? 'abierto' : 'cerrado' }}">{{ ucfirst($caja['estado']) }}</span>
+                    @if ($vencida)
+                        <span class="badge badge-cerrado">Vencida</span>
+                    @endif
                     · Monto inicial: ${{ number_format($caja['monto_inicial'], 2, ',', '.') }}
                     @if ($caja['estado'] === 'abierta')
                         · Monto actual: <strong id="monto-actual">${{ number_format($montoActual, 2, ',', '.') }}</strong>
                     @endif
                 </p>
+                @if ($caja['estado'] === 'abierta' && $vencimiento !== null)
+                    <p class="subtitulo">
+                        {{ $vencida ? 'Venció el' : 'Vence el' }} {{ $vencimiento->format('d/m/Y H:i') }}.
+                        @if ($vencida)
+                            @if (!empty($cierreAutomatico))
+                                Se cerrará automáticamente en los próximos minutos.
+                            @else
+                                Cerrala cuando puedas: igual podés seguir cargando movimientos.
+                            @endif
+                        @endif
+                    </p>
+                @endif
             </div>
 
             @if ($caja['estado'] === 'abierta')
@@ -30,7 +84,7 @@
     </div>
 
     <div class="clay-card">
-        <h3>Movimientos de hoy</h3>
+        <h3>Movimientos de esta caja</h3>
 
         <div id="sin-movimientos" class="vacio" @if(!empty($caja['movimientos'])) style="display:none" @endif>
             <p>Todavia no registraste movimientos en esta caja.</p>
@@ -40,6 +94,7 @@
             <thead>
                 <tr>
                     <th>Tipo</th>
+                    <th>Medio</th>
                     <th>Concepto</th>
                     <th>Monto</th>
                 </tr>
@@ -47,7 +102,8 @@
             <tbody id="tabla-movimientos-body">
                 @foreach ($caja['movimientos'] ?? [] as $movimiento)
                     <tr>
-                        <td>{{ ucfirst(str_replace('_', ' ', $movimiento['tipo'])) }}</td>
+                        <td>{{ $etiquetasTipo[$movimiento['tipo']] ?? ucfirst(str_replace('_', ' ', $movimiento['tipo'])) }}</td>
+                        <td>{{ $etiquetasMedio[$movimiento['medio_pago'] ?? 'efectivo'] ?? $movimiento['medio_pago'] }}</td>
                         <td>{{ $movimiento['concepto'] }}</td>
                         <td>${{ number_format($movimiento['monto'], 2, ',', '.') }}</td>
                     </tr>
@@ -66,18 +122,24 @@
                 @csrf
 
                 <label for="tipo">Tipo</label>
-                {{-- NOTA: 'cobro' se genera automáticamente al liquidar rendiciones de reparto. --}}
                 <select name="tipo" id="tipo" class="clay-input" required>
-                    @foreach ($tiposPermitidos ?? \App\Modules\Caja\Models\CajaMovimiento::TIPOS_VALIDOS as $tipo)
-                        <option value="{{ $tipo }}">{{ ucfirst(str_replace('_', ' ', $tipo)) }}</option>
+                    @foreach ($tiposPermitidos as $tipo)
+                        <option value="{{ $tipo }}">{{ $etiquetasTipo[$tipo] ?? $tipo }}</option>
+                    @endforeach
+                </select>
+
+                <label for="medio_pago">Medio de pago</label>
+                <select name="medio_pago" id="medio_pago" class="clay-input" required>
+                    @foreach ($etiquetasMedio as $valor => $etiqueta)
+                        <option value="{{ $valor }}">{{ $etiqueta }}</option>
                     @endforeach
                 </select>
 
                 <label for="concepto">Concepto</label>
-                <input type="text" name="concepto" id="concepto" class="clay-input" maxlength="200" required>
+                <input type="text" name="concepto" id="concepto" class="clay-input" maxlength="200" autocomplete="off" required>
 
                 <label for="monto">Monto</label>
-                <input type="number" step="0.01" min="0.01" name="monto" id="monto" class="clay-input" required>
+                <input type="number" step="0.01" min="0.01" name="monto" id="monto" class="clay-input" inputmode="decimal" autocomplete="off" data-solo-numeros required>
 
                 <div class="fila-acciones">
                     <button type="submit" class="clay-btn-primary">Guardar movimiento</button>
@@ -92,17 +154,24 @@
     <div id="modal-cerrar" class="modal-overlay">
         <div class="clay-card modal-card">
             <h3>Cerrar caja</h3>
-            <p class="subtitulo">Indica el monto final contado en efectivo.</p>
+            <p class="subtitulo">Contá el efectivo e indicá el monto final.</p>
+
+            @if ($caja['estado'] === 'abierta')
+                <p class="subtitulo">
+                    Monto actual según el sistema:
+                    <strong id="monto-actual-cierre">${{ number_format($montoActual, 2, ',', '.') }}</strong>
+                </p>
+            @endif
 
             <form method="POST" action="{{ route('caja.cerrar', $caja['id_caja']) }}">
                 @csrf
                 @method('PATCH')
 
                 <label for="monto_final">Monto final</label>
-                <input type="number" step="0.01" min="0" name="monto_final" id="monto_final" class="clay-input" required>
+                <input type="number" step="0.01" min="0" name="monto_final" id="monto_final" class="clay-input" inputmode="decimal" autocomplete="off" data-solo-numeros required>
 
                 <label for="observaciones_cierre">Observaciones (opcional)</label>
-                <input type="text" name="observaciones" id="observaciones_cierre" class="clay-input">
+                <input type="text" name="observaciones" id="observaciones_cierre" class="clay-input" autocomplete="off">
 
                 <div class="fila-acciones">
                     <button type="submit" class="clay-btn-primary">Confirmar cierre</button>
@@ -115,6 +184,24 @@
     </div>
 
     <script>
+        const etiquetasTipo = @json($etiquetasTipo);
+        const etiquetasMedio = @json($etiquetasMedio);
+
+        // Campos de monto: solo dígitos y separador decimal (se bloquean e, E, + y -).
+        document.querySelectorAll('[data-solo-numeros]').forEach((campo) => {
+            campo.addEventListener('keydown', (e) => {
+                if (['e', 'E', '+', '-'].includes(e.key)) {
+                    e.preventDefault();
+                }
+            });
+            campo.addEventListener('paste', (e) => {
+                const texto = (e.clipboardData || window.clipboardData).getData('text').trim();
+                if (!/^\d*[.,]?\d*$/.test(texto)) {
+                    e.preventDefault();
+                }
+            });
+        });
+
         function cerrarModalMovimiento() {
             document.getElementById('modal-movimiento').classList.remove('visible');
             document.getElementById('error-movimiento').style.display = 'none';
@@ -145,16 +232,18 @@
                     const cuerpo = await respuesta.json();
 
                     if (!respuesta.ok || cuerpo.error) {
-                        errorDiv.textContent = cuerpo.mensaje || 'Ocurrio un error al registrar el movimiento.';
+                        errorDiv.textContent = cuerpo.mensaje || cuerpo.message || 'Ocurrio un error al registrar el movimiento.';
                         errorDiv.style.display = 'block';
                         return;
                     }
 
-                    // Actualizar monto actual arriba de todo.
-                    const montoActualEl = document.getElementById('monto-actual');
-                    if (montoActualEl) {
-                        montoActualEl.textContent = formatearMonto(cuerpo.monto_actual);
-                    }
+                    // Actualizar el monto actual (arriba de todo y en el modal de cierre).
+                    ['monto-actual', 'monto-actual-cierre'].forEach((id) => {
+                        const el = document.getElementById(id);
+                        if (el) {
+                            el.textContent = formatearMonto(cuerpo.monto_actual);
+                        }
+                    });
 
                     // Agregar la fila nueva a la tabla, y mostrar la tabla si estaba oculta.
                     const tabla = document.getElementById('tabla-movimientos');
@@ -164,13 +253,21 @@
                     tabla.style.display = 'table';
                     sinMovimientos.style.display = 'none';
 
+                    const m = cuerpo.movimiento;
                     const fila = document.createElement('tr');
-                    const tipoTexto = cuerpo.movimiento.tipo.replace('_', ' ');
-                    fila.innerHTML = `
-                        <td>${tipoTexto.charAt(0).toUpperCase() + tipoTexto.slice(1)}</td>
-                        <td>${cuerpo.movimiento.concepto}</td>
-                        <td>${formatearMonto(cuerpo.movimiento.monto)}</td>
-                    `;
+                    const celdas = [
+                        etiquetasTipo[m.tipo] || m.tipo.replace(/_/g, ' '),
+                        etiquetasMedio[m.medio_pago] || etiquetasMedio.efectivo,
+                        m.concepto,
+                        formatearMonto(m.monto),
+                    ];
+
+                    celdas.forEach((texto) => {
+                        const td = document.createElement('td');
+                        td.textContent = texto; // textContent: el concepto no se interpreta como HTML
+                        fila.appendChild(td);
+                    });
+
                     cuerpoTabla.appendChild(fila);
 
                     cerrarModalMovimiento();

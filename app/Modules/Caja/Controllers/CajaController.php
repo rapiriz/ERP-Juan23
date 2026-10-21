@@ -8,13 +8,16 @@ use App\Modules\Caja\Services\CajaService;
 use App\Modules\Shared\Http\Controllers\Controller;
 use App\Modules\Shared\Http\Response;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 /**
  * Controller único para el módulo Caja.
  * Toda la lógica de negocio vive en CajaService — este Controller solo valida
  * el request y traduce el resultado del Service a HTTP.
+ *
+ * Todas las rutas de Caja están protegidas con auth:sanctum (ver routes/api.php),
+ * y $request->user() devuelve el App\Modules\Shared\Models\Usuario autenticado.
+ * PROVISORIO: Sanctum se usa solo para probar roles hasta que G1 termine el login.
  */
 class CajaController extends Controller
 {
@@ -127,7 +130,8 @@ class CajaController extends Controller
     }
 
     /**
-     * PATCH /caja/{id}/cerrar — la cierra su dueño, sin aprobación
+     * PATCH /caja/{id}/cerrar — la cierra su dueño, sin aprobación.
+     * El admin también puede cerrar la caja de un repartidor.
      */
     public function cerrar(Request $request, int $id)
     {
@@ -136,13 +140,48 @@ class CajaController extends Controller
             'observaciones' => ['nullable', 'string', 'max:500'],
         ]);
 
-        [$idUsuarioSesion] = $this->resolverUsuarioYRol($request);
+        [$idUsuarioSesion, $rol] = $this->resolverUsuarioYRol($request);
 
         $resultado = $this->service->cerrarCaja(
             $id,
             $idUsuarioSesion,
             (float) $datos['monto_final'],
-            $datos['observaciones'] ?? null
+            $datos['observaciones'] ?? null,
+            $rol
+        );
+
+        if ($resultado === null) {
+            Response::error('Caja no encontrada.', 404);
+            return;
+        }
+
+        if ($resultado['error'] ?? false) {
+            Response::error($resultado['mensaje'], 409);
+            return;
+        }
+
+        Response::json($resultado);
+    }
+
+    /**
+     * PATCH /caja/{id}/completar-conteo — carga el monto contado de una caja
+     * que se cerró sola a las 72 h (solo admin, si el dueño es repartidor).
+     */
+    public function completarConteo(Request $request, int $id)
+    {
+        $datos = $request->validate([
+            'monto_final' => ['required', 'numeric', 'min:0'],
+            'observaciones' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        [$idUsuarioSesion, $rol] = $this->resolverUsuarioYRol($request);
+
+        $resultado = $this->service->completarConteoCierreAutomatico(
+            $id,
+            $idUsuarioSesion,
+            (float) $datos['monto_final'],
+            $datos['observaciones'] ?? null,
+            $rol
         );
 
         if ($resultado === null) {
@@ -211,6 +250,7 @@ class CajaController extends Controller
             'tipo' => ['required', Rule::in(CajaMovimiento::TIPOS_VALIDOS)],
             'concepto' => ['required', 'string', 'max:200'],
             'monto' => ['required', 'numeric', 'min:0.01'],
+            'medio_pago' => ['nullable', Rule::in(CajaMovimiento::MEDIOS_VALIDOS)],
         ]);
 
         [$idUsuarioSesion, $rol] = $this->resolverUsuarioYRol($request);
@@ -221,7 +261,9 @@ class CajaController extends Controller
             $rol,
             $datos['tipo'],
             $datos['concepto'],
-            (float) $datos['monto']
+            (float) $datos['monto'],
+            null,
+            $datos['medio_pago'] ?? CajaMovimiento::MEDIO_EFECTIVO
         );
 
         if ($resultado === null) {
@@ -260,7 +302,9 @@ class CajaController extends Controller
      */
     public function modificarMovimiento(Request $request, int $id)
     {
-        if (!$this->esAdmin($request)) {
+        [$idUsuarioSesion, $rol] = $this->resolverUsuarioYRol($request);
+
+        if ($rol !== Caja::ROL_ADMIN) {
             Response::error('Solo un administrador puede modificar un movimiento.', 403);
             return;
         }
@@ -269,8 +313,6 @@ class CajaController extends Controller
             'concepto' => ['required', 'string', 'max:200'],
             'monto' => ['required', 'numeric', 'min:0.01'],
         ]);
-
-        [$idUsuarioSesion] = $this->resolverUsuarioYRol($request);
 
         $resultado = $this->service->modificarMovimiento(
             $id,

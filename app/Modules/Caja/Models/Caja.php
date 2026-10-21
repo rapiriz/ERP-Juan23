@@ -24,6 +24,7 @@ class Caja extends Model
         'monto_final',
         'monto_esperado',
         'diferencia',
+        'cierre_automatico',
         'estado',
         'id_usuario_cierre',
         'fecha_hora_apertura',
@@ -38,6 +39,7 @@ class Caja extends Model
         'monto_final' => 'decimal:2',
         'monto_esperado' => 'decimal:2',
         'diferencia' => 'decimal:2',
+        'cierre_automatico' => 'boolean',
         'fecha_hora_apertura' => 'datetime',
         'fecha_hora_vencimiento' => 'datetime',
         'fecha_hora_cierre' => 'datetime',
@@ -56,6 +58,17 @@ class Caja extends Model
     public function perteneceA(int $idUsuario): bool
     {
         return (int) $this->id_usuario === $idUsuario;
+    }
+
+    /**
+     * Caja cerrada sola por vencimiento (72 h) a la que todavía no se le
+     * cargó el monto contado: no tiene monto final ni diferencia.
+     */
+    public function estaPendienteDeConteo(): bool
+    {
+        return $this->estado === self::ESTADO_CERRADA
+            && (bool) $this->cierre_automatico
+            && $this->monto_final === null;
     }
 
     /**
