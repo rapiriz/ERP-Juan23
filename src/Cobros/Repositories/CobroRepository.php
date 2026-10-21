@@ -70,16 +70,30 @@ class CobroRepository
             ->update(['pagado' => true]);
     }
     /**
-     * Registra un ingreso de efectivo en la tabla CAJA_MOVIMIENTO.
+     * Registra un ingreso de efectivo en la tabla CAJA_MOVIMIENTO asociado a la caja abierta.
      */
     public function crearMovimientoCaja(array $datos): CajaMovimiento
     {
+        $idUsuario = (int) ($datos['id_usuario'] ?? 1);
+        $caja = \App\Caja\Models\Caja::where('id_usuario', $idUsuario)
+            ->where('estado', \App\Caja\Models\Caja::ESTADO_ABIERTA)
+            ->first();
+
+        if ($caja === null) {
+            $caja = \App\Caja\Models\Caja::where('estado', \App\Caja\Models\Caja::ESTADO_ABIERTA)
+                ->orderByDesc('fecha_hora_apertura')
+                ->first();
+        }
+
         return CajaMovimiento::create([
-            'fecha' => now(),
+            'id_caja' => $caja ? $caja->id_caja : null,
+            'id_cobro' => $datos['id_cobro'] ?? null,
+            'fecha' => now()->toDateString(),
+            'fecha_hora_carga' => now(),
             'monto' => $datos['monto'],
-            'tipo' => 'ingreso',
+            'tipo' => CajaMovimiento::TIPO_COBRO,
             'concepto' => $datos['concepto'] ?? 'Cobro a cliente',
-            'id_usuario' => $datos['id_usuario'],
+            'id_usuario' => $caja ? $caja->id_usuario : $idUsuario,
         ]);
     }
     /**

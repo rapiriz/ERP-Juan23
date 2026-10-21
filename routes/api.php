@@ -5,8 +5,18 @@ use App\Entregas\Controllers\EntregaController;
 use App\ConciliacionBancaria\Controllers\ConciliacionController;
 use App\ConciliacionBancaria\Controllers\ChequeController;
 use App\Caja\Controllers\CajaController;
+use App\Cobros\Controllers\CobroController;
+use App\Rendiciones\Controllers\RendicionController;
+use App\Ventas\Controllers\VentasProxyController;
 
 Route::prefix('v1')->group(function () {
+    // --- VENTAS (Consumo API Grupo 4) ---
+    Route::get('/ventas/remotas', [VentasProxyController::class, 'obtenerVentasRemotas']);
+    Route::get('/mock/grupo4/ventas', [VentasProxyController::class, 'mockGrupo4Ventas']);
+    Route::get('/mock/grupo4/ventas/{id}', [VentasProxyController::class, 'mockGrupo4VentaDetalle']);
+    Route::patch('/mock/grupo4/ventas/{id}/estado', [VentasProxyController::class, 'mockGrupo4ActualizarEstado']);
+
+    // --- CONCILIACIÓN BANCARIA (Grupo 2 - Sofía) ---
     Route::get('/conciliacion', [ConciliacionController::class, 'index']);
     Route::get('/conciliacion/{id}', [ConciliacionController::class, 'show']);
     Route::post('/conciliacion', [ConciliacionController::class, 'store']);
@@ -14,14 +24,16 @@ Route::prefix('v1')->group(function () {
     Route::post('/conciliacion/movimientos/{id}/conciliar-manual', [ConciliacionController::class, 'conciliarManual']);
     Route::patch('/conciliacion/{id}/cerrar', [ConciliacionController::class, 'cerrar']);
 
+    // --- CHEQUES ---
     Route::get('/cheques', [ChequeController::class, 'index']);
     Route::get('/cheques/{id}', [ChequeController::class, 'show']);
     Route::patch('/cheques/{id}/depositar', [ChequeController::class, 'depositar']);
     Route::patch('/cheques/{id}/rechazar', [ChequeController::class, 'rechazar']);
 
-    // --- Caja --- protegidas con sesión real (Sanctum) ---
+    // --- CAJA (Grupo 2 - Sofía) ---
     // OJO con el orden: las rutas más específicas van antes de /caja/{fecha},
     // si no Laravel interpreta "cierres" o "movimiento" como un valor de {fecha}.
+    Route::get('/caja', [CajaController::class, 'listar']);
     Route::post('/caja/apertura', [CajaController::class, 'abrir']);
     Route::get('/caja/cierres', [CajaController::class, 'historialCierres']);
     Route::get('/caja/cierres/{id}', [CajaController::class, 'detalleCierre']);
@@ -31,13 +43,10 @@ Route::prefix('v1')->group(function () {
     Route::patch('/caja/{id}/cerrar', [CajaController::class, 'cerrar']);
     Route::get('/caja/{fecha}/{id_usuario}', [CajaController::class, 'porUsuarioYFecha']);
     Route::get('/caja/{fecha}', [CajaController::class, 'porFecha']);
-});
-use App\Cobros\Controllers\CobroController;
-use App\Rendiciones\Controllers\RendicionController;
 
-Route::prefix('v1')->group(function () {
     // --- ENTREGAS (Grupo 2 - Estefanía Gianovich) ---
     Route::get('/entregas/pendientes-despacho', [EntregaController::class, 'pedidosPendientes']);
+    Route::get('/entregas/pendientes-rendicion', [EntregaController::class, 'entregasPendientesRendicion']);
     Route::post('/entregas', [EntregaController::class, 'crearEntrega']);
     Route::get('/entregas', [EntregaController::class, 'listar']);
     Route::get('/entregas/{id}', [EntregaController::class, 'detalle']);
@@ -47,21 +56,14 @@ Route::prefix('v1')->group(function () {
     Route::get('/zonas', [EntregaController::class, 'zonas']);
     Route::get('/repartidores', [EntregaController::class, 'repartidores']);
 
-    // --- CONCILIACIÓN BANCARIA (Grupo 2 - Sofía) ---
-    Route::get('/conciliacion', [ConciliacionController::class, 'index']);
-    Route::get('/conciliacion/{id}', [ConciliacionController::class, 'show']);
-    Route::post('/conciliacion', [ConciliacionController::class, 'store']);
-    Route::patch('/conciliacion/{id}/conciliar', [ConciliacionController::class, 'conciliarAutomatico']);
-    Route::post('/conciliacion/movimientos/{id}/conciliar-manual', [ConciliacionController::class, 'conciliarManual']);
-    Route::patch('/conciliacion/{id}/cerrar', [ConciliacionController::class, 'cerrar']);
-    
-    // --- COBROS (Grupo 2 - Tomás) ---
+    // --- COBROS (Deprecado/Absorbido por Rendiciones - Se conserva por compatibilidad) ---
     Route::post('/cobros', [CobroController::class, 'store']);
     Route::get('/cobros/clientes/{idCliente}/saldo', [CobroController::class, 'saldo']);
 
     // --- RENDICIONES (Grupo 2 - Nicolás) ---
     Route::get('/rendiciones', [RendicionController::class, 'index']);
     Route::get('/rendiciones/historial', [RendicionController::class, 'index']);
+    Route::get('/rendiciones/preparar/{idEntrega}', [RendicionController::class, 'preparar']);
     Route::get('/rendiciones/{id}', [RendicionController::class, 'show']);
     Route::post('/rendiciones', [RendicionController::class, 'store']);
     Route::post('/rendiciones/cobros', [RendicionController::class, 'agregarCobroDirecto']);

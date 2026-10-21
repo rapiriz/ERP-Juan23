@@ -335,6 +335,17 @@ class RendicionService
                     }
                 }
             }
+
+            // Si la rendición está vinculada a una entrega de reparto, marcar la entrega como 'finalizada'
+            if (!empty($rendicion->id_entrega)) {
+                try {
+                    DB::table('entrega')
+                        ->where('id_entrega', $rendicion->id_entrega)
+                        ->update(['estado' => 'finalizada']);
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::warning("No se pudo marcar entrega #{$rendicion->id_entrega} como finalizada: " . $e->getMessage());
+                }
+            }
         } elseif ($accion === 'rechazar') {
             $motivo = $datos['motivo_rechazo'] ?? '';
             $rendicion->rechazar($idUsuarioValidador, $motivo);
@@ -354,4 +365,146 @@ class RendicionService
             'motivo_rechazo'       => $rendicion->motivo_rechazo,
         ];
     }
+
+    /**
+     * Obtiene y estructura los datos de una entrega y sus pedidos entregados para precargar una nueva rendición.
+     */
+    public function obtenerDatosParaRendir(int $idEntrega): array
+    {
+        $entrega = DB::table('entrega as e')
+            ->where('e.id_entrega', $idEntrega)
+            ->first();
+
+        if (!$entrega) {
+            throw new InvalidArgumentException("La entrega #{$idEntrega} no existe.");
+        }
+
+        $repartidorNombre = \App\Shared\Services\UsuarioService::obtenerNombre((int)$entrega->id_repartidor);
+
+        // Consultar entrega_pedido y remito (Tablas propias de G2)
+        $pedidosRaw = DB::table('entrega_pedido as ep')
+            ->leftJoin('remito as r', function ($join) {
+                $join->on('ep.id_entrega', '=', 'r.id_entrega')
+                     ->on('ep.id_venta', '=', 'r.id_venta');
+            })
+            ->where('ep.id_entrega', $idEntrega)
+            ->select([
+                'ep.id_venta',
+                'ep.estado_pedido_entrega',
+                'r.id_remito',
+                'r.numero_remito'
+            ])
+            ->get();
+
+        $cobrosSugeridos = [];
+        $totalRendidoSugerido = 0.0;
+        $ventasClient = new \App\Ventas\Services\VentasApiClient();
+
+        foreach ($pedidosRaw as $p) {
+            $venta = $ventasClient->obtenerVentaPorId((int)$p->id_venta);
+            $monto = (float)($venta['total'] ?? $venta['monto_total'] ?? 0.0);
+            $idCliente = (int)($venta['id_cliente'] ?? 1);
+            $clienteNombre = $venta['cliente_nombre'] ?? $venta['cliente']['nombre'] ?? "Cliente Pedido #{$p->id_venta}";
+
+            $cobrosSugeridos[] = [
+                'id_venta' => (int) $p->id_venta,
+                'id_factura' => (int) $p->id_venta,
+                'id_cliente' => $idCliente,
+                'cliente_nombre' => $clienteNombre,
+                'monto' => $monto,
+                'medio_pago' => 'efectivo',
+                'id_remito' => $p->id_remito,
+                'numero_remito' => $p->numero_remito,
+                'entregado' => $p->estado_pedido_entrega === 'entregado'
+            ];
+            if ($p->estado_pedido_entrega === 'entregado') {
+                $totalRendidoSugerido += $monto;
+            }
+        }
+
+        return [
+            'id_entrega' => (int) $entrega->id_entrega,
+            'id_repartidor' => (int) $entrega->id_repartidor,
+            'repartidor_nombre' => $repartidorNombre,
+            'fecha_salida' => $entrega->fecha_salida ?? date('Y-m-d'),
+            'estado_entrega' => $entrega->estado,
+            'total_esperado' => round($totalRendidoSugerido, 2),
+            'cobros_sugeridos' => $cobrosSugeridos,
+            'cantidad_pedidos' => count($pedidosRaw)
+        ];
+    }
+
+    /**
+     * Precarga o actualiza automáticamente una Rendición en estado 'pendiente' a partir de una Entrega.
+     * Permite que el chofer no tenga que iniciar la rendición manualmente, sino que el sistema
+     * envíe automáticamente los datos al historial de rendiciones para que el encargado las administre.
+     */
+    public function precargarOActualizarRendicionDesdeEntrega(int $idEntrega): ?array
+    {
+        $datos = $this->obtenerDatosParaRendir($idEntrega);
+        $pedidosEntregados = array_filter($datos['cobros_sugeridos'], fn($c) => !empty($c['entregado']));
+
+        if (empty($pedidosEntregados)) {
+            return null;
+        }
+
+        // 1. Buscar si ya existe una rendición para esta entrega
+        $rendicionExistente = DB::table('RENDICION')
+            ->where('id_entrega', $idEntrega)
+            ->first();
+
+        // Si ya fue aprobada o rechazada por el administrador, no se sobreescribe
+        if ($rendicionExistente && in_array($rendicionExistente->estado, ['aprobada', 'rechazada'])) {
+            return (array) $rendicionExistente;
+        }
+
+        $totalCalculado = 0.0;
+        foreach ($pedidosEntregados as $p) {
+            $totalCalculado += (float) $p['monto'];
+        }
+
+        if ($rendicionExistente) {
+            $idRendicion = (int) $rendicionExistente->id_rendicion;
+            DB::table('RENDICION')
+                ->where('id_rendicion', $idRendicion)
+                ->update([
+                    'total_rendido' => $totalCalculado,
+                    'fecha' => now(),
+                    'observaciones' => "Rendición precargada automáticamente desde Entrega #{$idEntrega}."
+                ]);
+
+            // Reemplazar cobros asociados para reflejar el estado actual
+            DB::table('RENDICION_COBRO')->where('id_rendicion', $idRendicion)->delete();
+        } else {
+            $idRendicion = (int) DB::table('RENDICION')->insertGetId([
+                'id_repartidor' => $datos['id_repartidor'],
+                'id_entrega'    => $idEntrega,
+                'fecha'         => now(),
+                'total_rendido' => $totalCalculado,
+                'estado'        => 'pendiente',
+                'observaciones' => "Rendición precargada automáticamente al confirmar reparto #{$idEntrega}."
+            ]);
+        }
+
+        // Insertar el desglose de cobros en RENDICION_COBRO
+        foreach ($pedidosEntregados as $p) {
+            DB::table('RENDICION_COBRO')->insert([
+                'id_rendicion'   => $idRendicion,
+                'id_cliente'     => $p['id_cliente'],
+                'id_factura'     => $p['id_factura'],
+                'monto'          => $p['monto'],
+                'medio_pago'     => $p['medio_pago'] ?? 'efectivo',
+                'fecha_registro' => now(),
+            ]);
+        }
+
+        return [
+            'id_rendicion'   => $idRendicion,
+            'id_entrega'     => $idEntrega,
+            'total_rendido'  => $totalCalculado,
+            'estado'         => 'pendiente',
+            'pedidos_count'  => count($pedidosEntregados)
+        ];
+    }
 }
+

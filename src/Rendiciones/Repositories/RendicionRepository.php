@@ -63,7 +63,14 @@ class RendicionRepository
             $query->where('estado', strtolower($filtros['estado']));
         }
 
-        return $query->orderBy('fecha', 'desc')->get()->toArray();
+        $rendiciones = $query->orderBy('fecha', 'desc')->get()->toArray();
+        foreach ($rendiciones as &$r) {
+            $r['repartidor'] = [
+                'id_usuario' => $r['id_repartidor'],
+                'nombre' => \App\Shared\Services\UsuarioService::obtenerNombre((int)$r['id_repartidor'])
+            ];
+        }
+        return $rendiciones;
     }
 
     /**
@@ -122,15 +129,8 @@ class RendicionRepository
      */
     public function repartidorEstaActivo(int $idRepartidor): bool
     {
-        if (!Schema::hasTable('USUARIO')) {
-            return $idRepartidor > 0;
-        }
-
-        return DB::table('USUARIO')
-            ->where('id_usuario', $idRepartidor)
-            ->where('rol', 'repartidor')
-            ->where('estado', 'activo')
-            ->exists();
+        $u = \App\Shared\Services\UsuarioService::obtenerUsuario($idRepartidor);
+        return $u !== null && ($u['rol'] ?? '') === 'repartidor';
     }
 
     /**
@@ -152,13 +152,15 @@ class RendicionRepository
      */
     public function facturaEstaPendiente(int $idFactura): bool
     {
-        if (!Schema::hasTable('VENTA')) {
-            return true;
+        if (Schema::hasTable('VENTA')) {
+            return DB::table('VENTA')
+                ->where('id_venta', $idFactura)
+                ->where('pagado', false)
+                ->exists();
         }
 
-        return DB::table('VENTA')
-            ->where('id_venta', $idFactura)
-            ->where('pagado', false)
-            ->exists();
+        // Consultar API de Ventas desacoplada
+        $venta = (new \App\Ventas\Services\VentasApiClient())->obtenerVentaPorId($idFactura);
+        return $venta !== null && !($venta['pagado'] ?? false);
     }
 }

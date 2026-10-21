@@ -7,6 +7,7 @@ use App\Entregas\Models\Entrega;
 use App\Entregas\Models\Remito;
 use App\Entregas\Repositories\EntregaRepository;
 use App\Entregas\Repositories\RemitoRepository;
+use App\Ventas\Services\VentasApiClient;
 
 /**
  * Servicio de Negocio: Entregas y Remitos
@@ -16,11 +17,16 @@ class EntregaService
 {
     private EntregaRepository $entregaRepo;
     private RemitoRepository $remitoRepo;
+    private VentasApiClient $ventasClient;
 
-    public function __construct(?EntregaRepository $entregaRepo = null, ?RemitoRepository $remitoRepo = null)
-    {
+    public function __construct(
+        ?EntregaRepository $entregaRepo = null, 
+        ?RemitoRepository $remitoRepo = null,
+        ?VentasApiClient $ventasClient = null
+    ) {
         $this->entregaRepo = $entregaRepo ?? new EntregaRepository();
         $this->remitoRepo = $remitoRepo ?? new RemitoRepository();
+        $this->ventasClient = $ventasClient ?? new VentasApiClient();
     }
 
     /**
@@ -129,6 +135,15 @@ class EntregaService
             // 4. Confirmar todos los cambios
             DB::commit();
 
+            // 5. Notificar a la API de Ventas del Grupo 4 (HTTP)
+            foreach ($pedidosIds as $idVentaNotif) {
+                try {
+                    $this->ventasClient->actualizarEstadoVenta((int)$idVentaNotif, 'en_camino');
+                } catch (\Throwable $e) {
+                    // Log y continuar para no romper la transacción confirmada
+                }
+            }
+
             return [
                 'id_entrega' => $idEntrega,
                 'estado' => 'en_preparacion',
@@ -228,17 +243,42 @@ class EntregaService
             $this->entregaRepo->marcarPedidoComoEntregado($idEntrega, $idVenta, $observaciones);
             DB::commit();
 
+            // 2. Precargar automáticamente la rendición en estado 'pendiente' para administración
+            try {
+                $rendicionService = new \App\Rendiciones\Services\RendicionService(new \App\Rendiciones\Repositories\RendicionRepository());
+                $rendicionService->precargarOActualizarRendicionDesdeEntrega($idEntrega);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning("No se pudo precargar automáticamente la rendición para la entrega #{$idEntrega}: " . $e->getMessage());
+            }
+
+            // 3. Notificar a la API de Ventas del Grupo 4 (HTTP)
+            try {
+                $this->ventasClient->actualizarEstadoVenta($idVenta, 'entregada');
+            } catch (\Throwable $e) {
+                // Loguear error pero mantener la entrega confirmada
+            }
+
             return [
                 'id_entrega' => $idEntrega,
                 'id_venta' => $idVenta,
                 'estado_pedido' => 'entregado',
                 'fecha_confirmacion' => date('Y-m-d H:i:s'),
                 'cliente' => $pedidoEncontrado['cliente_nombre'] ?? '',
-                'mensaje' => "¡Pedido #PED-" . str_pad($idVenta, 4, '0', STR_PAD_LEFT) . " confirmado como ENTREGADO exitosamente!"
+                'mensaje' => "¡Pedido #PED-" . str_pad($idVenta, 4, '0', STR_PAD_LEFT) . " confirmado como ENTREGADO! La rendición ha sido enviada automáticamente a administración.",
+                'rendicion_precargada' => true
             ];
         } catch (Exception $e) {
             DB::rollBack();
             throw new Exception("Error al confirmar entrega del pedido: " . $e->getMessage());
         }
     }
+
+    /**
+     * Obtener entregas con pedidos entregados listas para rendición
+     */
+    public function obtenerEntregasPendientesRendicion(?int $idRepartidor = null): array
+    {
+        return $this->entregaRepo->obtenerEntregasListasParaRendicion($idRepartidor);
+    }
 }
+

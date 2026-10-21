@@ -84,6 +84,7 @@ class CobroService
                     'monto' => $monto,
                     'concepto' => "Cobro #{$cobro->id_cobro} - Comprobante: {$comprobanteNro}",
                     'id_usuario' => $cobro->id_usuario,
+                    'id_cobro' => $cobro->id_cobro,
                 ]);
             }
 

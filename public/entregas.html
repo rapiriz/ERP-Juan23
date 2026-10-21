@@ -89,7 +89,11 @@
                 <h2>Logística y Despacho de Pedidos</h2>
                 <p>Gestión de Hojas de Ruta y Emisión de Remitos de Transporte</p>
             </div>
-            <div class="page-header-actions">
+            <div class="page-header-actions" style="display: flex; gap: 0.5rem; align-items: center;">
+                <button class="clay-btn clay-btn-secondary" onclick="consultarVentasGrupo4()" id="btnVentasG4" title="Consultar pedidos confirmados en la API de Ventas (Grupo 4)">
+                    <span aria-hidden="true">🛒</span>
+                    <span>API Ventas (G4)</span>
+                </button>
                 <button class="clay-btn clay-btn-secondary btn-spin" onclick="cargarPedidosPendientes()" title="Actualizar datos" aria-label="Actualizar lista de pedidos">
                     <svg class="icon-svg icon-svg-lg" viewBox="0 0 24 24" aria-hidden="true">
                         <path d="M21.5 2v6h-6M2.5 22v-6h6M21.34 15.57a10 10 0 1 1-.57-8.38"/>
@@ -409,7 +413,10 @@
                 </table>
             </div>
 
-            <div class="modal-footer" style="margin-top: 1.25rem;">
+            <div class="modal-footer" style="margin-top: 1.25rem; display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 0.85rem; color: var(--success); font-weight: 600;">
+                    ✅ Los pedidos entregados se precargan automáticamente en Rendiciones para la administración.
+                </span>
                 <button class="clay-btn clay-btn-primary" onclick="cerrarModalHojaRuta()">Cerrar</button>
             </div>
         </div>

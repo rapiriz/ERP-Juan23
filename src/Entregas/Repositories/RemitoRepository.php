@@ -113,31 +113,17 @@ class RemitoRepository
     }
 
     /**
-     * Obtener Remito completo por su ID
+     * Obtener Remito completo por su ID (Desacoplado de tablas ajenas)
      */
     public function obtenerRemitoPorId(int $idRemito): ?array
     {
         $sql = "
             SELECT 
                 r.*,
-                v.fecha AS fecha_venta,
-                v.total AS total_venta,
-                v.total_bultos,
-                v.total_sueltos,
-                c.nombre AS cliente_nombre,
-                c.razon_social,
-                c.cuit,
-                c.direccion,
-                c.localidad,
-                c.telefono,
-                z.nombre AS zona_nombre,
-                u.nombre AS repartidor_nombre
+                e.id_repartidor,
+                e.fecha_salida
             FROM remito r
-            INNER JOIN venta v ON r.id_venta = v.id_venta
-            INNER JOIN cliente c ON v.id_cliente = c.id_cliente
-            INNER JOIN zona z ON c.id_zona = z.id_zona
             INNER JOIN entrega e ON r.id_entrega = e.id_entrega
-            INNER JOIN usuario u ON e.id_repartidor = u.id_usuario
             WHERE r.id_remito = :id_remito
         ";
         $stmt = $this->db->prepare($sql);
@@ -148,16 +134,37 @@ class RemitoRepository
             return null;
         }
 
-        // Obtener líneas del remito
+        // 1. Obtener datos de la venta y cliente desde la API de Ventas (G4)
+        $ventasClient = new \App\Ventas\Services\VentasApiClient();
+        $venta = $ventasClient->obtenerVentaPorId((int)$remito['id_venta']);
+
+        $remito['fecha_venta'] = $venta['fecha'] ?? date('Y-m-d H:i:s');
+        $remito['total_venta'] = (float)($venta['total'] ?? $venta['monto_total'] ?? 0.0);
+        $remito['total_bultos'] = (int)($venta['total_bultos'] ?? 1);
+        $remito['total_sueltos'] = (int)($venta['total_sueltos'] ?? 0);
+        $remito['cliente_nombre'] = $venta['cliente_nombre'] ?? $venta['cliente']['nombre'] ?? "Cliente Pedido #{$remito['id_venta']}";
+        $remito['razon_social'] = $venta['razon_social'] ?? '';
+        $remito['cuit'] = $venta['cuit'] ?? '';
+        $remito['direccion'] = $venta['direccion'] ?? 'Domicilio comercial';
+        $remito['localidad'] = $venta['localidad'] ?? 'Pigüé';
+        $remito['telefono'] = $venta['telefono'] ?? '';
+        $remito['zona_nombre'] = $venta['zona_nombre'] ?? 'Ruta Saavedra';
+        $remito['repartidor_nombre'] = \App\Shared\Services\UsuarioService::obtenerNombre((int)$remito['id_repartidor']);
+
+        // 2. Obtener líneas del remito (Tabla propia detalle_remito de G2)
         $sqlDetalle = "
-            SELECT dr.*, p.codigo
+            SELECT dr.*
             FROM detalle_remito dr
-            LEFT JOIN producto p ON dr.id_producto = p.id_producto
             WHERE dr.id_remito = :id_remito
         ";
         $stmtDet = $this->db->prepare($sqlDetalle);
         $stmtDet->execute([':id_remito' => $idRemito]);
-        $remito['items'] = $stmtDet->fetchAll(PDO::FETCH_ASSOC);
+        $items = $stmtDet->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($items as &$it) {
+            $it['codigo'] = 'ART-' . ($it['id_producto'] ?? $it['id_detalle_remito']);
+        }
+        $remito['items'] = $items;
 
         return $remito;
     }

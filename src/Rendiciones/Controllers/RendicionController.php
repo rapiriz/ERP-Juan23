@@ -337,4 +337,22 @@ class RendicionController extends Controller
         ]);
         $this->revisar($request, $idRendicion);
     }
+
+    /**
+     * GET /api/v1/rendiciones/preparar/{idEntrega}
+     * Prepara los datos estructurados de una entrega para el formulario de nueva rendición.
+     */
+    public function preparar(int|string $idEntrega): void
+    {
+        try {
+            $id = (int) $idEntrega;
+            $datos = $this->service->obtenerDatosParaRendir($id);
+            Response::json($datos, 200, "Datos para rendición preparados con éxito.");
+        } catch (InvalidArgumentException $e) {
+            Response::error($e->getMessage(), 404);
+        } catch (Throwable $e) {
+            Response::error("Error al preparar rendición: " . $e->getMessage(), 500);
+        }
+    }
 }
+

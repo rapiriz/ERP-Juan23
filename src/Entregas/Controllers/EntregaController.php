@@ -165,5 +165,21 @@ class EntregaController extends Controller
             Response::error($e->getMessage(), 400);
         }
     }
+
+    /**
+     * GET /api/v1/entregas/pendientes-rendicion
+     * Lista entregas con pedidos entregados listas para iniciar rendición
+     */
+    public function entregasPendientesRendicion(Request $request): void
+    {
+        try {
+            $idRepartidor = $request->query('id_repartidor') ? (int)$request->query('id_repartidor') : null;
+            $entregas = $this->service->obtenerEntregasPendientesRendicion($idRepartidor);
+            Response::json($entregas, 200, "Entregas listas para rendición obtenidas exitosamente.");
+        } catch (Exception $e) {
+            Response::error("Error al obtener entregas para rendir: " . $e->getMessage(), 500);
+        }
+    }
 }
+
 

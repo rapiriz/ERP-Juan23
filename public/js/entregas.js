@@ -357,6 +357,7 @@ async function cargarEntregas() {
  * HU #3 (Issue #124): Ver Hoja de Ruta de Reparto y gestión de pedidos
  */
 async function abrirModalHojaRuta(idEntrega) {
+    entregaActualId = idEntrega;
     try {
         const res = await fetch(`${API_BASE}/entregas/${idEntrega}`);
         const json = await res.json();
@@ -432,8 +433,40 @@ async function abrirModalHojaRuta(idEntrega) {
     }
 }
 
+let entregaActualId = null;
+
 function cerrarModalHojaRuta() {
     document.getElementById('modalHojaRuta').style.display = 'none';
+}
+
+/**
+ * Consulta de pedidos confirmados a la API de Ventas del Grupo 4
+ */
+async function consultarVentasGrupo4() {
+    const btn = document.getElementById('btnVentasG4');
+    if (btn) btn.disabled = true;
+    showToast('Consultando API de Ventas (Grupo 4)...', 'info');
+
+    try {
+        const idZona = document.getElementById('filtroZona').value;
+        const url = idZona ? `${API_BASE}/ventas/remotas?id_zona=${idZona}` : `${API_BASE}/ventas/remotas`;
+        const res = await fetch(url);
+        const json = await res.json();
+
+        if (json.error) {
+            showToast('Error al consultar ventas: ' + json.mensaje, 'error');
+        } else {
+            const cant = json.data?.cantidad || 0;
+            const modo = json.data?.modo === 'remoto_g4' ? 'API Grupo 4' : 'Fallback de desarrollo';
+            showToast(`¡${cant} pedidos confirmados sincronizados (${modo})!`, 'success');
+            await cargarPedidosPendientes();
+        }
+    } catch (err) {
+        console.error(err);
+        showToast('Error de conexión al consultar API de Ventas.', 'error');
+    } finally {
+        if (btn) btn.disabled = false;
+    }
 }
 
 /**

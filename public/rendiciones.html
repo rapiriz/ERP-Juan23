@@ -246,25 +246,55 @@
             <form id="formNuevaRendicion" onsubmit="guardarNuevaRendicion(event)" novalidate>
                 <div class="form-grid form-grid-2" style="margin-bottom: 1.1rem;">
                     <div class="form-group">
+                        <label for="formEntregaSelect" class="form-label">
+                            🚚 Seleccionar Entrega / Viaje
+                        </label>
+                        <select id="formEntregaSelect" class="clay-select" onchange="alCambiarEntregaSelect(this.value)">
+                            <option value="">Cargando entregas…</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
                         <label for="formRepartidor" class="form-label">
                             Chofer Repartidor <span class="required" aria-hidden="true">*</span>
                         </label>
                         <select id="formRepartidor" class="clay-select" required aria-required="true">
                             <option value="">Seleccionar…</option>
-                            <option value="1">Matías García</option>
-                            <option value="2">Juan Pérez</option>
+                            <option value="1">Matías García (Repartidor)</option>
+                            <option value="2">Juan Pérez (Repartidor)</option>
+                            <option value="4">Lucas Repartidor</option>
                         </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="formEntrega" class="form-label">ID Entrega / Ruta (Opcional)</label>
-                        <input type="number" id="formEntrega" class="clay-input" value="1" placeholder="Ej. 1" min="1">
                     </div>
                 </div>
 
-                <div class="form-section">
+                <!-- CONTENEDOR DE COBROS DINÁMICOS POR ENTREGA -->
+                <div id="seccionCobrosDinamicos" class="form-section" style="display: none; margin-bottom: 1.1rem;">
+                    <p class="form-section-title">
+                        <span aria-hidden="true">📦</span>
+                        Pedidos Entregados en este Viaje
+                    </p>
+                    <div class="table-responsive">
+                        <table class="clay-table" style="font-size: 0.9rem;">
+                            <thead>
+                                <tr>
+                                    <th>Pedido / Cliente</th>
+                                    <th style="text-align: right; width: 110px;">Total ($)</th>
+                                    <th style="width: 170px;">Medio de Pago</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablaCobrosDinamicosBody">
+                            </tbody>
+                        </table>
+                    </div>
+                    <div style="text-align: right; margin-top: 0.75rem; font-weight: 700; font-size: 1.05rem; color: var(--primary);">
+                        Total a Rendir: <span id="totalRendidoDinamicoTxt">$0,00</span>
+                    </div>
+                </div>
+
+                <!-- CONTENEDOR MANUAL (SI NO SE SELECCIONA ENTREGA) -->
+                <div id="seccionCobroManual" class="form-section">
                     <p class="form-section-title">
                         <span aria-hidden="true">💰</span>
-                        Cobro Rendido (Medio de Pago)
+                        Cobro Rendido (Manual)
                     </p>
                     <div class="form-grid form-grid-2" style="margin-bottom: 0.875rem;">
                         <div class="form-group">
@@ -313,6 +343,7 @@
             </form>
         </div>
     </div>
+
 
     <!-- ===== MODAL: DETALLE Y REVISIÓN ===== -->
     <div id="modalDetalleRendicion" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modalDetalleTitle">

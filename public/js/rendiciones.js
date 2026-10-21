@@ -18,7 +18,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const hoy = new Date().toISOString().split('T')[0];
         filtroFecha.value = hoy;
     }
+
+    // Si viene redirigido desde Entregas con ?id_entrega=X, abrir modal precargada
+    const urlParams = new URLSearchParams(window.location.search);
+    const idEntregaParam = urlParams.get('id_entrega');
+    if (idEntregaParam) {
+        abrirModalNuevaRendicion(parseInt(idEntregaParam));
+    }
 });
+
 
 /* ==========================================================
    MÉTRICAS Y CONTADORES GLOBALES (ESTÁTICOS FRENTE A FILTROS)
@@ -215,15 +223,122 @@ function setText(id, val) {
 }
 
 /* ==========================================================
-   MODAL: NUEVA RENDICIÓN (INDIVIDUAL POR COBRO/MEDIO DE PAGO)
+   MODAL: NUEVA RENDICIÓN DINÁMICA (POR ENTREGA / COBRO)
    ========================================================== */
-function abrirModalNuevaRendicion() {
+async function abrirModalNuevaRendicion(idEntregaPrevia = null) {
     document.getElementById('formNuevaRendicion').reset();
+    document.getElementById('seccionCobrosDinamicos').style.display = 'none';
+    document.getElementById('seccionCobroManual').style.display = 'block';
+    document.getElementById('tablaCobrosDinamicosBody').innerHTML = '';
     document.getElementById('modalNuevaRendicion').classList.add('active');
+
+    await cargarSelectEntregas(idEntregaPrevia);
 }
 
 function cerrarModalNuevaRendicion() {
     document.getElementById('modalNuevaRendicion').classList.remove('active');
+}
+
+/**
+ * Consulta las entregas listas para rendición y llena el select
+ */
+async function cargarSelectEntregas(idEntregaPrevia = null) {
+    const select = document.getElementById('formEntregaSelect');
+    select.innerHTML = '<option value="">— Carga manual sin viaje formal —</option>';
+
+    try {
+        const res = await fetch(`${API_BASE}/entregas/pendientes-rendicion`);
+        const json = await res.json();
+
+        if (!json.error && json.data) {
+            json.data.forEach(e => {
+                const opt = document.createElement('option');
+                opt.value = e.id_entrega;
+                opt.textContent = `Entrega #${e.id_entrega} (${e.fecha_salida}) — ${e.repartidor_nombre} (${e.pedidos_entregados} pedido/s)`;
+                select.appendChild(opt);
+            });
+        }
+
+        if (idEntregaPrevia) {
+            select.value = idEntregaPrevia;
+            await alCambiarEntregaSelect(idEntregaPrevia);
+        }
+    } catch (err) {
+        console.error('Error al cargar entregas pendientes:', err);
+    }
+}
+
+/**
+ * Al cambiar de entrega en el select, consulta los pedidos entregados y arma la tabla de cobros
+ */
+async function alCambiarEntregaSelect(idEntrega) {
+    const seccionDinamica = document.getElementById('seccionCobrosDinamicos');
+    const seccionManual   = document.getElementById('seccionCobroManual');
+    const tbody           = document.getElementById('tablaCobrosDinamicosBody');
+
+    if (!idEntrega) {
+        seccionDinamica.style.display = 'none';
+        seccionManual.style.display   = 'block';
+        return;
+    }
+
+    try {
+        const res = await fetch(`${API_BASE}/rendiciones/preparar/${idEntrega}`);
+        const json = await res.json();
+
+        if (json.error || !json.data) {
+            showToast('No se pudieron obtener los datos de la entrega seleccionada.', 'error');
+            return;
+        }
+
+        const data = json.data;
+        // Establecer chofer
+        if (data.id_repartidor) {
+            document.getElementById('formRepartidor').value = data.id_repartidor;
+        }
+
+        tbody.innerHTML = '';
+        const cobrosSugeridos = data.cobros_sugeridos || [];
+
+        if (cobrosSugeridos.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;padding:1rem;color:var(--text-muted);">Esta entrega no tiene pedidos confirmados como entregados.</td></tr>';
+        } else {
+            cobrosSugeridos.forEach(c => {
+                const tr = document.createElement('tr');
+                tr.className = 'fila-cobro-dinamico';
+                tr.dataset.cliente = c.id_cliente;
+                tr.dataset.factura = c.id_factura;
+                tr.dataset.monto = c.monto;
+
+                tr.innerHTML = `
+                    <td>
+                        <strong>#PED-${c.id_venta.toString().padStart(4, '0')}</strong> — ${c.cliente_nombre}
+                        ${c.numero_remito ? `<br><small style="color:var(--text-muted);">Remito: ${c.numero_remito}</small>` : ''}
+                    </td>
+                    <td style="text-align:right; font-weight:700; color:#1E3A8A;">
+                        $${Number(c.monto).toLocaleString('es-AR', {minimumFractionDigits: 2})}
+                    </td>
+                    <td>
+                        <select class="clay-select select-medio-pago-dinamico" style="font-size:0.85rem; padding:0.35rem 0.5rem; width:100%;">
+                            <option value="efectivo">💵 Efectivo (Caja)</option>
+                            <option value="transferencia">🏦 Transferencia (Banco)</option>
+                            <option value="cheque">📄 Cheque Diferido</option>
+                        </select>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        document.getElementById('totalRendidoDinamicoTxt').textContent = `$${Number(data.total_esperado).toLocaleString('es-AR', {minimumFractionDigits: 2})}`;
+
+        seccionDinamica.style.display = 'block';
+        seccionManual.style.display   = 'none';
+
+    } catch (err) {
+        console.error(err);
+        showToast('Error al conectar con el servidor para preparar la rendición.', 'error');
+    }
 }
 
 async function guardarNuevaRendicion(e) {
@@ -233,28 +348,56 @@ async function guardarNuevaRendicion(e) {
     submitBtn.disabled = true;
     submitBtn.textContent = 'Guardando…';
 
-    const selectCliente = document.getElementById('formCliente');
-    const optionSel     = selectCliente.options[selectCliente.selectedIndex];
-    const idFactura     = optionSel.getAttribute('data-factura');
-    const montoVal      = parseFloat(document.getElementById('formMonto').value) || 0;
+    const idRepartidor = parseInt(document.getElementById('formRepartidor').value);
+    const idEntregaVal = document.getElementById('formEntregaSelect').value ? parseInt(document.getElementById('formEntregaSelect').value) : null;
+    const observaciones = document.getElementById('formObservaciones').value.trim();
 
-    if (montoVal <= 0) {
-        showToast('El monto debe ser mayor a $0.', 'warning');
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = `<svg class="icon-svg" viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg> Registrar Rendición`;
-        return;
-    }
+    let cobros = [];
 
-    const payload = {
-        id_repartidor: parseInt(document.getElementById('formRepartidor').value),
-        id_entrega:    document.getElementById('formEntrega').value ? parseInt(document.getElementById('formEntrega').value) : null,
-        observaciones: document.getElementById('formObservaciones').value.trim(),
-        cobros: [{
+    const seccionDinamica = document.getElementById('seccionCobrosDinamicos');
+    if (seccionDinamica.style.display !== 'none') {
+        const filas = document.querySelectorAll('.fila-cobro-dinamico');
+        filas.forEach(f => {
+            cobros.push({
+                id_cliente: parseInt(f.dataset.cliente),
+                id_factura: parseInt(f.dataset.factura),
+                monto: parseFloat(f.dataset.monto),
+                medio_pago: f.querySelector('.select-medio-pago-dinamico').value
+            });
+        });
+
+        if (cobros.length === 0) {
+            showToast('No hay cobros de pedidos entregados para rendir en este viaje.', 'warning');
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = `<svg class="icon-svg" viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg> Registrar Rendición`;
+            return;
+        }
+    } else {
+        const selectCliente = document.getElementById('formCliente');
+        const optionSel     = selectCliente.options[selectCliente.selectedIndex];
+        const idFactura     = optionSel.getAttribute('data-factura');
+        const montoVal      = parseFloat(document.getElementById('formMonto').value) || 0;
+
+        if (montoVal <= 0) {
+            showToast('El monto debe ser mayor a $0.', 'warning');
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = `<svg class="icon-svg" viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg> Registrar Rendición`;
+            return;
+        }
+
+        cobros.push({
             id_cliente: parseInt(selectCliente.value),
             id_factura: parseInt(idFactura),
             monto:      montoVal,
             medio_pago: document.getElementById('formMedioPago').value
-        }]
+        });
+    }
+
+    const payload = {
+        id_repartidor: idRepartidor,
+        id_entrega:    idEntregaVal,
+        observaciones: observaciones || 'Rendición de reparto',
+        cobros:        cobros
     };
 
     try {
@@ -266,7 +409,7 @@ async function guardarNuevaRendicion(e) {
         const json = await res.json();
 
         if (!json.error) {
-            showToast('¡Rendición registrada con éxito!', 'success');
+            showToast('¡Rendición de reparto registrada con éxito!', 'success');
             cerrarModalNuevaRendicion();
             cargarContadoresGlobales();
             cargarListadoRendiciones();
@@ -280,6 +423,7 @@ async function guardarNuevaRendicion(e) {
         submitBtn.innerHTML = `<svg class="icon-svg" viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg> Registrar Rendición`;
     }
 }
+
 
 /* ==========================================================
    MODAL: DETALLE Y REVISIÓN

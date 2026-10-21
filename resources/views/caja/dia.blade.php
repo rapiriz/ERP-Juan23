@@ -69,10 +69,9 @@
                 {{-- NOTA: 'cobro' probablemente lo genere el modulo de Cobros
                      automaticamente, no un usuario a mano - a confirmar con el equipo. --}}
                 <select name="tipo" id="tipo" class="clay-input" required>
-                    <option value="ingreso_manual">Ingreso manual</option>
-                    <option value="egreso">Egreso</option>
-                    <option value="extraccion">Extraccion</option>
-                    <option value="cobro">Cobro</option>
+                    @foreach ($tiposPermitidos ?? \App\Caja\Models\CajaMovimiento::TIPOS_VALIDOS as $tipo)
+                        <option value="{{ $tipo }}">{{ ucfirst(str_replace('_', ' ', $tipo)) }}</option>
+                    @endforeach
                 </select>
 
                 <label for="concepto">Concepto</label>
