@@ -39,6 +39,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/caja/movimiento/{id}', [CajaController::class, 'detalleMovimiento']);
         Route::patch('/caja/movimiento/{id}', [CajaController::class, 'modificarMovimiento']);
         Route::patch('/caja/{id}/cerrar', [CajaController::class, 'cerrar']);
+        Route::patch('/caja/{id}/completar-conteo', [CajaController::class, 'completarConteo']);
         Route::get('/caja/{fecha}/{id_usuario}', [CajaController::class, 'porUsuarioYFecha']);
         Route::get('/caja/{fecha}', [CajaController::class, 'porFecha']);
     });

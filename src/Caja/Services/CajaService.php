@@ -168,6 +168,81 @@ class CajaService
             && $this->repositorio->rolDeUsuario((int) $caja->id_usuario) === Caja::ROL_REPARTIDOR;
     }
 
+    /**
+     * Cierre automático: las cajas de repartidor que pasaron su vencimiento
+     * (72 h) se cierran solas SIN contar. Quedan con el monto esperado
+     * guardado, sin monto final ni diferencia, y marcadas como cierre
+     * automático. El repartidor (o Diego) carga después el monto contado
+     * con completarConteoCierreAutomatico().
+     * Lo ejecuta el comando programado `caja:cerrar-vencidas`.
+     * Devuelve cuántas cajas se cerraron.
+     */
+    public function cerrarCajasVencidas(): int
+    {
+        $ahora = Carbon::now();
+        $cerradas = 0;
+
+        foreach ($this->repositorio->listarVencidasDeRepartidores($ahora) as $candidata) {
+            // Se vuelve a leer: pudo cerrarse a mano mientras corría el proceso.
+            $caja = $this->repositorio->buscarPorId((int) $candidata->id_caja);
+
+            if ($caja === null || !$caja->estaAbierta()) {
+                continue;
+            }
+
+            $caja->monto_esperado = round(
+                (float) $caja->monto_inicial + $this->repositorio->calcularSaldoMovimientos((int) $caja->id_caja),
+                2
+            );
+            $caja->estado = Caja::ESTADO_CERRADA;
+            $caja->cierre_automatico = true;
+            $caja->fecha_hora_cierre = $ahora;
+            $caja->id_usuario_cierre = null;
+
+            $this->repositorio->guardar($caja);
+            $cerradas++;
+        }
+
+        return $cerradas;
+    }
+
+    /**
+     * Carga el monto contado de una caja que se cerró sola. Calcula la
+     * diferencia contra el monto esperado que quedó guardado al cierre.
+     * Lo puede hacer el dueño o el admin (si el dueño es repartidor).
+     */
+    public function completarConteoCierreAutomatico(
+        int $idCaja,
+        int $idUsuarioSesion,
+        float $montoFinal,
+        ?string $observaciones = null,
+        string $rolSesion = Caja::ROL_REPARTIDOR
+    ): ?array {
+        $caja = $this->repositorio->buscarPorId($idCaja);
+
+        if ($caja === null) {
+            return null;
+        }
+
+        if (!$caja->perteneceA($idUsuarioSesion) && !$this->puedeCerrarCajaAjena($caja, $rolSesion)) {
+            return ['error' => true, 'mensaje' => 'No podés cargar el conteo de la caja de otro usuario.'];
+        }
+
+        if (!$caja->estaPendienteDeConteo()) {
+            return ['error' => true, 'mensaje' => 'Esta caja no está pendiente de conteo.'];
+        }
+
+        $caja->monto_final = $montoFinal;
+        $caja->diferencia = round($montoFinal - (float) $caja->monto_esperado, 2);
+        $caja->id_usuario_cierre = $idUsuarioSesion;
+
+        if ($observaciones !== null) {
+            $caja->observaciones = $observaciones;
+        }
+
+        return $this->repositorio->guardar($caja)->toArray();
+    }
+
     public function obtenerHistorialCierres(?int $idUsuario = null, ?string $desde = null, ?string $hasta = null): array
     {
         return $this->repositorio->listarCierres($idUsuario, $desde, $hasta)->toArray();

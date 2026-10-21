@@ -73,6 +73,22 @@ class CajaRepository
     }
 
     /**
+     * Cajas abiertas, vencidas, cuyo dueño es repartidor. Son las que se
+     * cierran solas (la caja del admin no se cierra automáticamente).
+     */
+    public function listarVencidasDeRepartidores(\Illuminate\Support\Carbon $ahora): Collection
+    {
+        return Caja::where('estado', Caja::ESTADO_ABIERTA)
+            ->whereNotNull('fecha_hora_vencimiento')
+            ->where('fecha_hora_vencimiento', '<', $ahora)
+            ->whereIn(
+                'id_usuario',
+                \App\Shared\Models\Usuario::where('rol', Caja::ROL_REPARTIDOR)->select('id_usuario')
+            )
+            ->get();
+    }
+
+    /**
      * Rol del usuario dueño de una caja (tabla USUARIO, de G1). Lo usa el
      * Service para saber si un admin puede cerrar esa caja.
      */

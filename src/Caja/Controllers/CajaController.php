@@ -138,6 +138,38 @@ class CajaController extends Controller
     }
 
     /**
+     * PATCH /caja/{id}/completar-conteo — carga el monto contado de una caja
+     * que se cerró sola a las 72 h (dueño, o admin si el dueño es repartidor).
+     */
+    public function completarConteo(Request $request, int $id)
+    {
+        $datos = $request->validate([
+            'monto_final' => ['required', 'numeric', 'min:0'],
+            'observaciones' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $resultado = $this->service->completarConteoCierreAutomatico(
+            $id,
+            $request->user()->id_usuario,
+            (float) $datos['monto_final'],
+            $datos['observaciones'] ?? null,
+            $request->user()->rol
+        );
+
+        if ($resultado === null) {
+            Response::error('Caja no encontrada.', 404);
+            return;
+        }
+
+        if ($resultado['error'] ?? false) {
+            Response::error($resultado['mensaje'], 409);
+            return;
+        }
+
+        Response::json($resultado);
+    }
+
+    /**
      * GET /caja/cierres?id_usuario=&desde=YYYY-MM-DD&hasta=YYYY-MM-DD
      * Quien no es admin solo ve sus propios cierres.
      */

@@ -30,7 +30,7 @@
     @if ($porVencer)
         <div class="alerta" style="background:#FFF4D6;color:#6B4E00;border:1px solid #F0D98A;margin-bottom:16px;">
             <strong>Recordatorio:</strong> esta caja vence el {{ $vencimiento->format('d/m/Y H:i') }} (faltan menos de 24 horas).
-            Cerrala antes de esa hora.
+            Cerrala antes de esa hora{{ !empty($cierreAutomatico) ? ': de lo contrario se cerrará automáticamente.' : '.' }}
         </div>
     @endif
 
@@ -52,7 +52,11 @@
                     <p class="subtitulo">
                         {{ $vencida ? 'Venció el' : 'Vence el' }} {{ $vencimiento->format('d/m/Y H:i') }}.
                         @if ($vencida)
-                            Cerrala cuando puedas: igual podés seguir cargando movimientos.
+                            @if (!empty($cierreAutomatico))
+                                Se cerrará automáticamente en los próximos minutos.
+                            @else
+                                Cerrala cuando puedas: igual podés seguir cargando movimientos.
+                            @endif
                         @endif
                     </p>
                 @endif

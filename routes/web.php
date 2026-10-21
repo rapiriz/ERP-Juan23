@@ -23,6 +23,7 @@ Route::prefix('caja')->name('caja.')->group(function () {
     Route::post('/apertura', [CajaWebController::class, 'abrir'])->name('abrir');
     Route::post('/{id}/movimiento', [CajaWebController::class, 'registrarMovimiento'])->name('movimiento');
     Route::patch('/{id}/cerrar', [CajaWebController::class, 'cerrar'])->name('cerrar');
+    Route::patch('/{id}/completar-conteo', [CajaWebController::class, 'completarConteo'])->name('conteo');
     Route::get('/cierres', [CajaWebController::class, 'cierresIndex'])->name('cierres.index');
     Route::get('/cierres/{id}', [CajaWebController::class, 'cierresShow'])->name('cierres.show');
     Route::get('/pendiente/{id}', [CajaWebController::class, 'mostrarCaja'])->name('pendiente');
