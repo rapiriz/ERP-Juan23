@@ -1,8 +1,8 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\ConciliacionBancaria\Controllers\ConciliacionWebController;
-use App\Caja\Controllers\CajaWebController;
+use App\Modules\ConciliacionBancaria\Controllers\ConciliacionWebController;
+use App\Modules\Caja\Controllers\CajaWebController;
 
 Route::get('/', function () {
     return redirect('/entregas.html');

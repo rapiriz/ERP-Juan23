@@ -68,7 +68,7 @@
                 <label for="tipo">Tipo</label>
                 {{-- NOTA: 'cobro' se genera automáticamente al liquidar rendiciones de reparto. --}}
                 <select name="tipo" id="tipo" class="clay-input" required>
-                    @foreach ($tiposPermitidos ?? \App\Caja\Models\CajaMovimiento::TIPOS_VALIDOS as $tipo)
+                    @foreach ($tiposPermitidos ?? \App\Modules\Caja\Models\CajaMovimiento::TIPOS_VALIDOS as $tipo)
                         <option value="{{ $tipo }}">{{ ucfirst(str_replace('_', ' ', $tipo)) }}</option>
                     @endforeach
                 </select>

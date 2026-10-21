@@ -6,7 +6,7 @@
 
 spl_autoload_register(function ($class) {
     $prefix = 'App\\';
-    $baseDir = __DIR__ . '/../src/';
+    $baseDir = __DIR__ . '/../app/';
 
     $len = strlen($prefix);
     if (strncmp($prefix, $class, $len) !== 0) {
@@ -21,10 +21,10 @@ spl_autoload_register(function ($class) {
     }
 });
 
-use App\Shared\Database\Conexion;
-use App\Entregas\Services\EntregaService;
-use App\Entregas\Repositories\EntregaRepository;
-use App\Entregas\Repositories\RemitoRepository;
+use App\Modules\Shared\Database\Conexion;
+use App\Modules\Entregas\Services\EntregaService;
+use App\Modules\Entregas\Repositories\EntregaRepository;
+use App\Modules\Entregas\Repositories\RemitoRepository;
 
 echo "====================================================\n";
 echo "🧪 INICIANDO TEST SUITE: MÓDULO ENTREGAS (HU #1 & #2)\n";

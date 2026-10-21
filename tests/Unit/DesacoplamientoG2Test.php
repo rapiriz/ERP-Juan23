@@ -3,10 +3,10 @@
 namespace Tests\Unit;
 
 use Tests\TestCase;
-use App\Shared\Services\UsuarioService;
-use App\Ventas\Services\VentasApiClient;
-use App\Ventas\Controllers\VentasProxyController;
-use App\Rendiciones\Repositories\RendicionRepository;
+use App\Modules\Shared\Services\UsuarioService;
+use App\Modules\Ventas\Services\VentasApiClient;
+use App\Modules\Ventas\Controllers\VentasProxyController;
+use App\Modules\Rendiciones\Repositories\RendicionRepository;
 
 class DesacoplamientoG2Test extends TestCase
 {
@@ -66,7 +66,7 @@ class DesacoplamientoG2Test extends TestCase
     /** @test */
     public function precarga_automatica_de_rendicion_desde_entrega(): void
     {
-        $service = new \App\Rendiciones\Services\RendicionService(new RendicionRepository());
+        $service = new \App\Modules\Rendiciones\Services\RendicionService(new RendicionRepository());
         // Entrega #1 tiene pedido 103 entregado en la semilla
         $resultado = $service->precargarOActualizarRendicionDesdeEntrega(1);
 

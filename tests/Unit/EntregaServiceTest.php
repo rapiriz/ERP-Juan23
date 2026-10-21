@@ -3,9 +3,9 @@
 namespace Tests\Unit;
 
 use Tests\TestCase;
-use App\Entregas\Services\EntregaService;
-use App\Entregas\Repositories\EntregaRepository;
-use App\Entregas\Repositories\RemitoRepository;
+use App\Modules\Entregas\Services\EntregaService;
+use App\Modules\Entregas\Repositories\EntregaRepository;
+use App\Modules\Entregas\Repositories\RemitoRepository;
 use Exception;
 use Mockery;
 

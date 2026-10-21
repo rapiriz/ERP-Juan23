@@ -1,12 +1,12 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Entregas\Controllers\EntregaController;
-use App\ConciliacionBancaria\Controllers\ConciliacionController;
-use App\ConciliacionBancaria\Controllers\ChequeController;
-use App\Caja\Controllers\CajaController;
-use App\Rendiciones\Controllers\RendicionController;
-use App\Ventas\Controllers\VentasProxyController;
+use App\Modules\Entregas\Controllers\EntregaController;
+use App\Modules\ConciliacionBancaria\Controllers\ConciliacionController;
+use App\Modules\ConciliacionBancaria\Controllers\ChequeController;
+use App\Modules\Caja\Controllers\CajaController;
+use App\Modules\Rendiciones\Controllers\RendicionController;
+use App\Modules\Ventas\Controllers\VentasProxyController;
 
 Route::prefix('v1')->group(function () {
     // --- VENTAS (Consumo API Grupo 4) ---

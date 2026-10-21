@@ -3,9 +3,9 @@
 namespace Tests\Unit;
 
 use Tests\TestCase;
-use App\Rendiciones\Services\RendicionService;
-use App\Rendiciones\Repositories\RendicionRepository;
-use App\Rendiciones\Models\Rendicion;
+use App\Modules\Rendiciones\Services\RendicionService;
+use App\Modules\Rendiciones\Repositories\RendicionRepository;
+use App\Modules\Rendiciones\Models\Rendicion;
 use InvalidArgumentException;
 use Mockery;
 

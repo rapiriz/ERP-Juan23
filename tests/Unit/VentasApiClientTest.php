@@ -3,7 +3,7 @@
 namespace Tests\Unit;
 
 use Tests\TestCase;
-use App\Ventas\Services\VentasApiClient;
+use App\Modules\Ventas\Services\VentasApiClient;
 use Illuminate\Support\Facades\Http;
 
 class VentasApiClientTest extends TestCase

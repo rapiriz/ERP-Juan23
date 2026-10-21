@@ -50,29 +50,40 @@ Esta rama contiene el desarrollo de los siguientes módulos del Grupo 2:
 
 ### Placeholders de otros módulos
 Para poder resolver relaciones (claves foráneas) desde Conciliación Bancaria:
-- `App\Caja\Models\CajaMovimiento` — completado como parte del desarrollo real de Caja en esta rama.
+- `App\Modules\Caja\Models\CajaMovimiento` — completado como parte del desarrollo real de Caja en esta rama.
 
 ## Estructura de carpetas relevante
 
 ```
-src/
-  ConciliacionBancaria/
-    Models/          → PeriodoConciliacion, MovimientoBancario, AjusteBancario, Cheque, ConciliacionDetalle
-    Repositories/     → ConciliacionRepository
-    Services/         → ConciliacionService
-    Controllers/      → ConciliacionController (API), ConciliacionWebController (vistas), ChequeController (API)
-  Caja/
-    Models/           → Caja, CajaMovimiento
-    Repositories/      → CajaRepository
-    Services/          → CajaService
-    Controllers/       → CajaController (API), CajaWebController (vistas)
-  Rendiciones/
-    Models/           → Rendicion, RendicionCobro, RendicionDevolucion, RendicionDiferencia
-    Repositories/      → RendicionRepository
-    Services/          → RendicionService
-    Controllers/       → RendicionController (API)
-  Shared/
-    Http/             → Response (formato de respuesta JSON estándar), Controller base
+app/
+  Providers/         → AppServiceProvider, ModuleServiceProvider
+  Modules/
+    ConciliacionBancaria/
+      Models/          → PeriodoConciliacion, MovimientoBancario, AjusteBancario, Cheque, ConciliacionDetalle
+      Repositories/     → ConciliacionRepository
+      Services/         → ConciliacionService
+      Controllers/      → ConciliacionController (API), ConciliacionWebController (vistas), ChequeController (API)
+    Caja/
+      Models/           → Caja, CajaMovimiento
+      Repositories/      → CajaRepository
+      Services/          → CajaService
+      Controllers/       → CajaController (API), CajaWebController (vistas)
+    Entregas/
+      Models/           → Entrega, Remito
+      Repositories/      → EntregaRepository, RemitoRepository
+      Services/          → EntregaService
+      Controllers/       → EntregaController (API)
+    Rendiciones/
+      Models/           → Rendicion, RendicionCobro, RendicionDevolucion, RendicionDiferencia
+      Repositories/      → RendicionRepository
+      Services/          → RendicionService
+      Controllers/       → RendicionController (API)
+    Ventas/
+      Services/          → VentasApiClient (Consumo API Grupo 4)
+      Controllers/       → VentasProxyController (Mock de integración)
+    Shared/
+      Services/          → UsuarioService (mock identidades desacoplado)
+      Http/             → Response (formato de respuesta JSON estándar), Controller base
 
 resources/views/
   layouts/app.blade.php      → layout compartido (sidebar + estilo Claymorfismo)
@@ -127,7 +138,7 @@ Sistema ERP Distribuidora Juan XXIII — Módulos del Grupo 2: **Entregas (Logí
 
 ## 🏗️ Arquitectura del Sistema
 
-* **Monolito Modular** en PHP / Laravel bajo estándar PSR-4 (`App\` $\rightarrow$ `src/`).
+* **Monolito Modular** en PHP / Laravel bajo estándar PSR-4 (`App\` $\rightarrow$ `app/Modules/`).
 * **Base de Datos:** MySQL compartida (`erp_distribuidora`).
 * **Enrutamiento:** API REST versionada (`/api/v1/...`).
 

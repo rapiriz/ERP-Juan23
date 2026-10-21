@@ -2,10 +2,10 @@
 
 namespace Tests\Unit\Caja;
 
-use App\Caja\Models\Caja;
-use App\Caja\Models\CajaMovimiento;
-use App\Caja\Repositories\CajaRepository;
-use App\Caja\Services\CajaService;
+use App\Modules\Caja\Models\Caja;
+use App\Modules\Caja\Models\CajaMovimiento;
+use App\Modules\Caja\Repositories\CajaRepository;
+use App\Modules\Caja\Services\CajaService;
 use Illuminate\Support\Carbon;
 use Tests\TestCase;
 

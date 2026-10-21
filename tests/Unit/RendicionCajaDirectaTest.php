@@ -3,14 +3,14 @@
 namespace Tests\Unit;
 
 use Tests\TestCase;
-use App\Rendiciones\Services\RendicionService;
-use App\Rendiciones\Repositories\RendicionRepository;
-use App\Rendiciones\Models\Rendicion;
-use App\Rendiciones\Models\RendicionCobro;
-use App\Caja\Services\CajaService;
-use App\Caja\Repositories\CajaRepository;
-use App\Caja\Models\Caja;
-use App\Caja\Models\CajaMovimiento;
+use App\Modules\Rendiciones\Services\RendicionService;
+use App\Modules\Rendiciones\Repositories\RendicionRepository;
+use App\Modules\Rendiciones\Models\Rendicion;
+use App\Modules\Rendiciones\Models\RendicionCobro;
+use App\Modules\Caja\Services\CajaService;
+use App\Modules\Caja\Repositories\CajaRepository;
+use App\Modules\Caja\Models\Caja;
+use App\Modules\Caja\Models\CajaMovimiento;
 use Mockery;
 
 class RendicionCajaDirectaTest extends TestCase
