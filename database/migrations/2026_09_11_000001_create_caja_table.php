@@ -23,9 +23,6 @@ return new class extends Migration
 
             // Un usuario no puede tener dos cajas abiertas el mismo día
             $table->unique(['id_usuario', 'fecha'], 'uq_caja_usuario_fecha');
-
-            $table->foreign('id_usuario')->references('id_usuario')->on('USUARIO');
-            $table->foreign('id_usuario_cierre')->references('id_usuario')->on('USUARIO');
         });
     }
 

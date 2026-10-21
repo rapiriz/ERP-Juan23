@@ -138,11 +138,12 @@ class RendicionRepository
      */
     public function entregaExiste(int $idEntrega): bool
     {
-        if (!Schema::hasTable('ENTREGA')) {
+        $tabla = Schema::hasTable('entrega') ? 'entrega' : (Schema::hasTable('ENTREGA') ? 'ENTREGA' : null);
+        if (!$tabla) {
             return $idEntrega > 0;
         }
 
-        return DB::table('ENTREGA')
+        return DB::table($tabla)
             ->where('id_entrega', $idEntrega)
             ->exists();
     }

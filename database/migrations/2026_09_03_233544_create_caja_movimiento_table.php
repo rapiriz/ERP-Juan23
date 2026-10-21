@@ -14,9 +14,7 @@ return new class extends Migration
             $table->decimal('monto', 12, 2);
             $table->string('tipo', 20); // 'ingreso' | 'egreso'
             $table->string('concepto', 255);
-            $table->unsignedInteger('id_usuario');
-
-            $table->foreign('id_usuario')->references('id_usuario')->on('USUARIO');
+            $table->unsignedInteger('id_usuario')->comment('ID lógico del usuario');
         });
     }
 

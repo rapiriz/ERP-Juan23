@@ -25,7 +25,6 @@ return new class extends Migration
             $table->foreign('id_movimiento_caja')->references('id_movimiento_caja')->on('CAJA_MOVIMIENTO');
             $table->foreign('id_ajuste')->references('id_ajuste')->on('AJUSTE_BANCARIO');
             $table->foreign('id_cheque')->references('id_cheque')->on('CHEQUE');
-            $table->foreign('id_usuario')->references('id_usuario')->on('USUARIO');
         });
 
         // Regla: exactamente una de las 4 FK opcionales debe estar completa por fila.

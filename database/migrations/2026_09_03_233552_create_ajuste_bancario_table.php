@@ -16,9 +16,7 @@ return new class extends Migration
             $table->decimal('monto', 12, 2);
             $table->dateTime('fecha_registro');
             $table->unsignedInteger('id_usuario');
-
             $table->foreign('id_movimiento_bancario')->references('id_movimiento_bancario')->on('MOVIMIENTO_BANCARIO');
-            $table->foreign('id_usuario')->references('id_usuario')->on('USUARIO');
         });
     }
 

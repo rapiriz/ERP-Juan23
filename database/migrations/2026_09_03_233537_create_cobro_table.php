@@ -21,10 +21,6 @@ return new class extends Migration
             $table->text('motivo_anulacion')->nullable();
             $table->dateTime('fecha_anulacion')->nullable();
             $table->unsignedInteger('id_usuario_anulacion')->nullable();
-            // Foreign keys (se aplican si existen las tablas CLIENTE y USUARIO)
-            $table->foreign('id_cliente')->references('id_cliente')->on('CLIENTE');
-            $table->foreign('id_usuario')->references('id_usuario')->on('USUARIO');
-            $table->foreign('id_usuario_anulacion')->references('id_usuario')->on('USUARIO');
         });
     }
     public function down(): void

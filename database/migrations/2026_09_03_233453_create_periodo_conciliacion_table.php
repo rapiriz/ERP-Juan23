@@ -15,9 +15,7 @@ return new class extends Migration
             $table->string('estado', 20); // 'abierto' | 'cerrado'
             $table->dateTime('fecha_apertura');
             $table->dateTime('fecha_cierre')->nullable();
-            $table->unsignedInteger('id_usuario');
-
-            $table->foreign('id_usuario')->references('id_usuario')->on('USUARIO');
+            $table->unsignedInteger('id_usuario')->comment('ID lógico del usuario');
         });
     }
 
