@@ -7,7 +7,6 @@ use App\ConciliacionBancaria\Models\MovimientoBancario;
 use App\ConciliacionBancaria\Models\AjusteBancario;
 use App\ConciliacionBancaria\Models\Cheque;
 use App\ConciliacionBancaria\Models\ConciliacionDetalle;
-use App\Cobros\Models\Cobro;
 use App\Caja\Models\CajaMovimiento;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;

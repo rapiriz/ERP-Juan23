@@ -5,7 +5,6 @@ use App\Entregas\Controllers\EntregaController;
 use App\ConciliacionBancaria\Controllers\ConciliacionController;
 use App\ConciliacionBancaria\Controllers\ChequeController;
 use App\Caja\Controllers\CajaController;
-use App\Cobros\Controllers\CobroController;
 use App\Rendiciones\Controllers\RendicionController;
 use App\Ventas\Controllers\VentasProxyController;
 
@@ -55,10 +54,6 @@ Route::prefix('v1')->group(function () {
     Route::get('/remitos/{id}', [EntregaController::class, 'verRemito']);
     Route::get('/zonas', [EntregaController::class, 'zonas']);
     Route::get('/repartidores', [EntregaController::class, 'repartidores']);
-
-    // --- COBROS (Deprecado/Absorbido por Rendiciones - Se conserva por compatibilidad) ---
-    Route::post('/cobros', [CobroController::class, 'store']);
-    Route::get('/cobros/clientes/{idCliente}/saldo', [CobroController::class, 'saldo']);
 
     // --- RENDICIONES (Grupo 2 - Nicolás) ---
     Route::get('/rendiciones', [RendicionController::class, 'index']);

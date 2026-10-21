@@ -2,7 +2,6 @@
 
 namespace App\ConciliacionBancaria\Models;
 
-use App\Cobros\Models\Cobro;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -28,11 +27,6 @@ class Cheque extends Model
         'fecha_deposito' => 'date',
         'fecha_rechazo' => 'date',
     ];
-
-    public function cobro(): BelongsTo
-    {
-        return $this->belongsTo(Cobro::class, 'id_cobro', 'id_cobro');
-    }
 
     public function conciliacionDetalle(): HasOne
     {

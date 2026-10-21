@@ -66,8 +66,7 @@
                 @csrf
 
                 <label for="tipo">Tipo</label>
-                {{-- NOTA: 'cobro' probablemente lo genere el modulo de Cobros
-                     automaticamente, no un usuario a mano - a confirmar con el equipo. --}}
+                {{-- NOTA: 'cobro' se genera automáticamente al liquidar rendiciones de reparto. --}}
                 <select name="tipo" id="tipo" class="clay-input" required>
                     @foreach ($tiposPermitidos ?? \App\Caja\Models\CajaMovimiento::TIPOS_VALIDOS as $tipo)
                         <option value="{{ $tipo }}">{{ ucfirst(str_replace('_', ' ', $tipo)) }}</option>

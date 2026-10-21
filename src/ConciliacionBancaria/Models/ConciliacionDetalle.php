@@ -3,7 +3,6 @@
 namespace App\ConciliacionBancaria\Models;
 
 use App\Caja\Models\CajaMovimiento;
-use App\Cobros\Models\Cobro;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -31,11 +30,6 @@ class ConciliacionDetalle extends Model
     public function movimientoBancario(): BelongsTo
     {
         return $this->belongsTo(MovimientoBancario::class, 'id_movimiento_bancario', 'id_movimiento_bancario');
-    }
-
-    public function cobro(): BelongsTo
-    {
-        return $this->belongsTo(Cobro::class, 'id_cobro', 'id_cobro');
     }
 
     public function cajaMovimiento(): BelongsTo

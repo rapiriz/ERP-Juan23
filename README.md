@@ -49,8 +49,7 @@ Esta rama contiene el desarrollo de los siguientes módulos del Grupo 2:
 - API REST protegida con Sanctum (`/api/v1/caja/...`) y vistas web (`/caja/...`).
 
 ### Placeholders de otros módulos
-Para poder resolver relaciones (claves foráneas) desde Conciliación Bancaria, existen versiones mínimas de dos Models que pertenecen a otros compañeros del grupo:
-- `App\Cobros\Models\Cobro` — el diseño completo de Cobros no es responsabilidad de esta rama.
+Para poder resolver relaciones (claves foráneas) desde Conciliación Bancaria:
 - `App\Caja\Models\CajaMovimiento` — completado como parte del desarrollo real de Caja en esta rama.
 
 ## Estructura de carpetas relevante
@@ -67,8 +66,11 @@ src/
     Repositories/      → CajaRepository
     Services/          → CajaService
     Controllers/       → CajaController (API), CajaWebController (vistas)
-  Cobros/
-    Models/           → Cobro (placeholder mínimo)
+  Rendiciones/
+    Models/           → Rendicion, RendicionCobro, RendicionDevolucion, RendicionDiferencia
+    Repositories/      → RendicionRepository
+    Services/          → RendicionService
+    Controllers/       → RendicionController (API)
   Shared/
     Http/             → Response (formato de respuesta JSON estándar), Controller base
 

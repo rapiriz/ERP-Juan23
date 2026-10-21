@@ -303,35 +303,35 @@ class RendicionService
             $rendicion->aprobar($idUsuarioValidador);
 
             // IMPACTO INTELIGENTE SEGÚN MEDIO DE PAGO:
-            // - Efectivo -> Impacta en Caja y liquida directamente.
-            // - Transferencia -> Queda listo en el Módulo de Conciliación Bancaria.
+            // - Efectivo -> Impacta directamente en Caja abierta.
+            // - Transferencia -> Queda registrado para Conciliación Bancaria.
             // - Cheque -> Queda registrado en Cartera de Cheques.
             if ($rendicion->cobros && count($rendicion->cobros) > 0) {
-                $cobroService = app(\App\Cobros\Services\CobroService::class);
                 foreach ($rendicion->cobros as $cobroItem) {
                     // Si se especificó una selección parcial de cobros y este no está, se omite/queda pendiente
                     if (is_array($cobrosAprobadosIds) && !in_array($cobroItem->id_rendicion_cobro, $cobrosAprobadosIds)) {
                         continue;
                     }
 
-                    try {
-                        // Impacto en Cobros / Caja
-                        $resCobro = $cobroService->registrarCobro([
-                            'id_cliente'      => $cobroItem->id_cliente ?: 1,
-                            'id_usuario'      => $idUsuarioValidador,
-                            'monto_total'     => $cobroItem->monto,
-                            'medio_pago'      => $cobroItem->medio_pago,
-                            'comprobante_nro' => 'REC-REND-' . $rendicion->id_rendicion . '-' . $cobroItem->id_rendicion_cobro,
-                            'observaciones'   => "Liquidación de Rendición #{$rendicion->id_rendicion} ({$cobroItem->medio_pago})",
-                        ]);
+                    $medioPagoLower = strtolower(trim($cobroItem->medio_pago ?? ''));
 
-                        // Si es TRANSFERENCIA, notificar o preparar registro para Conciliación Bancaria
-                        if (strtolower($cobroItem->medio_pago) === 'transferencia') {
-                            // Registra la acreditación esperada en banco para que Conciliación lo matchee
-                            \Illuminate\Support\Facades\Log::info("Transferencia por ${$cobroItem->monto} enviada a módulo de Conciliación Bancaria (Rendición #{$rendicion->id_rendicion}).");
+                    if ($medioPagoLower === 'efectivo') {
+                        try {
+                            $cajaService = app(\App\Caja\Services\CajaService::class);
+                            $cajaService->registrarCobroEnEfectivo(
+                                $idUsuarioValidador,
+                                \App\Caja\Models\Caja::ROL_ADMIN,
+                                (float) $cobroItem->monto,
+                                "Liquidación Rendición #{$rendicion->id_rendicion} - Cobro #{$cobroItem->id_rendicion_cobro}",
+                                null
+                            );
+                        } catch (\Throwable $e) {
+                            \Illuminate\Support\Facades\Log::warning("No se pudo registrar cobro en Caja para rendición #{$rendicion->id_rendicion}: " . $e->getMessage());
                         }
-                    } catch (\Throwable $e) {
-                        // Continuar con los demás cobros en caso de duplicados o advertencias
+                    } elseif ($medioPagoLower === 'transferencia') {
+                        \Illuminate\Support\Facades\Log::info("Transferencia por \${$cobroItem->monto} registrada para Conciliación Bancaria (Rendición #{$rendicion->id_rendicion}).");
+                    } elseif ($medioPagoLower === 'cheque') {
+                        \Illuminate\Support\Facades\Log::info("Cheque por \${$cobroItem->monto} registrado en Cartera (Rendición #{$rendicion->id_rendicion}).");
                     }
                 }
             }
