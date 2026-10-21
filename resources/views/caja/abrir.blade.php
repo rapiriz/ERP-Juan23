@@ -6,6 +6,14 @@
     <div class="clay-card card-angosta">
         <h2>Abrir caja del dia</h2>
 
+        @if (!empty($cajaPendienteConteo))
+            <div class="alerta alerta-error">
+                Tu caja del {{ \Illuminate\Support\Carbon::parse($cajaPendienteConteo['fecha'])->format('d/m/Y') }}
+                se cerró automáticamente al vencer. Abrí una caja nueva y cargá en ella lo que haya quedado pendiente.
+                El conteo de la caja anterior lo carga el administrador.
+            </div>
+        @endif
+
         @if ($errors->any())
             <div class="alerta alerta-error">{{ $errors->first() }}</div>
         @endif

@@ -139,7 +139,7 @@ class CajaController extends Controller
 
     /**
      * PATCH /caja/{id}/completar-conteo — carga el monto contado de una caja
-     * que se cerró sola a las 72 h (dueño, o admin si el dueño es repartidor).
+     * que se cerró sola a las 72 h (solo admin, si el dueño es repartidor).
      */
     public function completarConteo(Request $request, int $id)
     {
@@ -219,6 +219,7 @@ class CajaController extends Controller
             'tipo' => ['required', Rule::in(CajaMovimiento::TIPOS_VALIDOS)],
             'concepto' => ['required', 'string', 'max:200'],
             'monto' => ['required', 'numeric', 'min:0.01'],
+            'medio_pago' => ['nullable', Rule::in(CajaMovimiento::MEDIOS_VALIDOS)],
         ]);
 
         $resultado = $this->service->registrarMovimiento(
@@ -227,7 +228,9 @@ class CajaController extends Controller
             $request->user()->rol,
             $datos['tipo'],
             $datos['concepto'],
-            (float) $datos['monto']
+            (float) $datos['monto'],
+            null,
+            $datos['medio_pago'] ?? CajaMovimiento::MEDIO_EFECTIVO
         );
 
         if ($resultado === null) {

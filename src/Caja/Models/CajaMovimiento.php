@@ -24,6 +24,26 @@ class CajaMovimiento extends Model
     public const TIPO_PAGO_PROVEEDOR = 'pago_proveedor';
     public const TIPO_IMPUESTO = 'impuesto';
 
+    /**
+     * Reversión de un cobro anulado. Resta del saldo de la caja abierta de quien
+     * anula y queda ligada al id_cobro original. No se carga a mano: no está en
+     * TIPOS_VALIDOS, la genera CajaService::registrarReversionDeCobro().
+     */
+    public const TIPO_REVERSION = 'reversion';
+
+    // Medios de pago. Cheques y otros valores entran como movimientos separados del efectivo.
+    public const MEDIO_EFECTIVO = 'efectivo';
+    public const MEDIO_CHEQUE = 'cheque';
+    public const MEDIO_TRANSFERENCIA = 'transferencia';
+    public const MEDIO_OTRO = 'otro';
+
+    public const MEDIOS_VALIDOS = [
+        self::MEDIO_EFECTIVO,
+        self::MEDIO_CHEQUE,
+        self::MEDIO_TRANSFERENCIA,
+        self::MEDIO_OTRO,
+    ];
+
     public const TIPOS_VALIDOS = [
         self::TIPO_COBRO,
         self::TIPO_INGRESO_MANUAL,
@@ -46,6 +66,7 @@ class CajaMovimiento extends Model
         'fecha_hora_carga',
         'monto',
         'tipo',
+        'medio_pago',
         'concepto',
         'id_usuario',
         'monto_anterior',
@@ -66,6 +87,12 @@ class CajaMovimiento extends Model
         return $this->belongsTo(Caja::class, 'id_caja', 'id_caja');
     }
 
+    public function esEfectivo(): bool
+    {
+        return ($this->medio_pago ?? self::MEDIO_EFECTIVO) === self::MEDIO_EFECTIVO;
+    }
+
+    /** Cobro e ingreso manual suman; todo lo demás (incluida la reversión) resta. */
     public function esIngreso(): bool
     {
         return in_array($this->tipo, [self::TIPO_COBRO, self::TIPO_INGRESO_MANUAL], true);

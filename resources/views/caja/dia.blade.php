@@ -12,6 +12,14 @@
         'extraccion' => 'Extracción',
         'pago_proveedor' => 'Pago a proveedor',
         'impuesto' => 'Impuesto',
+        'reversion' => 'Reversión de cobro',
+    ];
+
+    $etiquetasMedio = [
+        'efectivo' => 'Efectivo',
+        'cheque' => 'Cheque',
+        'transferencia' => 'Transferencia',
+        'otro' => 'Otro',
     ];
 
     $vencimiento = !empty($caja['fecha_hora_vencimiento'])
@@ -86,6 +94,7 @@
             <thead>
                 <tr>
                     <th>Tipo</th>
+                    <th>Medio</th>
                     <th>Concepto</th>
                     <th>Monto</th>
                 </tr>
@@ -94,6 +103,7 @@
                 @foreach ($caja['movimientos'] ?? [] as $movimiento)
                     <tr>
                         <td>{{ $etiquetasTipo[$movimiento['tipo']] ?? ucfirst(str_replace('_', ' ', $movimiento['tipo'])) }}</td>
+                        <td>{{ $etiquetasMedio[$movimiento['medio_pago'] ?? 'efectivo'] ?? $movimiento['medio_pago'] }}</td>
                         <td>{{ $movimiento['concepto'] }}</td>
                         <td>${{ number_format($movimiento['monto'], 2, ',', '.') }}</td>
                     </tr>
@@ -115,6 +125,13 @@
                 <select name="tipo" id="tipo" class="clay-input" required>
                     @foreach ($tiposPermitidos as $tipo)
                         <option value="{{ $tipo }}">{{ $etiquetasTipo[$tipo] ?? $tipo }}</option>
+                    @endforeach
+                </select>
+
+                <label for="medio_pago">Medio de pago</label>
+                <select name="medio_pago" id="medio_pago" class="clay-input" required>
+                    @foreach ($etiquetasMedio as $valor => $etiqueta)
+                        <option value="{{ $valor }}">{{ $etiqueta }}</option>
                     @endforeach
                 </select>
 
@@ -168,6 +185,7 @@
 
     <script>
         const etiquetasTipo = @json($etiquetasTipo);
+        const etiquetasMedio = @json($etiquetasMedio);
 
         // Campos de monto: solo dígitos y separador decimal (se bloquean e, E, + y -).
         document.querySelectorAll('[data-solo-numeros]').forEach((campo) => {
@@ -239,6 +257,7 @@
                     const fila = document.createElement('tr');
                     const celdas = [
                         etiquetasTipo[m.tipo] || m.tipo.replace(/_/g, ' '),
+                        etiquetasMedio[m.medio_pago] || etiquetasMedio.efectivo,
                         m.concepto,
                         formatearMonto(m.monto),
                     ];

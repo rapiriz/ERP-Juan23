@@ -30,7 +30,10 @@ class CajaWebController extends Controller
         $caja = $this->service->obtenerCajaAbiertaDeUsuario(self::ID_USUARIO_PROVISORIO);
 
         if ($caja === null) {
-            return view('caja.abrir');
+            // Si la última caja se cerró sola a las 72 h, se avisa que falta cargar el conteo.
+            return view('caja.abrir', [
+                'cajaPendienteConteo' => $this->service->obtenerCajaPendienteDeConteo(self::ID_USUARIO_PROVISORIO),
+            ]);
         }
 
         return $this->vistaCaja($caja, $this->service->obtenerMontoActual($caja['id_caja']));
@@ -60,6 +63,8 @@ class CajaWebController extends Controller
             'montoActual' => $montoActual,
             // Solo los tipos de movimiento que el rol puede cargar.
             'tiposPermitidos' => CajaMovimiento::tiposPermitidosPara(self::ROL_PROVISORIO),
+            // Solo las cajas de repartidor se cierran solas a las 72 h.
+            'cierreAutomatico' => self::ROL_PROVISORIO === Caja::ROL_REPARTIDOR,
         ]);
     }
 
@@ -96,6 +101,7 @@ class CajaWebController extends Controller
             'tipo' => ['required', 'string'],
             'concepto' => ['required', 'string', 'max:200'],
             'monto' => ['required', 'numeric', 'min:0.01'],
+            'medio_pago' => ['nullable', 'string', 'in:' . implode(',', CajaMovimiento::MEDIOS_VALIDOS)],
         ]);
 
         $resultado = $this->service->registrarMovimiento(
@@ -104,7 +110,9 @@ class CajaWebController extends Controller
             self::ROL_PROVISORIO,
             $datos['tipo'],
             $datos['concepto'],
-            (float) $datos['monto']
+            (float) $datos['monto'],
+            null,
+            $datos['medio_pago'] ?? CajaMovimiento::MEDIO_EFECTIVO
         );
 
         if ($resultado === null) {
@@ -159,6 +167,37 @@ class CajaWebController extends Controller
             ->with('mensaje', 'Caja cerrada correctamente.');
     }
 
+    /**
+     * Carga el monto contado de una caja que se cerró sola (solo admin).
+     */
+    public function completarConteo(Request $request, int $id)
+    {
+        $datos = $request->validate([
+            'monto_final' => ['required', 'numeric', 'min:0'],
+            'observaciones' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $resultado = $this->service->completarConteoCierreAutomatico(
+            $id,
+            self::ID_USUARIO_PROVISORIO,
+            (float) $datos['monto_final'],
+            $datos['observaciones'] ?? null,
+            self::ROL_PROVISORIO
+        );
+
+        if ($resultado === null) {
+            abort(404, 'Caja no encontrada');
+        }
+
+        if ($resultado['error'] ?? false) {
+            return back()->with('error', $resultado['mensaje']);
+        }
+
+        return redirect()
+            ->route('caja.cierres.show', $id)
+            ->with('mensaje', 'Conteo cargado correctamente.');
+    }
+
     public function cierresIndex(Request $request)
     {
         $idUsuario = $request->query('id_usuario');
@@ -186,6 +225,10 @@ class CajaWebController extends Controller
             abort(404, 'Cierre no encontrado');
         }
 
-        return view('caja.cierre-detalle', ['cierre' => $cierre]);
+        return view('caja.cierre-detalle', [
+            'cierre' => $cierre,
+            // Solo el admin carga el conteo de una caja cerrada sola.
+            'puedeCargarConteo' => self::ROL_PROVISORIO === Caja::ROL_ADMIN,
+        ]);
     }
 }

@@ -73,6 +73,20 @@ class CajaRepository
     }
 
     /**
+     * Última caja del usuario que se cerró sola y todavía no tiene el
+     * conteo cargado (sin monto final).
+     */
+    public function buscarPendienteDeConteoDeUsuario(int $idUsuario): ?Caja
+    {
+        return Caja::where('id_usuario', $idUsuario)
+            ->where('estado', Caja::ESTADO_CERRADA)
+            ->where('cierre_automatico', true)
+            ->whereNull('monto_final')
+            ->orderByDesc('fecha_hora_cierre')
+            ->first();
+    }
+
+    /**
      * Cajas abiertas, vencidas, cuyo dueño es repartidor. Son las que se
      * cierran solas (la caja del admin no se cierra automáticamente).
      */
@@ -158,6 +172,28 @@ class CajaRepository
     public function listarMovimientosDeCaja(int $idCaja): Collection
     {
         return CajaMovimiento::where('id_caja', $idCaja)->get();
+    }
+
+    /**
+     * Subtotales con signo de los movimientos de la caja: efectivo por un
+     * lado y valores (cheques, transferencias, otros) por el otro.
+     */
+    public function calcularSubtotalesPorMedio(int $idCaja): array
+    {
+        $efectivo = 0.0;
+        $valores = 0.0;
+
+        foreach ($this->listarMovimientosDeCaja($idCaja) as $m) {
+            $importe = $m->esIngreso() ? (float) $m->monto : -1 * (float) $m->monto;
+
+            if ($m->esEfectivo()) {
+                $efectivo += $importe;
+            } else {
+                $valores += $importe;
+            }
+        }
+
+        return ['efectivo' => round($efectivo, 2), 'valores' => round($valores, 2)];
     }
 
     /**

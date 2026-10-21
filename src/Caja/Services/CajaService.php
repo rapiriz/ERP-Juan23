@@ -92,6 +92,11 @@ class CajaService
         return $this->repositorio->buscarCualquierAbiertaDeUsuario($idUsuario)?->toArray();
     }
 
+    public function obtenerCajaPendienteDeConteo(int $idUsuario): ?array
+    {
+        return $this->repositorio->buscarPendienteDeConteoDeUsuario($idUsuario)?->toArray();
+    }
+
     public function listarCajas(?string $estado, ?int $idUsuario): array
     {
         return $this->repositorio->listarFiltradas($estado, $idUsuario)->toArray();
@@ -172,7 +177,7 @@ class CajaService
      * Cierre automático: las cajas de repartidor que pasaron su vencimiento
      * (72 h) se cierran solas SIN contar. Quedan con el monto esperado
      * guardado, sin monto final ni diferencia, y marcadas como cierre
-     * automático. El repartidor (o Diego) carga después el monto contado
+     * automático. Diego carga después el monto contado
      * con completarConteoCierreAutomatico().
      * Lo ejecuta el comando programado `caja:cerrar-vencidas`.
      * Devuelve cuántas cajas se cerraron.
@@ -209,7 +214,8 @@ class CajaService
     /**
      * Carga el monto contado de una caja que se cerró sola. Calcula la
      * diferencia contra el monto esperado que quedó guardado al cierre.
-     * Lo puede hacer el dueño o el admin (si el dueño es repartidor).
+     * Solo lo carga el admin (si el dueño es repartidor). El repartidor
+     * no: abre otra caja y carga ahí lo pendiente.
      */
     public function completarConteoCierreAutomatico(
         int $idCaja,
@@ -224,8 +230,8 @@ class CajaService
             return null;
         }
 
-        if (!$caja->perteneceA($idUsuarioSesion) && !$this->puedeCerrarCajaAjena($caja, $rolSesion)) {
-            return ['error' => true, 'mensaje' => 'No podés cargar el conteo de la caja de otro usuario.'];
+        if (!$this->puedeCerrarCajaAjena($caja, $rolSesion)) {
+            return ['error' => true, 'mensaje' => 'Solo el administrador puede cargar el conteo de una caja cerrada automáticamente.'];
         }
 
         if (!$caja->estaPendienteDeConteo()) {
@@ -250,7 +256,18 @@ class CajaService
 
     public function obtenerDetalleCierre(int $idCaja): ?array
     {
-        return $this->repositorio->buscarCierrePorId($idCaja)?->toArray();
+        $cierre = $this->repositorio->buscarCierrePorId($idCaja)?->toArray();
+
+        if ($cierre === null) {
+            return null;
+        }
+
+        // Subtotales de movimientos: efectivo por un lado, valores por el otro.
+        $subtotales = $this->repositorio->calcularSubtotalesPorMedio($idCaja);
+        $cierre['subtotal_efectivo'] = $subtotales['efectivo'];
+        $cierre['subtotal_valores'] = $subtotales['valores'];
+
+        return $cierre;
     }
 
     /**
@@ -265,7 +282,8 @@ class CajaService
         string $tipo,
         string $concepto,
         float $monto,
-        ?int $idCobro = null
+        ?int $idCobro = null,
+        string $medioPago = CajaMovimiento::MEDIO_EFECTIVO
     ): ?array {
         $caja = $this->repositorio->buscarPorId($idCaja);
 
@@ -292,6 +310,10 @@ class CajaService
             return ['error' => true, 'mensaje' => 'El monto debe ser mayor a cero.'];
         }
 
+        if (!in_array($medioPago, CajaMovimiento::MEDIOS_VALIDOS, true)) {
+            return ['error' => true, 'mensaje' => 'Medio de pago no válido.'];
+        }
+
         $ahora = Carbon::now();
 
         $movimiento = $this->repositorio->crearMovimiento([
@@ -301,6 +323,7 @@ class CajaService
             'fecha' => $ahora->toDateString(),
             'fecha_hora_carga' => $ahora,
             'tipo' => $tipo,
+            'medio_pago' => $medioPago,
             'concepto' => $concepto,
             'monto' => round($monto, 2),
         ]);
@@ -320,10 +343,26 @@ class CajaService
         string $concepto,
         ?int $idCobro = null
     ): ?array {
+        return $this->registrarCobro($idUsuario, $rol, $monto, $concepto, CajaMovimiento::MEDIO_EFECTIVO, $idCobro);
+    }
+
+    /**
+     * Cobro con cualquier medio de pago (efectivo, cheque, transferencia, otro):
+     * entra a la caja abierta de quien cobra como movimiento 'cobro' con su
+     * medio_pago. Si no tiene caja abierta se rechaza. (COB-01)
+     */
+    public function registrarCobro(
+        int $idUsuario,
+        string $rol,
+        float $monto,
+        string $concepto,
+        string $medioPago = CajaMovimiento::MEDIO_EFECTIVO,
+        ?int $idCobro = null
+    ): ?array {
         $caja = $this->repositorio->buscarCualquierAbiertaDeUsuario($idUsuario);
 
         if ($caja === null) {
-            return ['error' => true, 'mensaje' => 'No tenés una caja abierta. Abrila antes de cobrar en efectivo.'];
+            return ['error' => true, 'mensaje' => 'No tenés una caja abierta. Abrila antes de registrar el cobro.'];
         }
 
         return $this->registrarMovimiento(
@@ -333,8 +372,56 @@ class CajaService
             CajaMovimiento::TIPO_COBRO,
             $concepto,
             $monto,
-            $idCobro
+            $idCobro,
+            $medioPago
         );
+    }
+
+    /**
+     * Anulación de un cobro (COB-03): se registra una reversión que RESTA en la
+     * caja abierta de quien anula, vinculada al cobro original. La caja donde
+     * se cobró (si ya está cerrada) no se modifica. Si quien anula no tiene
+     * caja abierta, se rechaza.
+     */
+    public function registrarReversionDeCobro(
+        int $idUsuarioSesion,
+        string $rol,
+        float $monto,
+        string $concepto,
+        int $idCobro,
+        string $medioPago = CajaMovimiento::MEDIO_EFECTIVO
+    ): array {
+        if (!Caja::rolManejaCaja($rol)) {
+            return ['error' => true, 'mensaje' => 'Tu rol no maneja caja.'];
+        }
+
+        $caja = $this->repositorio->buscarCualquierAbiertaDeUsuario($idUsuarioSesion);
+
+        if ($caja === null) {
+            return ['error' => true, 'mensaje' => 'No tenés una caja abierta. Abrila antes de anular el cobro.'];
+        }
+
+        if ($monto <= 0) {
+            return ['error' => true, 'mensaje' => 'El monto debe ser mayor a cero.'];
+        }
+
+        if (!in_array($medioPago, CajaMovimiento::MEDIOS_VALIDOS, true)) {
+            return ['error' => true, 'mensaje' => 'Medio de pago no válido.'];
+        }
+
+        $ahora = Carbon::now();
+
+        return $this->repositorio->crearMovimiento([
+            'id_caja' => $caja->id_caja,
+            'id_cobro' => $idCobro,
+            'id_usuario' => $idUsuarioSesion,
+            'fecha' => $ahora->toDateString(),
+            'fecha_hora_carga' => $ahora,
+            'tipo' => CajaMovimiento::TIPO_REVERSION,
+            'medio_pago' => $medioPago,
+            'concepto' => $concepto,
+            'monto' => round($monto, 2),
+        ])->toArray();
     }
 
     public function obtenerMovimiento(int $idMovimiento): ?array

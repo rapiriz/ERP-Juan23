@@ -93,18 +93,31 @@ class CajaCierreAutomaticoTest extends TestCase
 
     // ---------- Cargar el conteo después ----------
 
-    public function test_el_repartidor_carga_el_conteo_y_se_calcula_la_diferencia(): void
+    public function test_el_repartidor_no_carga_el_conteo_de_su_caja_cerrada_sola(): void
+    {
+        // Decisión 6: el repartidor abre otra caja y carga ahí lo pendiente.
+        $repo = Mockery::mock(CajaRepository::class);
+        $repo->shouldReceive('buscarPorId')->with(7)->andReturn($this->cajaCerradaSola());
+        $repo->shouldReceive('guardar')->never();
+
+        $r = (new CajaService($repo))->completarConteoCierreAutomatico(7, 3, 1250.0, null, Caja::ROL_REPARTIDOR);
+
+        $this->assertTrue($r['error']);
+    }
+
+    public function test_el_admin_carga_el_conteo_y_se_calcula_la_diferencia(): void
     {
         $repo = Mockery::mock(CajaRepository::class);
         $repo->shouldReceive('buscarPorId')->with(7)->andReturn($this->cajaCerradaSola());
+        $repo->shouldReceive('rolDeUsuario')->with(3)->andReturn(Caja::ROL_REPARTIDOR);
         $repo->shouldReceive('guardar')->once()->andReturnUsing(fn ($c) => $c);
 
-        $r = (new CajaService($repo))->completarConteoCierreAutomatico(7, 3, 1250.0, null, Caja::ROL_REPARTIDOR);
+        $r = (new CajaService($repo))->completarConteoCierreAutomatico(7, 1, 1250.0, null, Caja::ROL_ADMIN);
 
         $this->assertArrayNotHasKey('error', $r);
         $this->assertEquals(1250, $r['monto_final']);
         $this->assertEquals(-50, $r['diferencia']);        // 1250 - 1300
-        $this->assertEquals(3, $r['id_usuario_cierre']);
+        $this->assertEquals(1, $r['id_usuario_cierre']);
     }
 
     public function test_el_admin_carga_el_conteo_de_la_caja_de_un_repartidor(): void
