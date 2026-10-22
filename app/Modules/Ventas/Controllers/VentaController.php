@@ -3,8 +3,8 @@
 namespace App\Modules\Ventas\Controllers;
 
 use App\Http\Controllers\Controller;
-use App\Services\MockClienteApi;
-use App\Services\MockProductoApi;
+use App\Modules\Ventas\Contracts\ClienteGateway;
+use App\Modules\Ventas\Contracts\ProductoGateway;
 use App\Services\MockUsuarioApi;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -14,7 +14,7 @@ use Illuminate\Validation\ValidationException;
 
 class VentaController extends Controller
 {
-    public function index(MockClienteApi $clientes, MockProductoApi $productos)
+    public function index(ClienteGateway $clientes, ProductoGateway $productos)
     {
         return view('ventas', [
             'productos' => $productos->todos(),
@@ -22,12 +22,12 @@ class VentaController extends Controller
         ]);
     }
 
-    public function obtenerProductosSimulados(MockProductoApi $productos)
+    public function obtenerProductosSimulados(ProductoGateway $productos)
     {
         return response()->json($productos->todos());
     }
 
-    public function store(Request $request, MockClienteApi $clientes, MockProductoApi $productos)
+    public function store(Request $request, ClienteGateway $clientes, ProductoGateway $productos)
     {
         $todosLosProductos = $productos->todos();
         $datos = $request->validate([
@@ -143,7 +143,7 @@ class VentaController extends Controller
         ], 201);
     }
 
-    public function historial(MockClienteApi $clientes, MockUsuarioApi $usuarios, MockProductoApi $productos)
+    public function historial(ClienteGateway $clientes, MockUsuarioApi $usuarios, ProductoGateway $productos)
     {
         $ventas = DB::table('venta as v')
             ->select(
@@ -162,7 +162,9 @@ class VentaController extends Controller
             ->get();
 
         $clientesMock = collect($clientes->todos())->keyBy('id');
-        $productosMock = $productos->indexado();
+        $productosMock = collect($productos->todos())
+        ->keyBy('id')
+        ->all();
         $idsVentas = $ventas->pluck('id_venta')->all();
         $detalles = empty($idsVentas)
             ? collect()

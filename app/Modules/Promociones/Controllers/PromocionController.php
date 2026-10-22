@@ -5,14 +5,14 @@ namespace App\Modules\Promociones\Controllers;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use App\Modules\Promociones\Models\Promocion;
-use App\Services\MockProductoApi; // <--- Usamos el mock
+use App\Modules\Ventas\Contracts\ProductoGateway;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class PromocionController extends Controller
 {
     // GET /api/promociones
-    public function index(MockProductoApi $productos)
+    public function index(ProductoGateway $productos)
     {
         $promociones = Promocion::all();
 
@@ -24,7 +24,7 @@ class PromocionController extends Controller
             $productosArray = $detallesPivot->map(function ($pivot) use ($productos) {
                 return [
                     'id_producto' => $pivot->id_producto,
-                    'nombre'      => $productos->nombre($pivot->id_producto),
+                    'nombre' => $productos->buscar((int) $pivot->id_producto)['nombre'] ?? "Producto #{$pivot->id_producto}",
                     'cantidad'    => $pivot->cantidad
                 ];
             });
@@ -46,7 +46,7 @@ class PromocionController extends Controller
     }
 
     // POST /api/promociones
-    public function store(Request $request, MockProductoApi $productos)
+    public function store(Request $request, ProductoGateway $productos)
     {
         $datos = $this->validarPromocion($request, $productos);
         DB::beginTransaction();
@@ -81,7 +81,7 @@ class PromocionController extends Controller
     }
 
     // GET /api/promociones/{id}
-    public function show($id, MockProductoApi $productos)
+    public function show($id, ProductoGateway $productos)
     {
         $promo = Promocion::find($id);
         if (!$promo) return response()->json(['mensaje' => 'No encontrada'], 404);
@@ -90,7 +90,7 @@ class PromocionController extends Controller
         $productosArray = $detallesPivot->map(function ($pivot) use ($productos) {
             return [
                 'id_producto' => $pivot->id_producto,
-                'nombre'      => $productos->nombre($pivot->id_producto),
+                'nombre' => $productos->buscar((int) $pivot->id_producto)['nombre'] ?? "Producto #{$pivot->id_producto}",
                 'cantidad'    => $pivot->cantidad
             ];
         });
@@ -111,7 +111,7 @@ class PromocionController extends Controller
     }
 
     // PUT /api/promociones/{id}
-    public function update(Request $request, $id, MockProductoApi $productos)
+    public function update(Request $request, $id, ProductoGateway $productos)
     {
         $promocion = Promocion::find($id);
         if (!$promocion) return response()->json(['mensaje' => 'No encontrada'], 404);
@@ -150,7 +150,7 @@ class PromocionController extends Controller
         }
     }
 
-    private function validarPromocion(Request $request, MockProductoApi $productos): array
+    private function validarPromocion(Request $request, ProductoGateway $productos): array
     {
         $todosLosProductos = $productos->todos();
 
@@ -163,7 +163,6 @@ class PromocionController extends Controller
             'valor' => ['required', 'numeric', 'min:0'],
             'estado' => ['sometimes', Rule::in(['activa', 'inactiva'])],
             'productos' => ['required', 'array', 'min:1'],
-            // Usamos el array de productos del mock para validar
             'productos.*.id_producto' => ['required', 'integer', Rule::in(array_column($todosLosProductos, 'id'))],
             'productos.*.cantidad' => ['required', 'integer', 'min:1', 'max:9999'],
         ]);
