@@ -12,8 +12,7 @@ return new class extends Migration
             $table->decimal('monto_anterior', 12, 2)->nullable();
             $table->unsignedInteger('id_usuario_modificacion')->nullable();
             $table->dateTime('fecha_hora_modificacion')->nullable();
-            $table->unsignedInteger('id_cobro')->nullable();
-            $table->foreign('id_cobro')->references('id_cobro')->on('COBRO');
+            $table->unsignedInteger('id_cobro')->nullable()->comment('ID lógico de cobro asociado');
         });
 
         Schema::table('CAJA', function (Blueprint $table) {
@@ -24,7 +23,6 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('CAJA_MOVIMIENTO', function (Blueprint $table) {
-            $table->dropForeign(['id_cobro']);
             $table->dropColumn(['monto_anterior', 'id_usuario_modificacion', 'fecha_hora_modificacion', 'id_cobro']);
         });
 

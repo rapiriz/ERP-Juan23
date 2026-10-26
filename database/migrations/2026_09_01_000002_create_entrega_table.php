@@ -4,19 +4,15 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Tabla: entrega (Módulo Entregas / Logística - Grupo 2)
+ * Viajes y hojas de ruta asignadas a repartidores.
+ */
 return new class extends Migration
 {
     public function up(): void
     {
-        // Limpiar residuos de tablas que no pertenecen al Grupo 2 si existieran
-        Schema::dropIfExists('detalle_venta');
-        Schema::dropIfExists('producto');
-        Schema::dropIfExists('VENTA');
-        Schema::dropIfExists('CLIENTE');
-        Schema::dropIfExists('USUARIO');
-
-        // Tabla propia de Grupo 2: ENTREGA (Hoja de ruta / viaje del repartidor)
-        if (!Schema::hasTable('entrega') && !Schema::hasTable('ENTREGA')) {
+        if (!Schema::hasTable('entrega')) {
             Schema::create('entrega', function (Blueprint $table) {
                 $table->increments('id_entrega');
                 $table->unsignedInteger('id_repartidor')->comment('ID lógico del usuario repartidor');
@@ -24,7 +20,10 @@ return new class extends Migration
                 $table->date('fecha_salida')->nullable();
                 $table->string('estado', 30)->default('en_preparacion');
                 $table->text('observaciones')->nullable();
-                $table->unsignedInteger('id_usuario_creacion')->default(1)->comment('ID lógico de usuario creador');
+                $table->unsignedInteger('id_usuario_creacion')->default(1)->comment('ID lógico del usuario que planificó la entrega');
+
+                $table->index('id_repartidor', 'idx_entrega_repartidor');
+                $table->index('estado', 'idx_entrega_estado');
             });
         }
     }
@@ -32,6 +31,5 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('entrega');
-        Schema::dropIfExists('ENTREGA');
     }
 };

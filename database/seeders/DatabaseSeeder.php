@@ -33,6 +33,30 @@ class DatabaseSeeder extends Seeder
             ], ['id_zona'], ['nombre', 'descripcion']);
         }
 
+        // 1.2 Entregas (Hojas de ruta / viajes de reparto)
+        if (Schema::hasTable('entrega')) {
+            DB::table('entrega')->upsert([
+                [
+                    'id_entrega' => 1,
+                    'id_repartidor' => 1, // Matías Repartidor
+                    'fecha_creacion' => now()->startOfDay()->addHours(8),
+                    'fecha_salida' => now()->toDateString(),
+                    'estado' => 'finalizada',
+                    'observaciones' => 'Reparto urbano Pigüé',
+                    'id_usuario_creacion' => 1,
+                ],
+                [
+                    'id_entrega' => 2,
+                    'id_repartidor' => 1, // Matías Repartidor
+                    'fecha_creacion' => now()->subDay()->startOfDay()->addHours(8),
+                    'fecha_salida' => now()->subDay()->toDateString(),
+                    'estado' => 'finalizada',
+                    'observaciones' => 'Reparto Saavedra y Tornquist',
+                    'id_usuario_creacion' => 1,
+                ],
+            ], ['id_entrega'], ['id_repartidor', 'fecha_salida', 'estado', 'observaciones']);
+        }
+
         // 1.3 Entrega - Pedidos (Asociación con IDs lógicos de ventas de G4)
         if (Schema::hasTable('entrega_pedido')) {
             DB::table('entrega_pedido')->upsert([
@@ -82,7 +106,7 @@ class DatabaseSeeder extends Seeder
                     'id_usuario_cierre' => null,
                     'fecha_hora_apertura' => now()->startOfDay()->addHours(8),
                     'fecha_hora_cierre' => null,
-                    'fecha_vencimiento' => now()->toDateString(),
+                    'fecha_hora_vencimiento' => now()->addDays(3),
                     'observaciones' => 'Caja operativa diaria abierta para recepción de cobranzas de repartos.',
                 ],
                 [
@@ -98,7 +122,7 @@ class DatabaseSeeder extends Seeder
                     'id_usuario_cierre' => null,
                     'fecha_hora_apertura' => now()->startOfDay()->addHours(8),
                     'fecha_hora_cierre' => null,
-                    'fecha_vencimiento' => now()->toDateString(),
+                    'fecha_hora_vencimiento' => now()->addDays(3),
                     'observaciones' => 'Caja de administración central.',
                 ],
             ], ['id_caja'], ['id_usuario', 'fecha', 'monto_inicial', 'estado', 'observaciones']);

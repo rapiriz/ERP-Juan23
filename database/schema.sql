@@ -174,7 +174,7 @@ CREATE TABLE `CAJA` (
     `id_usuario_cierre` INT NULL,
     `fecha_hora_apertura` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `fecha_hora_cierre` DATETIME NULL,
-    `fecha_vencimiento` DATE NULL,
+    `fecha_hora_vencimiento` DATETIME NULL,
     `observaciones` VARCHAR(500) NULL,
     INDEX `idx_caja_usuario_estado` (`id_usuario`, `estado`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
