@@ -15,6 +15,7 @@ export function filterSales(sales, filters) {
             || sale.detalle.some((item) => String(item.id_producto) === String(filters.productoId));
         const matchesLocality = !filters.localidad
             || sale.localidad === filters.localidad;
+        const matchesCancelled = filters.showCancelled || sale.estado !== 'cancelada';
         const saleDate = String(sale.fecha_iso ?? sale.fecha ?? '').slice(0, 10);
         const matchesStartDate = !filters.fechaDesde || saleDate >= filters.fechaDesde;
         const matchesEndDate = !filters.fechaHasta || saleDate <= filters.fechaHasta;
@@ -23,6 +24,7 @@ export function filterSales(sales, filters) {
             && matchesClient
             && matchesProduct
             && matchesLocality
+            && matchesCancelled
             && matchesStartDate
             && matchesEndDate;
     });
@@ -47,6 +49,7 @@ export function initializeSalesHistory() {
     const localitySelect = document.getElementById('fLocalidad');
     const startDateInput = document.getElementById('fDesde');
     const endDateInput = document.getElementById('fHasta');
+    const cancelledToggle = document.getElementById('fCanceladas');
     const clearButton = document.getElementById('limpiarFiltros');
     const noResults = document.getElementById('sinResultados');
     const counter = document.getElementById('contadorVentas');
@@ -58,6 +61,7 @@ export function initializeSalesHistory() {
         clienteId: '',
         productoId: '',
         localidad: '',
+        showCancelled: false,
         fechaDesde: '',
         fechaHasta: '',
     };
@@ -77,10 +81,12 @@ export function initializeSalesHistory() {
         filters.clienteId = clientSelect.value;
         filters.productoId = productSelect.value;
         filters.localidad = localitySelect.value;
+        filters.showCancelled = cancelledToggle.checked;
         filters.fechaDesde = startDateInput.value;
         filters.fechaHasta = endDateInput.value;
 
         const filteredSales = filterSales(sales, filters);
+        const completedSales = filteredSales.filter((sale) => sale.estado !== 'cancelada');
         const visibleIds = new Set(filteredSales.map((sale) => String(sale.id)));
 
         for (const [saleId, row] of saleRows) {
@@ -90,15 +96,15 @@ export function initializeSalesHistory() {
         noResults.hidden = filteredSales.length > 0;
         counter.textContent = `${filteredSales.length} ventas`;
         document.querySelector('[data-kpi="total-vendido"]').textContent = formatCurrency(
-            filteredSales.reduce((sum, sale) => sum + Number(sale.total), 0)
+            completedSales.reduce((sum, sale) => sum + Number(sale.total), 0)
         );
         document.querySelector('[data-kpi="descuentos"]').textContent = formatCurrency(
-            filteredSales.reduce((sum, sale) => sum + Number(sale.descuento), 0)
+            completedSales.reduce((sum, sale) => sum + Number(sale.descuento), 0)
         );
         document.querySelector('[data-kpi="en-cc"]').textContent = formatCurrency(
-            filteredSales.reduce((sum, sale) => sum + (sale.cc ? Number(sale.total) : 0), 0)
+            completedSales.reduce((sum, sale) => sum + (sale.cc ? Number(sale.total) : 0), 0)
         );
-        document.querySelector('[data-kpi="cantidad"]').textContent = String(filteredSales.length);
+        document.querySelector('[data-kpi="cantidad"]').textContent = String(completedSales.length);
     };
 
     searchInput.addEventListener('input', updateFilters);
@@ -106,6 +112,7 @@ export function initializeSalesHistory() {
     form.querySelectorAll('select, input[type="date"]').forEach((control) => {
         control.addEventListener('change', updateFilters);
     });
+    cancelledToggle.addEventListener('change', updateFilters);
     clearButton.addEventListener('click', () => {
         form.reset();
         updateFilters();
@@ -118,6 +125,8 @@ export function initializeSalesHistory() {
             row.classList.toggle('abierta', opened);
         });
     });
+
+    updateFilters();
 }
 
 if (typeof document !== 'undefined') {

@@ -16,7 +16,7 @@ class VentaController extends Controller
 {
     public function index(MockClienteApi $clientes, MockProductoApi $productos)
     {
-        return view('ventas', [
+        return view('ventas.ventas', [
             'productos' => $productos->todos(),
             'clientes' => $clientes->todos(),
         ]);
@@ -263,7 +263,7 @@ class VentaController extends Controller
             ->map(fn ($producto) => ['id_producto' => $producto['id'], 'nombre' => $producto['nombre']])
             ->values();
 
-        return view('historial-ventas', compact(
+        return view('historial-ventas.historial-ventas', compact(
             'ventas', 'kpis', 'clientesFiltro', 'productosFiltro'
         ));
     }

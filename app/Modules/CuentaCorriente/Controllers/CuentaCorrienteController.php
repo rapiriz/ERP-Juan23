@@ -36,7 +36,7 @@ class CuentaCorrienteController extends Controller
         }
         unset($cliente);
 
-        return view('saldo', ['clientes' => $listado]);
+        return view('saldos.saldo', ['clientes' => $listado]);
     }
 
     public function registrarMovimiento(Request $request, int $cliente, MockClienteApi $clientes): JsonResponse

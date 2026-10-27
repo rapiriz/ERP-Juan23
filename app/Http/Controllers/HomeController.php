@@ -12,12 +12,12 @@ class HomeController extends Controller
     public function promociones()
     {
         // Placeholder — acá irá el módulo real de promociones
-        return view('promociones');
+        return view('promociones.promociones');
     }
 
     public function ventas()
     {
         // Placeholder — acá irá el POS / módulo de ventas
-        return view('ventas');
+        return view('ventas.ventas');
     }
 }
