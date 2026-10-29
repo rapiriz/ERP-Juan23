@@ -273,10 +273,6 @@
                     <i data-lucide="refresh-cw" class="w-4 h-4"></i>
                     <span>Escanear y Generar Sugerencias</span>
                 </button>
-                <a href="{{ url('/dashboard-reposicion') }}" class="clay-btn-secondary px-4 py-2 text-xs font-bold flex items-center gap-2">
-                    <i data-lucide="trending-up" class="w-4 h-4 text-emerald-600"></i>
-                    <span>Métricas y Dashboard</span>
-                </a>
             </div>
         </div>
 
