@@ -127,6 +127,9 @@
         letter-spacing: .5px;
         border-bottom: 1px solid var(--border);
     }
+    .carrito-header > :nth-child(5) {
+        text-align: center;
+    }
     .carrito-body {
         flex: 1;
         overflow-y: auto;
@@ -206,6 +209,30 @@
         text-align: right;
     }
     .carrito-row .num { text-align: right; font-variant-numeric: tabular-nums; }
+    .carrito-row > :nth-child(3),
+    .carrito-row > :nth-child(5) {
+        text-align: center;
+    }
+    .carrito-row > .descuento-celda {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 0;
+    }
+    .carrito-row input[data-campo="cantidad"] {
+        text-align: center;
+    }
+    .carrito-row .desc-linea {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: max-content;
+        max-width: 100%;
+        justify-self: center;
+        transform: none;
+        white-space: nowrap;
+        text-align: center;
+    }
     .carrito-row .quitar {
         background: none;
         border: none;
@@ -509,43 +536,19 @@
         background: #EFF6FF;
     }
     .desc-linea.con-desc {
-        background: #FEF3C7;
-        border: 1px solid #FCD34D;
-        color: #B45309;
+        width: max-content;
+        min-height: 0;
+        padding: .2rem .6rem;
+        border: 0;
+        border-radius: 9999px;
+        background: #ffedd5;
+        color: var(--brand-orange);
+        font-size: .85rem;
+        font-weight: 700;
     }
     .desc-linea.con-desc:hover {
-        background: #FDE68A;
-        color: #92400E;
-    }
-    /* ---------- Botón de descuento por línea ---------- */
-    .desc-linea {
-        width: 100%;
-        min-height: 38px;
-        padding: 0 .5rem;
-        border: 1px dashed var(--border);
-        border-radius: 10px;
-        background: #fff;
-        font-family: inherit;
-        font-size: .9rem;
-        font-weight: 600;
-        color: var(--muted);
-        cursor: pointer;
-        transition: all .15s;
-        font-variant-numeric: tabular-nums;
-    }
-    .desc-linea:hover {
-        border-color: var(--primary);
-        color: var(--primary);
-        background: #EFF6FF;
-    }
-    .desc-linea.con-desc {
-        background: #FEF3C7;
-        border: 1px solid #FCD34D;
-        color: #B45309;
-    }
-    .desc-linea.con-desc:hover {
-        background: #FDE68A;
-        color: #92400E;
+        background: #ffedd5;
+        color: var(--brand-orange);
     }
 
     /* ---------- Celda de subtotal con bruto tachado ---------- */
@@ -764,7 +767,7 @@
             <span>Descripción</span>
             <span style="text-align:right;">Cantidad</span>
             <span style="text-align:right;">Precio U.</span>
-            <span style="text-align:right;">Desc.</span>
+            <span>Desc.</span>
             <span style="text-align:right;">Subtotal</span>
             <span></span>
         </div>
@@ -1170,10 +1173,11 @@
                 const cantidadHTML = item.esPromocion
                     ? `<span class="num" aria-label="Cantidad promocional: ${item.cantidad}">${item.cantidad}</span>`
                     : `<input type="number" min="1" value="${item.cantidad}" data-campo="cantidad" data-line-key="${item.lineKey}">`;
-                const descuentoHTML = item.esPromocion
+                const descuentoContenidoHTML = item.esPromocion
                     ? `<span class="desc-linea ${desc > 0 ? 'con-desc' : ''}">${descLabel}</span>`
                     : `<button type="button" class="desc-linea ${desc > 0 ? 'con-desc' : ''}"
                             data-desc-linea="${item.lineKey}" title="Aplicar descuento a este producto">${descLabel}</button>`;
+                const descuentoHTML = `<span class="descuento-celda">${descuentoContenidoHTML}</span>`;
                 const quitarHTML = item.esPromocion
                     ? ''
                     : `<button class="quitar" data-quitar="${item.lineKey}" title="Quitar">✕</button>`;
