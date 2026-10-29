@@ -2,86 +2,99 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\MockProductoApi;
 use Illuminate\Http\Request;
 
 class ProductoController extends Controller
 {
-    // GET /productos[cite: 16]
+    public function __construct(private MockProductoApi $productos) {}
+
+    // GET /productos
     public function index()
     {
-        $productos = [
-            [
-                'id_producto' => 1,
-                'codigo' => 'PROD-001',
-                'descripcion' => 'Yerba Mate Playadito 1kg',
-                'nombre_categoria' => 'Almacén', //[cite: 16]
-                'nombre_marca' => 'Playadito',   //[cite: 16]
-                'precio_unitario' => 3500.00,    //[cite: 16]
-                'estado' => 'activo',            //[cite: 16]
-                'fecha_alta' => '2026-10-01'     //[cite: 16]
-            ],
-            [
-                'id_producto' => 2,
-                'codigo' => 'PROD-002',
-                'descripcion' => 'Azúcar Ledesma 1kg',
-                'nombre_categoria' => 'Almacén',
-                'nombre_marca' => 'Ledesma',
-                'precio_unitario' => 1200.00,
-                'estado' => 'activo',
-                'fecha_alta' => '2026-10-02'
-            ]
-        ];
+        $productos = collect($this->productos->todos())
+            ->map(fn ($p) => $this->formatearParaListado($p))
+            ->values();
 
         return response()->json($productos, 200);
     }
 
-    // GET /productos/{id}[cite: 16]
+    // GET /productos/{id}
     public function show($id)
     {
-        return response()->json([
-            'id_producto' => (int) $id,
-            'codigo' => 'PROD-00' . $id,
-            'descripcion' => 'Producto Simulado ' . $id,
-            'id_categoria' => 1,                 //[cite: 16]
-            'nombre_categoria' => 'Almacén',     //[cite: 16]
-            'id_marca' => 2,                     //[cite: 16]
-            'nombre_marca' => 'Marca Simulada',  //[cite: 16]
-            'precio_unitario' => 2500.00,        //[cite: 16]
-            'estado' => 'activo',                //[cite: 16]
-            'fecha_alta' => '2026-10-06',        //[cite: 16]
-            'fecha_modificacion' => null,        //[cite: 16]
-            'usuario_carga' => 'Juan Pablo',     //[cite: 16]
-            'usuario_modificacion' => null       //[cite: 16]
-        ], 200);
+        $producto = $this->productos->buscar((int) $id);
+
+        if ($producto === null) {
+            return response()->json(['mensaje' => 'Producto no encontrado'], 404);
+        }
+
+        return response()->json($this->formatearParaDetalle($producto), 200);
     }
 
-    // POST /productos[cite: 16]
+    // POST /productos
     public function store(Request $request)
     {
         $datos = $request->all();
-        $datos['id_producto'] = rand(100, 999); // Simulamos la creación del ID[cite: 16]
+        $datos['id_producto'] = rand(100, 999); // simulado
 
         return response()->json([
-            'mensaje' => 'Producto registrado exitosamente (Simulado)',
-            'producto' => $datos
+            'mensaje'  => 'Producto registrado exitosamente (Simulado)',
+            'producto' => $datos,
         ], 201);
     }
 
-    // PUT /productos/{id}[cite: 16]
+    // PUT /productos/{id}
     public function update(Request $request, $id)
     {
         return response()->json([
-            'mensaje' => 'Producto ' . $id . ' actualizado exitosamente (Simulado)',
-            'datos_nuevos' => $request->all()
+            'mensaje'      => "Producto {$id} actualizado exitosamente (Simulado)",
+            'datos_nuevos' => $request->all(),
         ], 200);
     }
 
-    // PATCH /productos/{id}/estado[cite: 16]
+    // PATCH /productos/{id}/estado
     public function updateEstado(Request $request, $id)
     {
         return response()->json([
-            'mensaje' => 'Estado del producto ' . $id . ' modificado exitosamente (Simulado)',
-            'nuevo_estado' => $request->input('estado', 'inactivo') //[cite: 16]
+            'mensaje'      => "Estado del producto {$id} modificado exitosamente (Simulado)",
+            'nuevo_estado' => $request->input('estado', 'inactivo'),
         ], 200);
+    }
+
+    // -----------------------------------------------------------------
+    // Helpers de formato
+    // -----------------------------------------------------------------
+
+    private function formatearParaListado(array $p): array
+    {
+        return [
+            'id_producto'      => $p['id'],
+            'codigo'           => $p['codigo'],
+            'descripcion'      => $p['descripcion'] ?? $p['nombre'],
+            'nombre_categoria' => $p['nombre_categoria'],
+            'nombre_marca'     => $p['nombre_marca'],
+            'precio_unitario'  => $p['precio_unitario'],
+            'estado'           => $p['estado'],
+            'fecha_alta'       => $p['fecha_alta'],
+        ];
+    }
+
+    private function formatearParaDetalle(array $p): array
+    {
+        return [
+            'id_producto'          => $p['id'],
+            'codigo'               => $p['codigo'],
+            'descripcion'          => $p['descripcion'] ?? $p['nombre'],
+            'id_categoria'         => $p['id_categoria'],
+            'nombre_categoria'     => $p['nombre_categoria'],
+            'id_marca'             => $p['id_marca'],
+            'nombre_marca'         => $p['nombre_marca'],
+            'precio_unitario'      => $p['precio_unitario'],
+            'estado'               => $p['estado'],
+            'fecha_alta'           => $p['fecha_alta'],
+            'fecha_modificacion'   => $p['fecha_modificacion'],
+            'usuario_carga'        => $p['usuario_carga'],
+            'usuario_modificacion' => $p['usuario_modificacion'],
+        ];
     }
 }

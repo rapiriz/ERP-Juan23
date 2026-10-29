@@ -1246,6 +1246,10 @@
                     cliente_id: Number($('clienteVenta').value),
                     lista: listaActual,
                     observaciones: cobroObservaciones.value.trim(),
+                    descuento_global: {
+                        modo: descuentoGlobal.modo,
+                        valor: Number(descuentoGlobal.valor) || 0
+                    },
                     items: carrito.map(item => ({
                         id: item.id,
                         cantidad: item.cantidad,

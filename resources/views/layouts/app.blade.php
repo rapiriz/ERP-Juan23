@@ -130,6 +130,91 @@
                 font-size: 1.05rem;
             }
 
+            .sidebar-header {
+                display: flex;
+                align-items: flex-start;
+                gap: .65rem;
+            }
+
+            .sidebar-toggle {
+                display: inline-flex;
+                flex: 0 0 40px;
+                align-items: center;
+                justify-content: center;
+                width: 40px;
+                height: 40px;
+                min-height: 40px;
+                padding: 0;
+                border: 0;
+                border-radius: 12px;
+                background: rgba(255, 255, 255, 0.12);
+                color: #fff;
+                font: inherit;
+                font-size: 1.6rem;
+                line-height: 1;
+                cursor: pointer;
+                transition: background .15s ease;
+            }
+
+            .sidebar-toggle:hover {
+                background: rgba(255, 255, 255, 0.22);
+            }
+
+            .sidebar-toggle-icon {
+                transition: transform .2s ease;
+            }
+
+            .app-layout.sidebar-collapsed {
+                grid-template-columns: 76px minmax(0, 1fr);
+            }
+
+            .sidebar-collapsed .clay-sidebar {
+                align-items: center;
+                padding: 1rem .5rem;
+            }
+
+            .sidebar-collapsed .sidebar-header {
+                justify-content: center;
+            }
+
+            .sidebar-collapsed .sidebar-brand,
+            .sidebar-collapsed .sidebar-label {
+                display: none;
+            }
+
+            .sidebar-collapsed .sidebar-nav {
+                width: 100%;
+            }
+
+            .sidebar-collapsed .sidebar-link {
+                justify-content: center;
+                gap: 0;
+                padding: .85rem .5rem;
+            }
+
+            .sidebar-collapsed .sidebar-link .ico {
+                width: auto;
+                font-size: 1.3rem;
+            }
+
+            .sidebar-collapsed .sidebar-toggle-icon {
+                transform: rotate(180deg);
+            }
+
+            @media (max-width: 640px) {
+                .app-layout {
+                    grid-template-columns: 200px minmax(0, 1fr);
+                }
+
+                .app-layout.sidebar-collapsed {
+                    grid-template-columns: 64px minmax(0, 1fr);
+                }
+
+                .main-area {
+                    padding: 1rem .75rem;
+                }
+            }
+
             /* ---------- Área principal ---------- */
             .main-area {
                 padding: 1.5rem;
