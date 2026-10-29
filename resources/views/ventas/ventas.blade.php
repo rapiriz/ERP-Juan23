@@ -141,6 +141,60 @@
         font-size: .95rem;
         border-bottom: 1px solid #F1F5F9;
     }
+    .carrito-grupo {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: .55rem 1.25rem;
+        background: #F8FAFC;
+        color: var(--muted);
+        font-size: .72rem;
+        font-weight: 700;
+        letter-spacing: .5px;
+        text-transform: uppercase;
+        border-bottom: 1px solid var(--border);
+    }
+    .carrito-promocion-items {
+        position: relative;
+    }
+    .carrito-promocion-items .quitar-promocion {
+        position: absolute;
+        top: 50%;
+        right: 1.25rem;
+        transform: translateY(-50%);
+        width: 32px;
+        height: 32px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        border: none;
+        border-radius: 8px;
+        background: transparent;
+        color: var(--danger);
+        font: inherit;
+        font-size: 1.1rem;
+        line-height: 1;
+        cursor: pointer;
+    }
+    .carrito-promocion-items .quitar-promocion:hover {
+        background: #FEE2E2;
+    }
+    .carrito-row.es-promocion {
+        background: #EFF6FF;
+        border-left: 4px solid var(--primary);
+    }
+    .promo-linea-badge {
+        display: inline-block;
+        margin-left: .4rem;
+        padding: .12rem .4rem;
+        border-radius: 9999px;
+        background: #DBEAFE;
+        color: #1D4ED8;
+        font-size: .65rem;
+        font-weight: 700;
+        vertical-align: middle;
+    }
     .carrito-row input {
         width: 100%;
         min-height: 38px;
@@ -874,8 +928,9 @@
     let listaActual = 'minorista'; // o 'mayorista'
     let descuentoGlobal = { modo: 'porcentaje', valor: 0 }; // valor: % o $ según modo
     let modoDescTemporal = 'porcentaje';
-    let itemDescTarget = null; // null = descuento global; id = descuento de esa línea
-    const carrito = []; // { id, codigo, nombre, cantidad, precioUnit, descuento }
+    let itemDescTarget = null; // null = descuento global; lineKey = descuento de esa línea
+    const carrito = []; // cada fila tiene una lineKey propia y puede pertenecer a una promo
+    let siguienteIdLinea = 1;
     let ventaEnCurso = false;
 
     const $ = (id) => document.getElementById(id);
@@ -957,16 +1012,18 @@
         const p = PRODUCTOS.find(x => x.id === id);
         if (!p) return;
 
-        const existente = carrito.find(x => x.id === id);
+        const existente = carrito.find(x => x.id === id && !x.esPromocion);
         if (existente) {
             existente.cantidad += 1;
         } else {
             carrito.push({
+                lineKey: siguienteIdLinea++,
                 id: p.id,
                 codigo: p.codigo,
                 nombre: p.nombre,
                 cantidad: 1,
                 precioUnit: precioDe(p),
+                esPromocion: false,
                 descuentoMonto: 0,
                 descuentoInputModo: null,
                 descuentoInputValor: null
@@ -975,9 +1032,22 @@
         render();
     }
 
-    function quitarProducto(id) {
-        const i = carrito.findIndex(x => x.id === id);
+    function quitarProducto(lineKey) {
+        const i = carrito.findIndex(x => x.lineKey === lineKey);
         if (i >= 0) carrito.splice(i, 1);
+        render();
+    }
+    function claveGrupoPromocion(item) {
+        return item.promocionId != null
+            ? `promo-${item.promocionId}`
+            : String(item.promocionInstanciaId ?? `promo-${item.lineKey}`);
+    }
+    function quitarPromocion(clavePromocion) {
+        for (let i = carrito.length - 1; i >= 0; i--) {
+            if (carrito[i].esPromocion && claveGrupoPromocion(carrito[i]) === clavePromocion) {
+                carrito.splice(i, 1);
+            }
+        }
         render();
     }
     function descuentoLineaMonto(item) {
@@ -1020,53 +1090,122 @@
             $('resumenItems').textContent = '0 art. · 0 unid.';
             $('totalMonto').textContent = '$ 0,00';
             btnCobrar.disabled = true;
+            localStorage.setItem('pos_carrito', JSON.stringify(carrito));
+            localStorage.setItem('pos_descuento', JSON.stringify(descuentoGlobal));
             return;
         }
 
         vacio.style.display = 'none';
 
-        body.innerHTML = carrito.map(item => {
-            /* ---- columna Desc. (botón) ---- */
-            const desc = descuentoLineaMonto(item);
-            let descLabel;
-            if (desc <= 0) {
-                descLabel = '—';
-            } else if (item.descuentoInputModo === 'porcentaje' && item.descuentoInputValor) {
-                descLabel = '-' + item.descuentoInputValor + '%';
-            } else {
-                descLabel = '-$' + desc.toLocaleString('es-AR', { maximumFractionDigits: 2 });
+        const gruposCarrito = [];
+        const itemsNormales = carrito.filter(item => !item.esPromocion);
+        if (itemsNormales.length) {
+            gruposCarrito.push({ tipo: 'normal', items: itemsNormales });
+        }
+
+        const gruposPromociones = new Map();
+        carrito.filter(item => item.esPromocion).forEach(item => {
+            const clavePromocion = claveGrupoPromocion(item);
+            if (!gruposPromociones.has(clavePromocion)) {
+                gruposPromociones.set(clavePromocion, { tipo: 'promocion', clavePromocion, nombre: item.promocionNombre || 'Promoción', items: [] });
+            }
+            gruposPromociones.get(clavePromocion).items.push(item);
+        });
+        gruposCarrito.push(...gruposPromociones.values());
+
+        const escaparHtml = (valor) => String(valor).replace(/[&<>"']/g, caracter => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;',
+        })[caracter]);
+
+        body.innerHTML = gruposCarrito.map(grupo => {
+            const encabezadoGrupo = grupo.tipo === 'promocion'
+                ? `<div class="carrito-grupo">
+                    <span>Promoción: ${escaparHtml(grupo.nombre)}</span>
+                </div>`
+                : '<div class="carrito-grupo">Productos sin promoción</div>';
+
+            const itemsParaMostrar = grupo.tipo !== 'promocion'
+                ? grupo.items
+                : Array.from(grupo.items.reduce((agrupados, item) => {
+                    const clave = String(item.id ?? item.codigo);
+                    const existente = agrupados.get(clave);
+                    if (existente) {
+                        existente.cantidad += Number(item.cantidad) || 0;
+                        existente.descuentoMonto += Number(item.descuentoMonto) || 0;
+                        if (existente.descuentoInputModo === 'porcentaje'
+                            && item.descuentoInputModo === 'porcentaje'
+                            && existente.descuentoInputValor !== item.descuentoInputValor) {
+                            existente.descuentoInputModo = null;
+                            existente.descuentoInputValor = null;
+                        }
+                    } else {
+                        agrupados.set(clave, { ...item });
+                    }
+                    return agrupados;
+                }, new Map()).values());
+
+            const filas = itemsParaMostrar.map(item => {
+                /* ---- columna Desc. ---- */
+                const desc = descuentoLineaMonto(item);
+                let descLabel;
+                if (desc <= 0) {
+                    descLabel = '—';
+                } else if (item.descuentoInputModo === 'porcentaje' && item.descuentoInputValor) {
+                    descLabel = '-' + item.descuentoInputValor + '%';
+                } else {
+                    descLabel = '-$' + desc.toLocaleString('es-AR', { maximumFractionDigits: 2 });
+                }
+
+                /* ---- columna Subtotal (bruto tachado + neto) ---- */
+                const bruto = brutoLinea(item);
+                const neto = netoLinea(item);
+                const subtotalHTML = desc > 0
+                    ? `<span class="sub-bruto">$${bruto.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
+                    <span class="sub-neto">$${neto.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2})}</span>`
+                    : `<span class="num">$${neto.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2})}</span>`;
+                const cantidadHTML = item.esPromocion
+                    ? `<span class="num" aria-label="Cantidad promocional: ${item.cantidad}">${item.cantidad}</span>`
+                    : `<input type="number" min="1" value="${item.cantidad}" data-campo="cantidad" data-line-key="${item.lineKey}">`;
+                const descuentoHTML = item.esPromocion
+                    ? `<span class="desc-linea ${desc > 0 ? 'con-desc' : ''}">${descLabel}</span>`
+                    : `<button type="button" class="desc-linea ${desc > 0 ? 'con-desc' : ''}"
+                            data-desc-linea="${item.lineKey}" title="Aplicar descuento a este producto">${descLabel}</button>`;
+                const quitarHTML = item.esPromocion
+                    ? ''
+                    : `<button class="quitar" data-quitar="${item.lineKey}" title="Quitar">✕</button>`;
+
+                return `
+                    <div class="carrito-row ${item.esPromocion ? 'es-promocion' : ''}" data-line-key="${item.lineKey}">
+                        <span>${item.codigo}</span>
+                        <span>${item.nombre}${item.esPromocion ? ' <span class="promo-linea-badge">PROMO</span>' : ''}</span>
+                        ${cantidadHTML}
+                        <span class="num">$${Number(item.precioUnit).toLocaleString('es-AR')}</span>
+                        ${descuentoHTML}
+                        <span class="subtotal-cell">${subtotalHTML}</span>
+                        ${quitarHTML}
+                    </div>
+                `;
+            }).join('');
+
+            if (grupo.tipo === 'promocion') {
+                return `${encabezadoGrupo}<div class="carrito-promocion-items">
+                    ${filas}
+                    <button type="button" class="quitar-promocion" data-quitar-promocion="${escaparHtml(grupo.clavePromocion)}"
+                        aria-label="Eliminar promoción ${escaparHtml(grupo.nombre)} completa" title="Eliminar promoción">✕</button>
+                </div>`;
             }
 
-            /* ---- columna Subtotal (bruto tachado + neto) ---- */
-            const bruto = brutoLinea(item);
-            const neto = netoLinea(item);
-            const subtotalHTML = desc > 0
-                ? `<span class="sub-bruto">$${bruto.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
-                <span class="sub-neto">$${neto.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2})}</span>`
-                : `<span class="num">$${neto.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2})}</span>`;
-            return `
-                <div class="carrito-row" data-id="${item.id}">
-                    <span>${item.codigo}</span>
-                    <span>${item.nombre}</span>
-                    <input type="number" min="1" value="${item.cantidad}"
-                        data-campo="cantidad" data-id="${item.id}">
-                    <span class="num">$${Number(item.precioUnit).toLocaleString('es-AR')}</span>
-                    <button type="button"
-                            class="desc-linea ${desc > 0 ? 'con-desc' : ''}"
-                            data-desc-linea="${item.id}"
-                            title="Aplicar descuento a este producto">
-                        ${descLabel}
-                    </button>
-                    <span class="subtotal-cell">${subtotalHTML}</span>
-                    <button class="quitar" data-quitar="${item.id}" title="Quitar">✕</button>
-                </div>
-            `;
+            return `${encabezadoGrupo}${filas}`;
         }).join('');
 
         body.querySelectorAll('input[data-campo="cantidad"]').forEach(inp => {
             inp.addEventListener('change', (e) => {
-                const id = Number(e.target.dataset.id);
-                const item = carrito.find(x => x.id === id);
+                const lineKey = Number(e.target.dataset.lineKey);
+                const item = carrito.find(x => x.lineKey === lineKey);
                 if (!item) return;
 
                 let val = Number(e.target.value) || 0;
@@ -1078,6 +1217,9 @@
 
         body.querySelectorAll('[data-quitar]').forEach(btn => {
             btn.addEventListener('click', () => quitarProducto(Number(btn.dataset.quitar)));
+        });
+        body.querySelectorAll('[data-quitar-promocion]').forEach(btn => {
+            btn.addEventListener('click', () => quitarPromocion(btn.dataset.quitarPromocion));
         });
 
         // --- Resumen de items ---
@@ -1308,7 +1450,7 @@
 
     /**
      * Abre el modal.
-     * @param {number|null} itemId  null = descuento global; number = id de producto
+     * @param {number|null} itemId  null = descuento global; number = lineKey de carrito
      */
     function abrirModalDesc(itemId = null) {
         if (!carrito.length) {
@@ -1325,19 +1467,13 @@
             descInput.value = descuentoGlobal.valor || '';
         } else {
             // Modo línea
-            if (itemId === null) {
-                modalDescTitulo.textContent = 'Descuento sobre el Total';
-                modoDescTemporal = descuentoGlobal.modo;
-                descInput.value  = descuentoGlobal.valor || '';
-            } else {
-                const item = carrito.find(x => x.id === itemId);
-                if (!item) return;
-                modalDescTitulo.textContent = `Descuento: ${item.nombre}`;
+            const item = carrito.find(x => x.lineKey === itemId);
+            if (!item) return;
+            modalDescTitulo.textContent = `Descuento: ${item.nombre}`;
 
-                // Recuperar cómo lo había cargado el usuario
-                modoDescTemporal = item.descuentoInputModo || 'monto';
-                descInput.value  = item.descuentoInputValor ?? (item.descuentoMonto || '');
-            }
+            // Recuperar cómo lo había cargado el usuario
+            modoDescTemporal = item.descuentoInputModo || 'monto';
+            descInput.value  = item.descuentoInputValor ?? (item.descuentoMonto || '');
         }
 
         actualizarModoDescUI();
@@ -1395,7 +1531,7 @@
             }
         } else {
             // Línea → base = bruto de la línea
-            const item = carrito.find(x => x.id === itemDescTarget);
+            const item = carrito.find(x => x.lineKey === itemDescTarget);
             if (!item) return;
             base = brutoLinea(item);
             if (modoDescTemporal === 'porcentaje') {
@@ -1472,7 +1608,7 @@
             localStorage.setItem('pos_descuento', JSON.stringify(descuentoGlobal));
         } else {
             // ---- LÍNEA ----
-            const item = carrito.find(x => x.id === itemDescTarget);
+            const item = carrito.find(x => x.lineKey === itemDescTarget);
             if (!item) return;
 
             let monto = 0;
@@ -1511,6 +1647,7 @@
         if (guardado) {
             try {
                 const items = JSON.parse(guardado);
+                const lineKeys = new Set();
                 items.forEach(x => {
                     // Compatibilidad con la estructura anterior
                     if (typeof x.descuentoMonto === 'undefined') {
@@ -1526,6 +1663,20 @@
                     x.descuentoMonto      = Number(x.descuentoMonto) || 0;
                     x.descuentoInputModo  ??= null;
                     x.descuentoInputValor ??= null;
+                    x.esPromocion = Boolean(x.esPromocion);
+                    let lineKey = Number(x.lineKey);
+                    if (!Number.isInteger(lineKey) || lineKey < 1 || lineKeys.has(lineKey)) {
+                        lineKey = siguienteIdLinea++;
+                    } else {
+                        siguienteIdLinea = Math.max(siguienteIdLinea, lineKey + 1);
+                    }
+                    x.lineKey = lineKey;
+                    if (x.esPromocion) {
+                        x.promocionInstanciaId = String(x.promocionId != null
+                            ? `promo-${x.promocionId}`
+                            : x.promocionInstanciaId ?? `promo-${lineKey}`);
+                    }
+                    lineKeys.add(lineKey);
                     carrito.push(x);
                 });
             } catch (e) {}

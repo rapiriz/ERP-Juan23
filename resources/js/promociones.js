@@ -24,6 +24,21 @@ document.addEventListener("DOMContentLoaded", () => {
     const sugerenciasProductos = document.getElementById("sugerencias-productos-promo");
     const contenedorTags = document.getElementById("lista-productos-tags");
     const inputProductosOculto = document.getElementById("promo-productos-oculto");
+    const contadorProductos = document.getElementById("contador-productos-promo");
+    const errorProductos = document.getElementById("error-productos-promo");
+    const botonAgregarProducto = document.getElementById("btn-agregar-producto");
+    const resumenPrecioNormal = document.getElementById("resumen-precio-normal");
+    const resumenDescuento = document.getElementById("resumen-descuento");
+    const resumenPrecioPromo = document.getElementById("resumen-precio-promo");
+    const errorDescuento = document.getElementById("error-descuento-promo");
+    const formatoMoneda = new Intl.NumberFormat("es-AR", {
+        style: "currency",
+        currency: "ARS",
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    });
+    let coincidenciasActuales = [];
+    let indiceSugerenciaActiva = 0;
 
     // Filtros y Vista previa
     const inputBusqueda = document.getElementById("input-busqueda");
@@ -222,38 +237,55 @@ document.addEventListener("DOMContentLoaded", () => {
     function renderizarSugerenciasProductos() {
         const busqueda = inputNuevoProd.value.trim().toLocaleLowerCase();
         sugerenciasProductos.innerHTML = "";
+        coincidenciasActuales = [];
+        inputNuevoProd.removeAttribute("aria-activedescendant");
 
         if (!busqueda) {
             sugerenciasProductos.style.display = "none";
             return;
         }
 
-        const coincidencias = productosDisponibles.filter((producto) =>
+        coincidenciasActuales = productosDisponibles.filter((producto) =>
             producto.nombre.toLocaleLowerCase().includes(busqueda)
             || producto.codigo.toLocaleLowerCase().includes(busqueda)
         ).slice(0, 8);
 
-        if (coincidencias.length === 0) {
+        if (coincidenciasActuales.length === 0) {
             const sinResultados = document.createElement("span");
             sinResultados.textContent = "No se encontraron productos.";
             sinResultados.style.cssText = "padding: .65rem .8rem; color: #64748b; font-size: .85rem;";
             sugerenciasProductos.appendChild(sinResultados);
         } else {
-            coincidencias.forEach((producto) => {
+            coincidenciasActuales.forEach((producto, index) => {
                 const opcion = document.createElement("button");
                 opcion.type = "button";
+                opcion.id = `sugerencia-producto-${producto.id}`;
                 opcion.dataset.productoId = producto.id;
-                opcion.textContent = `${producto.codigo} · ${producto.nombre} — $${Number(producto.precioMin).toLocaleString("es-AR")}`;
-                opcion.style.cssText = "padding: .65rem .8rem; border: 0; border-bottom: 1px solid #e2e8f0; background: white; color: #1e293b; text-align: left; cursor: pointer;";
+                opcion.setAttribute("role", "option");
+                opcion.tabIndex = -1;
+                opcion.setAttribute("aria-label", `${producto.codigo}, ${producto.nombre}, ${formatearMoneda(producto.precioMin)}`);
+                opcion.setAttribute("aria-selected", index === indiceSugerenciaActiva ? "true" : "false");
+                opcion.style.cssText = "padding: .65rem .8rem; border: 0; border-bottom: 1px solid #e2e8f0; background: white; color: #1e293b; text-align: left; cursor: pointer; display: flex; justify-content: space-between; gap: .75rem;";
+                if (index === indiceSugerenciaActiva) {
+                    opcion.style.background = "#eff6ff";
+                }
+
+                const nombre = document.createElement("span");
+                nombre.textContent = `${producto.codigo} · ${producto.nombre}`;
+                const precio = document.createElement("strong");
+                precio.textContent = formatearMoneda(producto.precioMin);
+                opcion.append(nombre, precio);
                 sugerenciasProductos.appendChild(opcion);
             });
+            inputNuevoProd.setAttribute("aria-activedescendant", `sugerencia-producto-${coincidenciasActuales[0].id}`);
         }
 
         sugerenciasProductos.style.display = "flex";
     }
 
     inputNuevoProd.addEventListener("input", () => {
-        delete inputNuevoProd.dataset.productoId;
+        limpiarErrorProducto();
+        indiceSugerenciaActiva = 0;
         renderizarSugerenciasProductos();
     });
     sugerenciasProductos.addEventListener("click", (event) => {
@@ -261,37 +293,69 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!opcion) return;
 
         const producto = productosDisponibles.find((item) => item.id === Number(opcion.dataset.productoId));
-        if (!producto) return;
-        inputNuevoProd.value = `${producto.codigo} · ${producto.nombre}`;
-        inputNuevoProd.dataset.productoId = producto.id;
-        sugerenciasProductos.style.display = "none";
+        if (producto) agregarProducto(producto);
     });
     inputNuevoProd.addEventListener("keydown", (event) => {
-        if (event.key === "Enter" && sugerenciasProductos.querySelector("[data-producto-id]")) {
+        if (event.key === "ArrowDown" && coincidenciasActuales.length > 0) {
             event.preventDefault();
-            sugerenciasProductos.querySelector("[data-producto-id]").click();
+            indiceSugerenciaActiva = (indiceSugerenciaActiva + 1) % coincidenciasActuales.length;
+            renderizarSugerenciasProductos();
+        } else if (event.key === "ArrowUp" && coincidenciasActuales.length > 0) {
+            event.preventDefault();
+            indiceSugerenciaActiva = (indiceSugerenciaActiva - 1 + coincidenciasActuales.length) % coincidenciasActuales.length;
+            renderizarSugerenciasProductos();
+        } else if (event.key === "Enter") {
+            event.preventDefault();
+            if (coincidenciasActuales[indiceSugerenciaActiva]) {
+                agregarProducto(coincidenciasActuales[indiceSugerenciaActiva]);
+            } else if (productosTemporales.length === 0) {
+                mostrarErrorProducto("Elegí un producto de la lista.");
+            }
         }
     });
 
     window.agregarProductoArray = () => {
-        const producto = productosDisponibles.find((item) => item.id === Number(inputNuevoProd.dataset.productoId));
+        const producto = coincidenciasActuales[indiceSugerenciaActiva];
         const prodCant = Number(inputCantidadProd.value);
 
-        if (!producto) {
-            alert("Seleccioná un producto del catálogo de sugerencias.");
-            inputNuevoProd.focus();
-            return;
-        }
-        if (!Number.isInteger(prodCant) || prodCant < 1 || prodCant > 9999) {
-            alert("La cantidad debe ser un número entero entre 1 y 9999.");
+        if (inputCantidadProd.value.trim() === "" || !Number.isInteger(prodCant) || prodCant < 1) {
+            mostrarErrorProducto("La cantidad tiene que ser 1 o más.");
             inputCantidadProd.focus();
             return;
         }
+        if (prodCant > 9999) {
+            mostrarErrorProducto("La cantidad no puede superar 9999.");
+            inputCantidadProd.focus();
+            return;
+        }
+        if (!producto) {
+            mostrarErrorProducto("Elegí un producto de la lista.");
+            inputNuevoProd.focus();
+            return;
+        }
 
+        agregarProducto(producto);
+    };
+    botonAgregarProducto.addEventListener("click", window.agregarProductoArray);
+
+    inputCantidadProd.addEventListener("input", limpiarErrorProducto);
+
+    function agregarProducto(producto) {
+        const prodCant = Number(inputCantidadProd.value);
+        if (inputCantidadProd.value.trim() === "" || !Number.isInteger(prodCant) || prodCant < 1) {
+            mostrarErrorProducto("La cantidad tiene que ser 1 o más.");
+            inputCantidadProd.focus();
+            return;
+        }
+        if (prodCant > 9999) {
+            mostrarErrorProducto("La cantidad no puede superar 9999.");
+            inputCantidadProd.focus();
+            return;
+        }
         const existente = productosTemporales.find((item) => item.id_producto === producto.id);
         if (existente) {
             if (existente.cantidad + prodCant > 9999) {
-                alert("La cantidad total de un producto no puede superar 9999.");
+                mostrarErrorProducto("La cantidad total de un producto no puede superar 9999.");
                 inputCantidadProd.focus();
                 return;
             }
@@ -305,36 +369,102 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         }
         inputNuevoProd.value = "";
-        delete inputNuevoProd.dataset.productoId;
         inputCantidadProd.value = 1;
         sugerenciasProductos.style.display = "none";
+        coincidenciasActuales = [];
+        limpiarErrorProducto();
         actualizarTagsProductos();
-    };
+        inputNuevoProd.focus();
+    }
+
+    function mostrarErrorProducto(mensaje) {
+        errorProductos.textContent = mensaje;
+        errorProductos.style.display = "block";
+    }
+
+    function limpiarErrorProducto() {
+        errorProductos.textContent = "";
+        errorProductos.style.display = "none";
+    }
 
     window.quitarProductoArray = (index) => {
         productosTemporales.splice(index, 1);
         actualizarTagsProductos();
     };
 
+    window.cambiarCantidadProducto = (index, cambio) => {
+        const producto = productosTemporales[index];
+        if (!producto) return;
+
+        producto.cantidad = Math.min(9999, Math.max(1, producto.cantidad + cambio));
+        actualizarTagsProductos();
+    };
+
     function actualizarTagsProductos() {
         contenedorTags.innerHTML = "";
+        contadorProductos.textContent = productosTemporales.length;
         if (productosTemporales.length === 0) {
             contenedorTags.innerHTML =
-                '<span style="color: #94a3b8; font-size: 0.8rem; margin: auto;">No hay productos agregados</span>';
+                '<span style="color: #94a3b8; font-size: 0.85rem; margin: auto;">Todavía no agregaste productos. Buscá uno arriba para empezar.</span>';
         }
 
         productosTemporales.forEach((prod, index) => {
+            const productoDisponible = productosDisponibles.find((item) => item.id === prod.id_producto);
+            const precioUnitario = Number(productoDisponible?.precioMin) || 0;
+            const subtotal = precioUnitario * prod.cantidad;
             const tag = document.createElement("div");
+            tag.className = "promo-product-item";
             tag.style.cssText =
-                "background: white; color: #1e293b; font-size: 0.85rem; padding: 0.4rem 0.8rem; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #cbd5e1;";
-            tag.innerHTML = `
-                <span><strong>${prod.cantidad}x</strong> ${prod.codigo} · ${prod.nombre}</span>
-                <span style="cursor: pointer; color: #ef4444; font-weight: bold; font-size: 1.2rem; line-height: 1;" onclick="quitarProductoArray(${index})">×</span>
-            `;
+                "background: white; color: #1e293b; font-size: 0.85rem; padding: 0.45rem 0.65rem; border-radius: 8px; align-items: center; gap: 0.75rem; border: 1px solid #cbd5e1;";
+
+            const nombre = document.createElement("span");
+            nombre.style.cssText = "min-width: 0;";
+            const codigo = document.createElement("strong");
+            codigo.textContent = prod.codigo;
+            nombre.append(codigo, document.createTextNode(` · ${prod.nombre}`));
+
+            const precio = document.createElement("span");
+            precio.style.cssText = "color: #64748b; white-space: nowrap;";
+            precio.textContent = `${formatearMoneda(precioUnitario)} c/u`;
+
+            const controles = document.createElement("div");
+            controles.style.cssText = "display: inline-flex; align-items: center; gap: 0.35rem;";
+            const botonMenos = crearBotonCantidad("−", `Reducir cantidad de ${prod.nombre}`, () => cambiarCantidadProducto(index, -1));
+            const cantidad = document.createElement("output");
+            cantidad.setAttribute("aria-label", `Cantidad de ${prod.nombre}`);
+            cantidad.textContent = prod.cantidad;
+            cantidad.style.cssText = "min-width: 1.5rem; text-align: center; font-weight: 700;";
+            const botonMas = crearBotonCantidad("+", `Aumentar cantidad de ${prod.nombre}`, () => cambiarCantidadProducto(index, 1));
+            controles.append(botonMenos, cantidad, botonMas);
+
+            const subtotalFila = document.createElement("strong");
+            subtotalFila.textContent = formatearMoneda(subtotal);
+            subtotalFila.style.whiteSpace = "nowrap";
+
+            const botonQuitar = document.createElement("button");
+            botonQuitar.type = "button";
+            botonQuitar.className = "btn-action btn-danger";
+            botonQuitar.textContent = "×";
+            botonQuitar.setAttribute("aria-label", `Quitar ${prod.nombre} de la promoción`);
+            botonQuitar.addEventListener("click", () => quitarProductoArray(index));
+            botonQuitar.style.cssText = "min-width: 32px; justify-content: center; padding: 0.25rem;";
+            tag.append(nombre, precio, controles, subtotalFila, botonQuitar);
             contenedorTags.appendChild(tag);
         });
 
         inputProductosOculto.value = productosTemporales.length > 0 ? "ok" : "";
+        actualizarResumenPromo();
+    }
+
+    function crearBotonCantidad(texto, ariaLabel, accion) {
+        const boton = document.createElement("button");
+        boton.type = "button";
+        boton.className = "btn-action";
+        boton.textContent = texto;
+        boton.setAttribute("aria-label", ariaLabel);
+        boton.style.cssText = "min-height: 32px; min-width: 32px; justify-content: center; padding: 0; background: #e2e8f0; color: #1e293b;";
+        boton.addEventListener("click", accion);
+        return boton;
     }
 
     // --- FUNCIONES DEL MODAL ---
@@ -342,11 +472,15 @@ document.addEventListener("DOMContentLoaded", () => {
         formPromo.reset();
         inputId.value = "";
         productosTemporales = [];
-        delete inputNuevoProd.dataset.productoId;
+        inputNuevoProd.value = "";
+        inputCantidadProd.value = 1;
+        limpiarErrorProducto();
         sugerenciasProductos.style.display = "none";
+        coincidenciasActuales = [];
         actualizarTagsProductos();
         modalTitle.innerText = "Nueva Promoción";
         modal.style.display = "flex";
+        inputNuevoProd.focus();
     };
 
     window.cerrarModal = () => {
@@ -366,7 +500,13 @@ document.addEventListener("DOMContentLoaded", () => {
             }
 
             if (productosTemporales.length === 0) {
-                alert("Debes agregar al menos un producto a la promoción.");
+                mostrarErrorProducto("Elegí un producto de la lista.");
+                inputNuevoProd.focus();
+                return;
+            }
+
+            if (!validarLimiteDescuento()) {
+                inputValorNumero.focus();
                 return;
             }
 
@@ -432,6 +572,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const promo = promociones.find((p) => p.id === id);
         if (!promo) return;
 
+        formPromo.reset();
         inputId.value = promo.id;
         inputNombre.value = promo.nombre;
         inputDescripcion.value = promo.descripcion;
@@ -446,6 +587,9 @@ document.addEventListener("DOMContentLoaded", () => {
             nombre: producto.nombre,
             cantidad: Number(producto.cantidad),
         }));
+        limpiarErrorProducto();
+        sugerenciasProductos.style.display = "none";
+        coincidenciasActuales = [];
         actualizarTagsProductos();
 
         modalTitle.innerText = "Modificar Promoción";
@@ -529,16 +673,65 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function formatearMoneda(valor) {
-        return `$ ${Number(valor).toLocaleString("es-AR", {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-        })}`;
+        return formatoMoneda.format(Number(valor) || 0);
+    }
+
+    function actualizarResumenPromo() {
+        const promoPrevia = {
+            productos: productosTemporales.map((producto) => ({
+                id_producto: producto.id_producto,
+                cantidad: producto.cantidad,
+            })),
+            tipoValor: inputTipoValor.value,
+            valor: Number(inputValorNumero.value.trim().replace(",", ".")) || 0,
+        };
+        const detalle = calcularDetallePromo(promoPrevia);
+        const precioNormal = detalle.lineas.reduce((total, linea) => total + linea.bruto, 0);
+
+        resumenPrecioNormal.textContent = formatearMoneda(precioNormal);
+        resumenDescuento.textContent = `−${formatearMoneda(detalle.descuentoTotal)}`;
+        resumenPrecioPromo.textContent = formatearMoneda(detalle.total);
+        validarLimiteDescuento();
+    }
+
+    inputTipoValor.addEventListener("change", actualizarResumenPromo);
+    inputValorNumero.addEventListener("input", actualizarResumenPromo);
+    inputValorNumero.addEventListener("change", actualizarResumenPromo);
+
+    function validarLimiteDescuento() {
+        const valor = Number(inputValorNumero.value.trim().replace(",", "."));
+        const subtotal = productosTemporales.reduce((total, productoPromo) => {
+            const producto = productosDisponibles.find((item) => item.id === productoPromo.id_producto);
+            return total + (Number(producto?.precioMin) || 0) * productoPromo.cantidad;
+        }, 0);
+        const excedeLimite = Number.isFinite(valor) && (
+            (inputTipoValor.value === "$" && valor > subtotal)
+            || (inputTipoValor.value === "%" && valor > 100)
+        );
+
+        if (excedeLimite) {
+            errorDescuento.textContent = inputTipoValor.value === "%"
+                ? "El porcentaje de descuento no puede ser mayor a 100%."
+                : "El descuento no puede ser mayor que el total de los productos.";
+            errorDescuento.style.display = "block";
+            inputValorNumero.setAttribute("aria-invalid", "true");
+            inputValorNumero.setAttribute("aria-describedby", "error-descuento-promo");
+            return false;
+        }
+
+        errorDescuento.textContent = "";
+        errorDescuento.style.display = "none";
+        inputValorNumero.removeAttribute("aria-invalid");
+        inputValorNumero.removeAttribute("aria-describedby");
+        return true;
     }
 
     function calcularDetallePromo(promo, carrito = []) {
         const lineas = promo.productos.map((item) => {
             const producto = productosDisponibles.find((disponible) => disponible.id === Number(item.id_producto));
-            const itemEnCarrito = carrito.find((carritoItem) => Number(carritoItem.id) === Number(item.id_producto));
+            const itemEnCarrito = carrito.find((carritoItem) =>
+                Number(carritoItem.id) === Number(item.id_producto) && !carritoItem.esPromocion
+            ) ?? carrito.find((carritoItem) => Number(carritoItem.id) === Number(item.id_producto));
             const precioUnitario = Number(itemEnCarrito?.precioUnit ?? producto?.precioMin ?? 0);
             const cantidad = Number(item.cantidad) || 0;
 
@@ -624,28 +817,24 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         const detallePromo = calcularDetallePromo(promo, carrito);
+        const promocionInstanciaId = `promo-${promo.id}`;
 
         detallePromo.lineas.forEach((linea) => {
             const productoId = Number(linea.producto.id);
-            const existente = carrito.find((item) => Number(item.id) === productoId);
-
-            if (existente) {
-                existente.cantidad = Number(existente.cantidad) + linea.cantidad;
-                existente.descuentoMonto = (Number(existente.descuentoMonto) || 0) + linea.descuentoLinea;
-                existente.descuentoInputModo = null;
-                existente.descuentoInputValor = null;
-            } else {
-                carrito.push({
-                    id: productoId,
-                    codigo: linea.producto.codigo,
-                    nombre: linea.producto.nombre,
-                    cantidad: linea.cantidad,
-                    precioUnit: linea.precioUnitario,
-                    descuentoMonto: linea.descuentoLinea,
-                    descuentoInputModo: promo.tipoValor === "%" ? "porcentaje" : "monto",
-                    descuentoInputValor: promo.tipoValor === "%" ? Number(promo.valor) : linea.descuentoLinea,
-                });
-            }
+            carrito.push({
+                id: productoId,
+                codigo: linea.producto.codigo,
+                nombre: linea.producto.nombre,
+                cantidad: linea.cantidad,
+                precioUnit: linea.precioUnitario,
+                descuentoMonto: linea.descuentoLinea,
+                descuentoInputModo: promo.tipoValor === "%" ? "porcentaje" : "monto",
+                descuentoInputValor: promo.tipoValor === "%" ? Number(promo.valor) : linea.descuentoLinea,
+                esPromocion: true,
+                promocionId: promo.id,
+                promocionNombre: promo.nombre,
+                promocionInstanciaId,
+            });
         });
 
         try {
