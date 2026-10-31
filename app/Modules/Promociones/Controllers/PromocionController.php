@@ -32,8 +32,8 @@ class PromocionController extends Controller
             return [
                 'id_promocion'   => $promo->id_promocion,
                 'nombre'         => $promo->nombre,
-                'tipo_descuento' => $promo->total < 0 ? 'porcentaje' : 'monto_fijo',
-                'valor'          => abs($promo->total),
+                'tipo_descuento' => $promo->tipo_descuento,
+                'valor'          => (float) $promo->valor_descuento,
                 'vigencia_desde' => $promo->vigencia_desde,
                 'vigencia_hasta' => $promo->vigencia_hasta,
                 'condiciones'    => $promo->descripcion,
@@ -51,14 +51,12 @@ class PromocionController extends Controller
         $datos = $this->validarPromocion($request, $productos);
         DB::beginTransaction();
         try {
-            $valorRecibido = $datos['valor'];
-            $esPorcentaje = $datos['tipo_descuento'] === 'porcentaje';
-            $totalConMemoria = $esPorcentaje ? -abs($valorRecibido) : abs($valorRecibido);
-
             $promocion = Promocion::create([
                 'nombre'         => $datos['nombre'],
                 'descripcion'    => $datos['descripcion'] ?? '',
-                'total'          => $totalConMemoria,
+                'total'          => $this->calcularPrecioFinal($datos, $productos),
+                'tipo_descuento' => $datos['tipo_descuento'],
+                'valor_descuento' => $datos['valor'],
                 'vigencia_desde' => $datos['vigencia_desde'],
                 'vigencia_hasta' => $datos['vigencia_hasta'],
                 'estado'         => ($datos['estado'] ?? 'activa') === 'activa' ? 1 : 0
@@ -98,8 +96,8 @@ class PromocionController extends Controller
         $respuesta = [
             'id_promocion'   => $promo->id_promocion,
             'nombre'         => $promo->nombre,
-            'tipo_descuento' => $promo->total < 0 ? 'porcentaje' : 'monto_fijo',
-            'valor'          => abs($promo->total),
+            'tipo_descuento' => $promo->tipo_descuento,
+            'valor'          => (float) $promo->valor_descuento,
             'vigencia_desde' => $promo->vigencia_desde,
             'vigencia_hasta' => $promo->vigencia_hasta,
             'condiciones'    => $promo->descripcion,
@@ -119,14 +117,12 @@ class PromocionController extends Controller
         $datos = $this->validarPromocion($request, $productos);
         DB::beginTransaction();
         try {
-            $valorRecibido = $datos['valor'];
-            $esPorcentaje = $datos['tipo_descuento'] === 'porcentaje';
-            $totalConMemoria = $esPorcentaje ? -abs($valorRecibido) : abs($valorRecibido);
-
             $promocion->update([
                 'nombre'         => $datos['nombre'],
                 'descripcion'    => $datos['descripcion'] ?? '',
-                'total'          => $totalConMemoria,
+                'total'          => $this->calcularPrecioFinal($datos, $productos),
+                'tipo_descuento' => $datos['tipo_descuento'],
+                'valor_descuento' => $datos['valor'],
                 'vigencia_desde' => $datos['vigencia_desde'],
                 'vigencia_hasta' => $datos['vigencia_hasta'],
                 'estado'         => ($datos['estado'] ?? 'activa') === 'activa' ? 1 : 0
@@ -174,7 +170,64 @@ class PromocionController extends Controller
             ]);
         }
 
+        if ($datos['tipo_descuento'] === 'monto_fijo') {
+            $subtotal = 0.0;
+            foreach ($datos['productos'] as $productoPromo) {
+                $producto = $productos->buscar((int) $productoPromo['id_producto']);
+                if ($producto !== null) {
+                    $subtotal += (float) $producto['precioMin'] * (int) $productoPromo['cantidad'];
+                }
+            }
+
+            if ((float) $datos['valor'] > $subtotal) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'valor' => ['El descuento no puede ser mayor que el total de los productos.'],
+                ]);
+            }
+        }
+
         return $datos;
+    }
+
+    private function calcularPrecioFinal(array $datos, MockProductoApi $productos): float
+    {
+        $valor = (float) $datos['valor'];
+        $lineas = [];
+        $subtotal = 0.0;
+        foreach ($datos['productos'] as $productoPromo) {
+            $producto = $productos->buscar((int) $productoPromo['id_producto']);
+            if ($producto !== null) {
+                $precio = (float) $producto['precioMin'];
+                $cantidad = (int) $productoPromo['cantidad'];
+                $bruto = $precio * $cantidad;
+                $subtotal += $bruto;
+                $lineas[] = ['precio' => $precio, 'cantidad' => $cantidad, 'bruto' => $bruto];
+            }
+        }
+
+        $descuentoSolicitado = $datos['tipo_descuento'] === 'porcentaje'
+            ? $subtotal * min(max($valor, 0), 100) / 100
+            : min(max($valor, 0), $subtotal);
+
+        $descuentoRestante = (int) round($descuentoSolicitado * 100);
+        $totalFinal = 0.0;
+        foreach ($lineas as $index => $linea) {
+            $descuentoAsignado = $index === count($lineas) - 1
+                ? $descuentoRestante
+                : min(
+                    $descuentoRestante,
+                    (int) round($descuentoSolicitado * $linea['bruto'] / ($subtotal ?: 1) * 100)
+                );
+            $descuentoRestante -= $descuentoAsignado;
+
+            $descuentoUnitario = $linea['cantidad'] > 0
+                ? min($linea['precio'], round(($descuentoAsignado / 100) / $linea['cantidad'] * 100) / 100)
+                : 0;
+            $precioConDescuento = max(0, $linea['precio'] - $descuentoUnitario);
+            $totalFinal += round($precioConDescuento * $linea['cantidad'] * 100) / 100;
+        }
+
+        return round($totalFinal, 2);
     }
 
     // DELETE /api/promociones/{id}
