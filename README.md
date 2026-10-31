@@ -1,6 +1,42 @@
 # ERP Juan23
 
+## Entorno local integrado (27/10/2026)
+
+Por autorización del usuario se instalaron los esquemas locales de G2, G3 y G4 en `sistema_gestion`, conservando los registros existentes. La base tiene 61 tablas, 11 clientes y cinco productos reales con stock, precios iniciales y movimientos de ingreso. El retiro anterior de G3 queda como antecedente histórico: esta instalación fue autorizada nuevamente.
+
+Para trabajar con las APIs de G1 y el Catálogo, iniciar **MySQL** en XAMPP y ejecutar desde la raíz del proyecto:
+
+```powershell
+C:\xampp\php\php.exe -d extension=gd -d extension=zip artisan serve
+```
+
+El Catálogo usa `CATALOG_TRANSPORT=internal` en este entorno: consulta la ruta API de Productos dentro de Laravel, sin una llamada HTTP al mismo proceso. Apache es opcional para este circuito. No iniciar Apache y `artisan serve` al mismo tiempo en 8000.
+
+Abrir `http://127.0.0.1:8000` para entrar al ERP. El Catálogo público está en `/catalogo`; su API JSON de G1 está en `/api/v1/catalogo` y `/api/v1/catalogo/{id}`. En modo interno consumen la API real de Productos registrada en la copia local. Para un proveedor remoto, usar `CATALOG_TRANSPORT=http` y configurar su URL.
+
+La pantalla `/inventario` pertenece a G3 y ahora dispone de su esquema local. Los archivos originales de negocio de los otros equipos se conservaron. La instalación de tablas no certifica todos sus circuitos financieros y comerciales.
+
+Para apagar `artisan serve`, pulsar **Ctrl+C** en su terminal. Si se elige Apache, detenerlo desde XAMPP. En esta última revisión se cerraron los servidores web de prueba; no quedó la web iniciada.
+
+Configuración de XAMPP, pruebas y reversión: [informe de puerto único](docs/informe-apache-puerto-unico-g1.md).
+
+APIs verificadas, permisos, pruebas POST/PUT/PATCH y ejemplos manuales: [APIs funcionales de G1](docs/apis-funcionales-g1.md). La adaptación interna cubre Productos para el Catálogo y consumidores de catálogo de G1. Otros consumidores HTTP —por ejemplo Ventas en reportes— siguen necesitando un proveedor que pueda atender la consulta; si apuntan al mismo proceso único de PHP, usar Apache o un proveedor separado para ese circuito.
+
+No ejecutar migraciones globales, `migrate:fresh`, `migrate:refresh`, semillas globales ni rollback general como paso de arranque. Se aplicaron rutas seleccionadas y dependencias ordenadas; la semilla de seis productos de G3 se excluyó para cargar únicamente los cinco solicitados. Fuentes, compatibilidad, pruebas y reversión: [informe de instalación local G2/G3/G4](docs/informe-instalacion-local-g2-g3-g4.md).
+
+El 28/10/2026 se retiraron, por pedido del usuario, las nueve migraciones nuevas de esa instalación local (compatibilidad de stock, siete importadas de G2 y promociones de G4). Se conservaron las migraciones previamente versionadas y la base local existente, sin rollback. Esos archivos locales no se compartirán con el código de G1; esta copia no permite reproducir por sí sola el esquema integrado desde cero. Detalles y respaldo: [APIs funcionales de G1](docs/apis-funcionales-g1.md#qué-cambia-con-commitpush-y-cómo-revertir).
+
 Sistema web de gestión comercial en Laravel. Incluye autenticación segura, recuperación de contraseña por email, permisos por rol, clientes, reclamos y reportes. Los cobros y facturas pertenecen a G2; los saldos y ventas, a G4.
+
+## Catálogo público de G1
+
+Consulta sin iniciar sesión en `/catalogo`, con búsqueda, filtros, disponibilidad y detalle. Consume las APIs de Productos de G3 sin agregar tablas ni modificar datos de otros grupos. Si el proveedor no está conectado, muestra su estado de indisponibilidad.
+
+Configuración, alcance, pruebas y reversión: [informe de implementación del Catálogo](docs/informe-implementacion-catalogo-g1.md).
+
+## Actualización de Clientes de G1 (27/10/2026)
+
+El alta y la edición incluyen selector DNI/CUIT, localidad y zona (existente o nueva), calle y altura separadas, y validaciones en navegador y servidor. Se retiró el archivo de migración Sprint 3 sin ejecutar rollback ni borrar tablas. Su parte de Clientes/Zonas de G1 y los nuevos campos quedaron en `2026_10_27_000001_complete_g1_clientes_schema.php`: agrega solo lo que falte y conserva los datos existentes. Detalles, ejecución limitada a G1, pruebas y reversión: [informe de Clientes](docs/informe-clientes-campos-validacion-g1.md).
 
 ## Requisitos
 
@@ -57,23 +93,11 @@ En XAMPP, habilitar `extension=gd` y `extension=zip` en `C:\xampp\php\php.ini`. 
 
 ### Instalación nueva
 
-Crear primero una base vacía llamada `sistema_gestion` con cotejamiento `utf8mb4_unicode_ci`. Luego ejecutar:
-
-```powershell
-C:\xampp\php\php.exe artisan migrate --seed
-```
-
-Esto crea también las tablas de Sprint 3: `zonas`, `categorias`, `marcas`, `productos`, `ventas`, `detalle_ventas`, `cobros` y `cobro_ventas`, junto con sus índices y claves foráneas.
+Preparar el esquema aprobado en una base propia, con respaldo y una selección explícita y ordenada de migraciones. No utilizar una migración o semilla global: el proveedor modular descubre también archivos de otros equipos. La instalación local actual de G2/G3/G4 y las dependencias de su secuencia se documentan en [el informe de instalación](docs/informe-instalacion-local-g2-g3-g4.md).
 
 ### Base existente del proyecto
 
-Hacer una copia de seguridad y apuntar `.env` a la base actual. Después ejecutar:
-
-```powershell
-C:\xampp\php\php.exe artisan migrate
-```
-
-La primera migration detecta las tablas existentes y las registra como línea base sin eliminar datos. No es necesario volver a importar los SQL históricos ni ejecutar el seeder.
+La base `sistema_gestion` ya está preparada; no necesita migraciones o semillas como paso de arranque. Cualquier modificación posterior requiere alcance autorizado y una ruta explícita revisada, preservando datos existentes. No volver a importar SQL históricos completos ni reinstalar tablas ya existentes.
 
 La migration de recuperación agrega un email opcional y único a `usuarios`. El administrador puede asignar los emails reales desde **Lista de Usuarios** en su panel, sin utilizar phpMyAdmin.
 
@@ -83,19 +107,15 @@ La migration de recuperación agrega un email opcional y único a `usuarios`. El
 
 Las pantallas internas usan el menú lateral compartido. El relevamiento de APIs de G1 quedó en el chat. La conexión de G2, sus requisitos pendientes y la reversión se detallan en [informe de integración de G2](docs/informe-integracion-operativa-g2.md).
 
-Desde la raíz del proyecto:
-
-```powershell
-C:\xampp\php\php.exe -d extension=gd -d extension=zip artisan serve
-```
+Para las APIs de G1 y el Catálogo, iniciar MySQL en XAMPP y ejecutar `artisan serve`, según las instrucciones iniciales. También puede usarse Apache, que sirve exclusivamente `ERP-Juan23/public`.
 
 Abrir:
 
 ```text
-http://localhost:8000
+http://127.0.0.1:8000
 ```
 
-Laravel debe servirse desde `public/`. No usar `php -S localhost:8000` sin `artisan serve`, porque podría exponer archivos internos.
+Laravel debe servirse desde `public/`. El Catálogo interno ya no depende de concurrencia HTTP. Mantener el modo HTTP contra el mismo proceso de `artisan serve` sí puede bloquear una consulta; esa configuración no se utiliza para el Catálogo local.
 
 ### Ventas, Historial y Cuentas corrientes: modo de integración
 
@@ -111,13 +131,7 @@ Después de cambiar `VENTAS_INTEGRACION`, ejecutar `C:\xampp\php\php.exe artisan
 
 Detalle de la corrección y verificaciones: [informe de integración de G4](docs/informe-correccion-integracion-g4.md).
 
-Si faltan las tablas locales de G4, su instalación acotada usa únicamente estas dos migraciones:
-
-```powershell
-C:\xampp\php\php.exe artisan migrate --path=app/Modules/CuentaCorriente/database/migrations/2026_10_07_000000_create_cuenta_corriente_movimientos_table.php --path=app/Modules/Ventas/database/migrations/2026_10_22_000000_create_g4_sales_base_tables.php
-```
-
-Crean `venta`, `detalle_venta` y `cuenta_corriente_movimientos`. No ejecutan las migraciones pendientes de otros grupos. Esta instalación ya se aplicó a `sistema_gestion`; el informe detalla el lote, las verificaciones y cómo revertirlo. La nueva migración rechaza reemplazar tablas existentes y bloquea su reversión si encuentra operaciones de G4 guardadas.
+La instalación de tablas y la administración de datos de G4 corresponden a su equipo; G1 consume sus APIs. Las tablas `venta`, `detalle_venta` y `cuenta_corriente_movimientos` que ya existían en este entorno se conservaron sin cambios durante el retiro de G3. Su instalación previa se mantiene documentada como antecedente en el informe; no se indica repetirla ni revertirla desde G1.
 
 ## Usuarios de prueba
 
