@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/promociones', [PromocionController::class, 'index']);          // Listar todas
 Route::post('/promociones', [PromocionController::class, 'store']);         // Crear nueva
+Route::get('/promociones/activas', [PromocionController::class, 'activas']); // Listar activas y vigentes
 Route::get('/promociones/{id}', [PromocionController::class, 'show']);      // Ver detalle de una
 Route::put('/promociones/{id}', [PromocionController::class, 'update']);    // Editar una existente
 Route::delete('/promociones/{id}', [PromocionController::class, 'destroy']); // Eliminar una promocion

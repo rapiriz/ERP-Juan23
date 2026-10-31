@@ -45,6 +45,45 @@ class PromocionController extends Controller
         return response()->json($promocionesFormateadas, 200);
     }
 
+    // GET /api/promociones/activas
+    public function activas(MockProductoApi $productos)
+    {
+        $hoy = now()->toDateString();
+        $promociones = Promocion::query()
+            ->where('estado', 1)
+            ->whereDate('vigencia_desde', '<=', $hoy)
+            ->whereDate('vigencia_hasta', '>=', $hoy)
+            ->get();
+
+        $promocionesFormateadas = $promociones->map(function ($promo) use ($productos) {
+            $detallesPivot = DB::table('promocion_producto')
+                ->where('id_promocion', $promo->id_promocion)
+                ->get();
+
+            $productosArray = $detallesPivot->map(function ($pivot) use ($productos) {
+                return [
+                    'id_producto' => $pivot->id_producto,
+                    'nombre'      => $productos->nombre($pivot->id_producto),
+                    'cantidad'    => $pivot->cantidad
+                ];
+            });
+
+            return [
+                'id_promocion'   => $promo->id_promocion,
+                'nombre'         => $promo->nombre,
+                'tipo_descuento' => $promo->tipo_descuento,
+                'valor'          => (float) $promo->valor_descuento,
+                'vigencia_desde' => $promo->vigencia_desde,
+                'vigencia_hasta' => $promo->vigencia_hasta,
+                'condiciones'    => $promo->descripcion,
+                'estado'         => $promo->estado == 1 ? 'activa' : 'inactiva',
+                'productos'      => $productosArray
+            ];
+        });
+
+        return response()->json($promocionesFormateadas, 200);
+    }
+
     // POST /api/promociones
     public function store(Request $request, MockProductoApi $productos)
     {

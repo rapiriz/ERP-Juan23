@@ -53,6 +53,53 @@ class PromocionesApiTest extends TestCase
         ]);
     }
 
+    public function test_get_promociones_activas_devuelve_solo_promociones_activas_y_vigentes(): void
+    {
+        $hoy = today()->toDateString();
+        $promociones = [
+            [
+                'nombre' => 'Promo activa vigente',
+                'vigencia_desde' => $hoy,
+                'vigencia_hasta' => $hoy,
+                'estado' => true,
+            ],
+            [
+                'nombre' => 'Promo inactiva',
+                'vigencia_desde' => $hoy,
+                'vigencia_hasta' => $hoy,
+                'estado' => false,
+            ],
+            [
+                'nombre' => 'Promo futura',
+                'vigencia_desde' => today()->addDay()->toDateString(),
+                'vigencia_hasta' => today()->addDays(2)->toDateString(),
+                'estado' => true,
+            ],
+            [
+                'nombre' => 'Promo vencida',
+                'vigencia_desde' => today()->subDays(2)->toDateString(),
+                'vigencia_hasta' => today()->subDay()->toDateString(),
+                'estado' => true,
+            ],
+        ];
+
+        foreach ($promociones as $promocion) {
+            DB::table('promocion')->insert([
+                ...$promocion,
+                'descripcion' => '',
+                'total' => 100,
+                'tipo_descuento' => 'monto_fijo',
+                'valor_descuento' => 10,
+            ]);
+        }
+
+        $this->getJson('/api/promociones/activas')
+            ->assertOk()
+            ->assertJsonCount(1)
+            ->assertJsonPath('0.nombre', 'Promo activa vigente')
+            ->assertJsonPath('0.estado', 'activa');
+    }
+
     public function test_monto_fijo_se_guarda_como_precio_final(): void
     {
         $this->postJson('/api/promociones', [
