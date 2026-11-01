@@ -1,0 +1,25 @@
+# Contratos pendientes para Sprint 4 de G1
+
+G1 implementa las pantallas de [#113](https://github.com/rapiriz/ERP-Juan23/issues/113) y [#114](https://github.com/rapiriz/ERP-Juan23/issues/114). La issue #120 queda pendiente, sin implementacion. No hay datos de ejemplo ni fallback local en tiempo de ejecucion para estos reportes.
+
+Actualizacion del 23/10/2026: historial, compradores y ranking consumen la API existente `GET /api/ventas` de G4. G1 deriva compradores y ranking sin exigir endpoints nuevos. Si G3 no esta configurado, el selector ofrece solamente productos con ventas validas, obtenidos junto a sus compradores en la misma lectura HTTP. La pantalla distingue ese conjunto del catalogo completo de G3, cuya API sigue bloqueada localmente por falta de `PRODUCTO`. Si el catalogo se configura, se conserva como fuente y sus errores no se ocultan. Ver [auditoria-apis-todas-las-ramas-g1.md](auditoria-apis-todas-las-ramas-g1.md).
+
+Las rutas financieras de abajo son **contratos propuestos**, no APIs confirmadas ni publicadas por los otros grupos. Para ellas G1 envia `Authorization: Bearer <token>` y `Accept: application/json`. Cada respuesta exitosa debe contener `data`. Importes son cadenas decimales en ARS, fechas `YYYY-MM-DD` o ISO 8601. Los IDs de clientes deben coincidir con `clientes.id` de G1. Se deben acordar rutas, autenticacion, filtros, paginacion y semantica antes de conectar entornos productivos.
+
+| Dueno | Metodo y ruta esperada | Uso en G1 | Campos requeridos en `data` |
+| --- | --- | --- | --- |
+| G4 | `GET /api/ventas?desde=YYYY-MM-DD&hasta=YYYY-MM-DD` — existente | G1 calcula ranking #113 | Ventas con estado, total, descuento global y detalles con ID de producto, cantidad y subtotal |
+| G4 | `GET /api/v1/clientes/deudores` | Saldos vigentes para #114 | Lista de `{cliente_id, saldo}` con `saldo > 0` y un cliente por fila |
+| G4 | `GET /api/v1/clientes/{id}/saldo` | Perfil de cliente y API G1 existente | Objeto `{cliente_id, saldo, moneda: "ARS"}` |
+| G2 | `GET /api/v1/facturas/pendientes` | Detalle de deuda #114 | Lista de `{id, cliente_id, numero, vencimiento, importe_pendiente}` |
+| G2 | `GET /api/v1/cobros?cliente_id={id}` | Historial del cliente y API G1 existente | Lista de `{id, cliente_id, fecha, monto_total, medio_pago, comprobante_nro?, observaciones?}` |
+
+El criterio autorizado para compradores y ranking es ventas `confirmada`, `preparada`, `entregada`, `pagada` y `facturada`; se excluyen `pendiente`, `cancelada` y `anulada=true`. G1 agrega cantidades por ID de producto y reparte el descuento global monetario proporcionalmente a los subtotales de linea, que ya incluyen su descuento individual. El reparto por mayor resto conserva cada centavo del total de cada venta. La clave interna `monto_facturado` se conserva por compatibilidad, pero representa **importe neto vendido**, no exclusivamente facturas emitidas. El periodo se envia sin alterar y G1 rechaza fechas fuera de sus limites inclusivos. Se recorren todas las paginas (limite de 100), sin devolver resultados parciales.
+
+El reporte de deudores toma el **saldo total de G4**, no suma las facturas de G2 para calcularlo. Facturas y saldos pueden tener momentos de actualizacion diferentes; G2 y G4 deben acordar consistencia e identificadores. No se deducen saldos, pagos o deuda fiscal a partir de las ventas.
+
+Configurar `SALES_SERVICE_URL` para G4 y `SALES_HISTORY_PATH=/api/ventas`; `SALES_BUYERS_PATH` y `SALES_RANKING_PATH` vacios seleccionan los calculos de G1. Los overrides de rutas directas se conservan para contratos alternativos expresamente acordados y compatibles con el mismo criterio, no para rutas supuestas. La API de lectura actual permite `SALES_AUTH_REQUIRED=false`; si requiere token, configurar `SALES_AUTH_REQUIRED=true` y `SALES_SERVICE_TOKEN`. Configurar `CATALOG_SERVICE_URL` solo cuando G3 responda correctamente. Las dependencias financieras siguen sin activar: `BALANCE_SERVICE_URL`/token para G4 y `BILLING_SERVICE_URL`/token para G2. Las URL son bases, por ejemplo `https://servicio.example`; G1 agrega las rutas. No guardar tokens reales en el repositorio. Luego ejecutar `php artisan config:clear`.
+
+Cuando falta URL o una credencial obligatoria, la pantalla explica la dependencia pendiente y la API de G1 responde `503`. Si el servicio no responde, `503`; si responde con error o estructura invalida, `502`. Una respuesta `data: []` exitosa representa ausencia real de registros, no un fallo de integracion. G1 no genera datos comerciales simulados; las pruebas usan `Http::fake()` para verificar el contrato. Los nombres recibidos de Ventas siguen siendo responsabilidad de sus gateways y su configuracion propia; esta adaptacion no los cambia.
+
+El alta local de cobros de G1 quedo deshabilitada. Sus tablas historicas permanecen para no destruir datos preexistentes, pero G1 no las usa como fuente de verdad. Para registrar cobros en la aplicacion sera necesario acordar con G2 un endpoint de escritura, permisos, validaciones e idempotencia; esa operacion no se habilita sin contrato confirmado.

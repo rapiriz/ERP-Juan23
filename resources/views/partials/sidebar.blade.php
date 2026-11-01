@@ -1,23 +1,23 @@
-<aside class="clay-sidebar">
-    <div class="sidebar-brand">
-        DISTRIBUIDORA PIGÜÉ
-        <small>Localidad · PV</small>
-    </div>
-
-    <nav class="sidebar-nav">
-        <a href="{{ route('ventas') }}"
-           class="sidebar-link {{ request()->routeIs('ventas') ? 'active' : '' }}">
-            <span class="ico">🛒</span> Punto de Venta
-        </a>
-        <a href="{{ route('promociones') }}"
-           class="sidebar-link {{ request()->routeIs('promociones') ? 'active' : '' }}">
-            <span class="ico">🏷️</span> Promos
-        </a>
-        <a href="#" class="sidebar-link">
-            <span class="ico">👥</span> Cuentas Corrientes
-        </a>
-        <a href="#" class="sidebar-link">
-            <span class="ico">🕓</span> Historial de Ventas
-        </a>
+@include('partials.navigation-controls')
+<aside id="erp-sidebar" class="erp-sidebar" data-erp-sidebar aria-label="Menú principal">
+    <a class="erp-sidebar-brand" href="{{ route('dashboard') }}">
+        <strong>PyB Pigüé ERP</strong>
+        <span>Distribuidora comercial</span>
+    </a>
+    @auth
+        <div class="erp-sidebar-user">
+            <span>Usuario activo</span>
+            <strong>{{ auth()->user()->nombre }}</strong>
+            <small>{{ auth()->user()->rol->value }}</small>
+        </div>
+    @endauth
+    <nav class="erp-sidebar-nav" data-erp-sidebar-nav aria-label="Navegación principal">
+        @include('partials.sidebar-links')
     </nav>
+    @auth
+        <form class="erp-sidebar-footer" action="{{ route('logout') }}" method="post">
+            @csrf
+            <button type="submit">Cerrar sesión</button>
+        </form>
+    @endauth
 </aside>
