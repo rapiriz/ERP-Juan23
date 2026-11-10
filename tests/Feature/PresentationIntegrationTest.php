@@ -212,19 +212,19 @@ class PresentationIntegrationTest extends TestCase
         }
     }
 
-    public function test_report_hub_buttons_point_to_the_four_g1_reports_and_existing_operational_pages(): void
+    public function test_report_hub_buttons_point_to_the_nine_g1_read_screens(): void
     {
         $this->sessionAs(UserRole::ADMINISTRATIVO);
         $response = $this->get('/reportes')->assertOk()->assertSee('Reportes y Finanzas');
         $html = $response->getContent();
         $hub = substr($html, strpos($html, '<div class="report-hub">'));
         foreach (['reports.client-history', 'reports.client-product-reach', 'reports.debtors',
-            'reports.product-ranking', 'ventas.historial', 'inventario.index'] as $name) {
+            'reports.product-ranking', 'reports.daily-sales', 'reports.low-stock', 'reports.daily-cash', 'reports.due-invoices', 'transferencias.index'] as $name) {
             $this->assertStringContainsString('href="'.route($name).'"', $hub);
             $route = Route::getRoutes()->match(Request::create(route($name)));
             $this->assertContains('GET', $route->methods());
         }
-        $this->assertSame(6, preg_match_all('/<a class="button button-primary"/', $hub));
+        $this->assertSame(9, preg_match_all('/<a class="button button-primary"/', $hub));
         $this->assertStringNotContainsString('Consultas de otros módulos', $hub);
         $this->assertSharedSidebar($html);
     }
@@ -236,8 +236,8 @@ class PresentationIntegrationTest extends TestCase
         $hub = substr($html, strpos($html, '<div class="report-hub">'));
         $this->assertStringNotContainsString('href="'.route('ventas.historial').'"', $hub);
         $this->assertStringNotContainsString('href="'.route('inventario.index').'"', $hub);
-        $this->assertSame(2, substr_count($hub, 'type="button" disabled'));
-        $this->assertSame(4, preg_match_all('/<a class="button button-primary"/', $hub));
+        $this->assertSame(0, substr_count($hub, 'type="button" disabled'));
+        $this->assertSame(9, preg_match_all('/<a class="button button-primary"/', $hub));
     }
 
     public function test_report_service_error_keeps_navigation_retry_filters_and_the_actual_failure_status(): void

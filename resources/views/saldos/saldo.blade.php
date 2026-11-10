@@ -223,6 +223,9 @@
 
 @section('content')
 <div class="saldo-page">
+    <div style="display:flex;justify-content:flex-end;margin-bottom:1rem">
+        <button type="button" class="clay-btn-primary" id="descargarSaldoPdf">Descargar PDF del listado filtrado</button>
+    </div>
     <header class="clay-card saldo-heading">
         <span class="ico" aria-hidden="true">♙</span>
         <h1>CUENTAS CORRIENTES</h1>
@@ -291,12 +294,19 @@
                     </div>
                 </header>
 
+                <section class="finance-summary" aria-label="Resumen financiero filtrado">
+                    <article><span>Pagos netos del período</span><strong id="resumenPagos"></strong></article>
+                    <article><span>Deuda al cierre del período</span><strong id="resumenDeudaCorte"></strong></article>
+                    <article><span>Deuda actual</span><strong id="resumenDeudaActual"></strong></article>
+                </section><p>Los pagos netos descuentan reversiones. La deuda al corte incluye los movimientos anteriores al período; la deuda actual incluye toda la cuenta.</p>
+                @if(auth()->user()?->rol?->value === 'administrativo')
                 <div class="gestion-movimiento">
-                    <p>Registrar un pago recibido o agregar una nota de crédito al cliente.</p>
+                    <p>Registrar un pago recibido con tu caja abierta o agregar una nota de crédito al cliente.</p>
                     <button class="clay-btn-primary" id="btnGestionarMovimiento" type="button">
                         Gestionar movimiento
                     </button>
                 </div>
+                @endif
                 <p class="pago-feedback" id="pagoFeedback" role="status" aria-live="polite" hidden></p>
 
                 <section class="clay-card movimientos-card" aria-label="Movimientos de cuenta">
@@ -327,13 +337,14 @@
     <dialog class="movimiento-dialog" id="modalMovimiento" aria-labelledby="tituloModalMovimiento">
         <form id="formMovimiento">
             <h2 id="tituloModalMovimiento">Gestionar movimiento</h2>
+            <p>Los cobros declarados se revisan desde <a href="{{ url('/cobros') }}">Rendiciones y Cobros</a>.</p>
             <p class="cliente-gestion">Cliente: <strong id="clienteGestionMovimiento"></strong></p>
             <label for="tipoMovimiento">
                 Movimiento
                 <select id="tipoMovimiento" class="clay-input" required>
                     <option value="pago">Registrar pago de deuda</option>
                     <option value="nota_credito">Agregar nota de crédito</option>
-                    <option value="cobro_rendicion">Aplicar cobro de rendición</option>
+
                 </select>
             </label>
             <div id="contenedorCobroRendicion" hidden>
@@ -345,7 +356,7 @@
             <div id="contenedorMetodoPago">
                 <label for="metodoPago">
                     Método de pago
-                    <select id="metodoPago" class="clay-input" required>
+                    <select data-cheque-method id="metodoPago" class="clay-input" required>
                         <option value="" selected disabled>Seleccioná un método</option>
                         <option>Tarjeta de débito</option>
                         <option>Tarjeta de crédito</option>
@@ -356,6 +367,7 @@
                     </select>
                 </label>
             </div>
+            @include('partials.cheque-payment-fields')
             <div id="contenedorMonto">
                 <label for="montoMovimiento">
                     Monto
@@ -375,6 +387,7 @@
 @endsection
 
 @push('scripts')
+<script src="{{ asset('assets/js/account-summary.js') }}"></script>
 <script>
     const CLIENTES = @json($clientes);
     const URL_MOVIMIENTOS = @json(route('saldo.movimientos', ['cliente' => '__CLIENTE__']));
@@ -386,6 +399,7 @@
         maximumFractionDigits: 2
     });
     let clienteSeleccionado = null;
+    let paymentRequestKey = null;
     const filters = {
         search: '',
         modoFecha: 'todas',
@@ -423,7 +437,8 @@
     }
 
     function saldoVisibleDe(cliente) {
-        return movimientosVisibles(cliente).reduce((total, movimiento) => total + Number(movimiento.monto), 0);
+        const totals = window.erpAccountSummary(cliente.movimientos, filters);
+        return totals.saldo_a_favor_al_corte - totals.deuda_al_corte;
     }
 
     function formatoSaldo(monto) {
@@ -477,18 +492,20 @@
                     ? 'No se encontraron clientes.'
                     : 'No se encontraron registros con los filtros aplicados.'
             }</p>`;
-        $('resumenFiltros').textContent = `${clientesVisibles.length} clientes · ${
-            clientesVisibles.reduce((total, cliente) => total + movimientosVisibles(cliente).length, 0)
-        } movimientos`;
+        const summary = clientesVisibles.map(c => window.erpAccountSummary(c.movimientos, filters));
+        const net = summary.reduce((sum, t) => sum + Math.round(t.pagos_netos * 100), 0) / 100;
+        const debt = summary.reduce((sum, t) => sum + Math.round(t.deuda_al_corte * 100), 0) / 100;
+        $('resumenFiltros').textContent = `${clientesVisibles.length} clientes · ${clientesVisibles.reduce((total, cliente) => total + movimientosVisibles(cliente).length, 0)} movimientos · Pagos netos ${formatoSaldo(net)} · Deuda al corte ${formatoSaldo(debt)}`;
     }
 
     function renderMovimientos() {
-        let saldoAcumulado = 0;
+        const from = filters.modoFecha === 'especifica' ? filters.fecha : (filters.modoFecha === 'periodo' ? filters.fechaDesde : '');
+        let saldoAcumulado = from ? clienteSeleccionado.movimientos.filter(m => fechaDelMovimiento(m) < from).reduce((sum, m) => sum + Math.round(Number(m.monto) * 100), 0) : 0;
         const movimientos = [...movimientosVisibles(clienteSeleccionado)]
             .sort((a, b) => a.fecha.localeCompare(b.fecha));
 
         $('tablaMovimientos').innerHTML = movimientos.map(movimiento => {
-            saldoAcumulado += Number(movimiento.monto);
+            saldoAcumulado += Math.round(Number(movimiento.monto) * 100);
             return `
                 <tr>
                     <td class="fecha">${escaparHtml(movimiento.fecha)}</td>
@@ -496,7 +513,7 @@
                     <td>${movimiento.venta_id ? `#${escaparHtml(movimiento.venta_id)}` : '—'}</td>
                     <td>${escaparHtml(movimiento.referencia_externa || '—')}</td>
                     <td class="importe ${claseSaldo(movimiento.monto)}">${formatoMovimiento(Number(movimiento.monto))}</td>
-                    <td class="saldo ${claseSaldo(saldoAcumulado)}">${formatoSaldo(saldoAcumulado)}</td>
+                    <td class="saldo ${claseSaldo(saldoAcumulado)}">${formatoSaldo(saldoAcumulado / 100)}</td>
                 </tr>
             `;
         }).join('');
@@ -513,12 +530,16 @@
 
         $('detalleVacio').hidden = true;
         $('detalleCuenta').hidden = false;
+        const totals = window.erpAccountSummary(clienteSeleccionado.movimientos, filters);
+        $('resumenPagos').textContent = formatoSaldo(totals.pagos_netos);
+        $('resumenDeudaCorte').textContent = formatoSaldo(totals.deuda_al_corte);
+        $('resumenDeudaActual').textContent = formatoSaldo(totals.deuda_actual);
         $('nombreCliente').textContent = clienteSeleccionado.nombre;
         $('datosCliente').textContent = `${clienteSeleccionado.cuit} · ${clienteSeleccionado.condicion}`;
         $('domicilioCliente').textContent = clienteSeleccionado.domicilio;
         $('saldoActual').textContent = formatoSaldo(saldo);
         $('saldoActual').className = claseSaldo(saldo);
-        $('etiquetaSaldo').textContent = hayFiltroFechaActivo() ? 'Saldo filtrado' : 'Saldo actual';
+        $('etiquetaSaldo').textContent = hayFiltroFechaActivo() ? 'Saldo al corte' : 'Saldo actual';
         $('estadoSaldo').textContent = hayDeuda ? 'Deuda pendiente' : saldo > 0 ? 'Saldo a favor' : 'Sin deuda pendiente';
         $('estadoSaldo').className = claseSaldo(saldo);
         $('pagoFeedback').hidden = true;
@@ -651,10 +672,11 @@
                 : 'La nota de crédito se suma al saldo de la cuenta.';
     }
 
-    $('btnGestionarMovimiento').addEventListener('click', () => {
+    $('btnGestionarMovimiento')?.addEventListener('click', () => {
         if (!clienteSeleccionado) return;
         $('clienteGestionMovimiento').textContent = clienteSeleccionado.nombre;
         $('formMovimiento').reset();
+        paymentRequestKey = crypto.randomUUID();
         $('errorMovimiento').hidden = true;
         actualizarAyudaMovimiento();
         modalMovimiento.showModal();
@@ -691,13 +713,17 @@
                 body: JSON.stringify(esCobro ? { id: idCobro } : {
                     tipo,
                     monto,
-                    ...(tipo === 'pago' ? { metodo_pago: metodoPago } : {})
+                    request_key: paymentRequestKey,
+                    ...(tipo === 'pago' ? { metodo_pago: metodoPago,
+                        datos_medio_pago: Object.fromEntries(['numero_cheque', 'banco_emisor', 'fecha_cobro'].map(key =>
+                            [key, new FormData($('formMovimiento')).get(`datos_medio_pago[${key}]`)])) } : {})
                 })
             });
             const resultado = await respuesta.json();
 
             if (!respuesta.ok) {
-                const mensaje = resultado.errors?.monto?.[0]
+                const mensaje = Object.values(resultado.errors || {})[0]?.[0]
+                    || resultado.errors?.monto?.[0]
                     || resultado.errors?.metodo_pago?.[0]
                     || resultado.errors?.tipo?.[0]
                     || resultado.errors?.id?.[0]
@@ -706,6 +732,10 @@
                 throw new Error(mensaje);
             }
 
+            if (resultado.repetido) {
+                window.location.reload();
+                return;
+            }
             if (resultado.movimiento) {
                 clienteSeleccionado.movimientos.push(resultado.movimiento);
             }
@@ -731,6 +761,11 @@
         }
     });
 
+    $('descargarSaldoPdf').addEventListener('click', () => {
+        if (!$('errorRangoFechas').hidden) return;
+        const query = new URLSearchParams(Object.entries(filters).filter(([,value]) => value !== ''));
+        window.location.assign(@json(route('saldo.pdf')) + '?' + query.toString());
+    });
     renderFiltros();
 </script>
 @endpush

@@ -34,7 +34,7 @@ class CobroApiController extends Controller
 
         $clienteId = (int) $validated['cliente_id'];
         $clienteExiste = Cliente::where('id', $clienteId)->exists();
-        if (!$clienteExiste) {
+        if (! $clienteExiste) {
             return response()->json([
                 'status' => 'error',
                 'message' => "El cliente con ID {$clienteId} no existe en el sistema.",
@@ -45,7 +45,7 @@ class CobroApiController extends Controller
             ->with('rendicion')
             ->where('id_cliente', $clienteId);
 
-        if (!empty($validated['estado'])) {
+        if (! empty($validated['estado'])) {
             $estado = strtolower($validated['estado']);
             $query->whereHas('rendicion', function ($q) use ($estado) {
                 $q->where('estado', $estado);
@@ -67,8 +67,11 @@ class CobroApiController extends Controller
                     'fecha' => $cobro->fecha_registro?->toDateTimeString() ?? (string) $cobro->fecha_registro,
                     'monto_total' => number_format((float) $cobro->monto, 2, '.', ''),
                     'medio_pago' => $cobro->medio_pago,
+                    'estado_revision' => $cobro->estado_revision ?? 'pendiente',
+                    'id_cobro_aplicado' => $cobro->id_cobro_aplicado,
+                    'nota_revision' => $cobro->nota_revision,
                     'estado_rendicion' => $cobro->rendicion?->estado,
-                    'confirmacion_individual' => null, // G2 no certifica liquidación/confirmación individual de cobro en banco
+                    'confirmacion_individual' => $cobro->estado_revision === 'aplicado' ? true : null, // Aplicación al libro, no liquidación bancaria
                 ];
             })->values()->all(),
             'meta' => [
@@ -86,4 +89,3 @@ class CobroApiController extends Controller
         ])->header('Cache-Control', 'no-store');
     }
 }
-

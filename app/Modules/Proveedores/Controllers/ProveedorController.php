@@ -1,21 +1,24 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Modules\Proveedores\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Productos\Models\LogAuditoria;
 use App\Modules\Productos\Models\Producto;
 use App\Modules\Proveedores\Models\ProductoProveedor;
 use App\Modules\Proveedores\Models\Proveedor;
+use App\Modules\Proveedores\Services\HistorialPrecioService;
 use App\Modules\Proveedores\Services\PlazoEntregaService;
+use App\Support\AuditoriaLogger;
+use App\Support\UsuarioActual;
 use Carbon\Carbon;
+use Carbon\CarbonInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
-use App\Support\UsuarioActual;
-use App\Modules\Productos\Models\LogAuditoria;
-use App\Support\AuditoriaLogger;
 
 /**
  * Módulo Proveedores.
@@ -29,9 +32,7 @@ use App\Support\AuditoriaLogger;
  */
 class ProveedorController extends Controller
 {
-    public function __construct(private PlazoEntregaService $plazos)
-    {
-    }
+    public function __construct(private PlazoEntregaService $plazos) {}
 
     /**
      * Formato de salida de un proveedor.
@@ -48,9 +49,9 @@ class ProveedorController extends Controller
             'email' => $p->email,
             'direccion' => $p->direccion,
             'estado' => $p->estado,
-            'fecha_alta' => $p->fecha_alta ? ($p->fecha_alta instanceof \Carbon\CarbonInterface ? $p->fecha_alta->format('Y-m-d H:i:s') : (string) $p->fecha_alta) : null,
-            'fecha_modificacion' => $p->fecha_modificacion ? ($p->fecha_modificacion instanceof \Carbon\CarbonInterface ? $p->fecha_modificacion->format('Y-m-d H:i:s') : (string) $p->fecha_modificacion) : null,
-            'fecha_desactivacion' => $p->fecha_desactivacion ? ($p->fecha_desactivacion instanceof \Carbon\CarbonInterface ? $p->fecha_desactivacion->format('Y-m-d H:i:s') : (string) $p->fecha_desactivacion) : null,
+            'fecha_alta' => $p->fecha_alta ? ($p->fecha_alta instanceof CarbonInterface ? $p->fecha_alta->format('Y-m-d H:i:s') : (string) $p->fecha_alta) : null,
+            'fecha_modificacion' => $p->fecha_modificacion ? ($p->fecha_modificacion instanceof CarbonInterface ? $p->fecha_modificacion->format('Y-m-d H:i:s') : (string) $p->fecha_modificacion) : null,
+            'fecha_desactivacion' => $p->fecha_desactivacion ? ($p->fecha_desactivacion instanceof CarbonInterface ? $p->fecha_desactivacion->format('Y-m-d H:i:s') : (string) $p->fecha_desactivacion) : null,
             'plazo_entrega_dias' => $p->plazo_entrega_dias,
             'id_usuario_carga' => $p->id_usuario_carga,
             'usuario_carga_nombre' => $p->usuarioCarga ? $p->usuarioCarga->nombre : ($p->id_usuario_carga ? "Usuario #{$p->id_usuario_carga}" : null),
@@ -77,8 +78,8 @@ class ProveedorController extends Controller
         if ($search !== '') {
             $query->where(function ($q) use ($search) {
                 $q->where('razon_social', 'LIKE', "%{$search}%")
-                  ->orWhere('cuit', 'LIKE', "%{$search}%")
-                  ->orWhere('contacto', 'LIKE', "%{$search}%");
+                    ->orWhere('cuit', 'LIKE', "%{$search}%")
+                    ->orWhere('contacto', 'LIKE', "%{$search}%");
             });
         }
 
@@ -103,7 +104,7 @@ class ProveedorController extends Controller
     {
         $proveedor = Proveedor::with(['productos.producto', 'usuarioCarga', 'usuarioModificacion'])->find($id);
 
-        if (!$proveedor) {
+        if (! $proveedor) {
             return response()->json([
                 'status' => 'error',
                 'message' => "El proveedor con ID {$id} no existe.",
@@ -145,7 +146,7 @@ class ProveedorController extends Controller
                 'string',
                 'max:20',
                 'regex:/^[0-9\-]+$/',
-                'unique:PROVEEDOR,cuit',
+                'unique:proveedor,cuit',
             ],
             'telefono' => [
                 'nullable',
@@ -230,7 +231,7 @@ class ProveedorController extends Controller
         } catch (\Throwable $e) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Error al registrar el proveedor: ' . $e->getMessage(),
+                'message' => 'Error al registrar el proveedor: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -243,7 +244,7 @@ class ProveedorController extends Controller
     {
         $proveedor = Proveedor::find($id);
 
-        if (!$proveedor) {
+        if (! $proveedor) {
             return response()->json([
                 'status' => 'error',
                 'message' => "El proveedor con ID {$id} no existe.",
@@ -258,7 +259,7 @@ class ProveedorController extends Controller
                 'string',
                 'max:20',
                 'regex:/^[0-9\-]+$/',
-                "unique:PROVEEDOR,cuit,{$id},id_proveedor",
+                "unique:proveedor,cuit,{$id},id_proveedor",
             ],
             'telefono' => [
                 'nullable',
@@ -372,7 +373,7 @@ class ProveedorController extends Controller
         } catch (\Throwable $e) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Error al actualizar el proveedor: ' . $e->getMessage(),
+                'message' => 'Error al actualizar el proveedor: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -385,7 +386,7 @@ class ProveedorController extends Controller
     {
         $proveedor = Proveedor::find($id);
 
-        if (!$proveedor) {
+        if (! $proveedor) {
             return response()->json([
                 'status' => 'error',
                 'message' => "El proveedor con ID {$id} no existe.",
@@ -449,7 +450,7 @@ class ProveedorController extends Controller
     {
         $proveedor = Proveedor::find($id);
 
-        if (!$proveedor) {
+        if (! $proveedor) {
             return response()->json([
                 'status' => 'error',
                 'message' => "El proveedor con ID {$id} no existe.",
@@ -489,7 +490,7 @@ class ProveedorController extends Controller
     {
         $proveedor = Proveedor::find($id);
 
-        if (!$proveedor) {
+        if (! $proveedor) {
             return response()->json([
                 'status' => 'error',
                 'message' => "El proveedor con ID {$id} no existe.",
@@ -554,18 +555,22 @@ class ProveedorController extends Controller
             $precio = $sug->precio_promedio ? round((float) $sug->precio_promedio, 2) : null;
 
             $prov = Proveedor::find($idProv);
-            if (!$prov || $prov->estado !== 'activo') continue;
+            if (! $prov || $prov->estado !== 'activo') {
+                continue;
+            }
 
             $prod = Producto::find($idProd);
-            if (!$prod || $prod->estado !== 'activo') continue;
+            if (! $prod || $prod->estado !== 'activo') {
+                continue;
+            }
 
             $asoc = ProductoProveedor::where('id_producto', $idProd)->where('id_proveedor', $idProv)->first();
-            if (!$asoc) {
+            if (! $asoc) {
                 $tienePrincipal = ProductoProveedor::where('id_producto', $idProd)->where('activo', true)->where('es_proveedor_principal', true)->exists();
                 ProductoProveedor::create([
                     'id_producto' => $idProd,
                     'id_proveedor' => $idProv,
-                    'es_proveedor_principal' => !$tienePrincipal,
+                    'es_proveedor_principal' => ! $tienePrincipal,
                     'precio_acordado' => $precio,
                     'activo' => true,
                     'fecha_asociacion' => $hoy,
@@ -574,14 +579,14 @@ class ProveedorController extends Controller
                 $nuevas++;
             } else {
                 $upd = [];
-                if (!$asoc->activo) {
+                if (! $asoc->activo) {
                     $upd['activo'] = true;
                     $upd['fecha_desasociacion'] = null;
                 }
                 if ($precio !== null && $asoc->precio_acordado === null) {
                     $upd['precio_acordado'] = $precio;
                 }
-                if (!empty($upd)) {
+                if (! empty($upd)) {
                     $asoc->update($upd);
                     $actualizadas++;
                 }
@@ -601,18 +606,22 @@ class ProveedorController extends Controller
             $precio = $ord->precio_promedio ? round((float) $ord->precio_promedio, 2) : null;
 
             $prov = Proveedor::find($idProv);
-            if (!$prov || $prov->estado !== 'activo') continue;
+            if (! $prov || $prov->estado !== 'activo') {
+                continue;
+            }
 
             $prod = Producto::find($idProd);
-            if (!$prod || $prod->estado !== 'activo') continue;
+            if (! $prod || $prod->estado !== 'activo') {
+                continue;
+            }
 
             $asoc = ProductoProveedor::where('id_producto', $idProd)->where('id_proveedor', $idProv)->first();
-            if (!$asoc) {
+            if (! $asoc) {
                 $tienePrincipal = ProductoProveedor::where('id_producto', $idProd)->where('activo', true)->where('es_proveedor_principal', true)->exists();
                 ProductoProveedor::create([
                     'id_producto' => $idProd,
                     'id_proveedor' => $idProv,
-                    'es_proveedor_principal' => !$tienePrincipal,
+                    'es_proveedor_principal' => ! $tienePrincipal,
                     'precio_acordado' => $precio,
                     'activo' => true,
                     'fecha_asociacion' => $hoy,
@@ -621,14 +630,14 @@ class ProveedorController extends Controller
                 $nuevas++;
             } else {
                 $upd = [];
-                if (!$asoc->activo) {
+                if (! $asoc->activo) {
                     $upd['activo'] = true;
                     $upd['fecha_desasociacion'] = null;
                 }
                 if ($precio !== null && $asoc->precio_acordado === null) {
                     $upd['precio_acordado'] = $precio;
                 }
-                if (!empty($upd)) {
+                if (! empty($upd)) {
                     $asoc->update($upd);
                     $actualizadas++;
                 }
@@ -648,18 +657,22 @@ class ProveedorController extends Controller
             $precio = $cmp->precio_promedio ? round((float) $cmp->precio_promedio, 2) : null;
 
             $prov = Proveedor::find($idProv);
-            if (!$prov || $prov->estado !== 'activo') continue;
+            if (! $prov || $prov->estado !== 'activo') {
+                continue;
+            }
 
             $prod = Producto::find($idProd);
-            if (!$prod || $prod->estado !== 'activo') continue;
+            if (! $prod || $prod->estado !== 'activo') {
+                continue;
+            }
 
             $asoc = ProductoProveedor::where('id_producto', $idProd)->where('id_proveedor', $idProv)->first();
-            if (!$asoc) {
+            if (! $asoc) {
                 $tienePrincipal = ProductoProveedor::where('id_producto', $idProd)->where('activo', true)->where('es_proveedor_principal', true)->exists();
                 ProductoProveedor::create([
                     'id_producto' => $idProd,
                     'id_proveedor' => $idProv,
-                    'es_proveedor_principal' => !$tienePrincipal,
+                    'es_proveedor_principal' => ! $tienePrincipal,
                     'precio_acordado' => $precio,
                     'activo' => true,
                     'fecha_asociacion' => $hoy,
@@ -693,7 +706,7 @@ class ProveedorController extends Controller
     {
         $proveedor = Proveedor::find($id);
 
-        if (!$proveedor) {
+        if (! $proveedor) {
             return response()->json([
                 'status' => 'error',
                 'message' => "El proveedor con ID {$id} no existe.",
@@ -708,12 +721,12 @@ class ProveedorController extends Controller
         }
 
         // Compatibilidad: aceptar tanto 'id_producto' singular, 'id_productos' array o 'productos' array de objetos
-        if ($request->has('id_producto') && !$request->has('id_productos')) {
+        if ($request->has('id_producto') && ! $request->has('id_productos')) {
             $val = $request->input('id_producto');
             if ($val !== null && $val !== '') {
                 $request->merge(['id_productos' => [$val]]);
             }
-        } elseif ($request->has('productos') && is_array($request->input('productos')) && !$request->has('id_productos')) {
+        } elseif ($request->has('productos') && is_array($request->input('productos')) && ! $request->has('id_productos')) {
             $prods = $request->input('productos');
             $ids = array_values(array_filter(array_map(fn ($p) => is_array($p) ? ($p['id_producto'] ?? null) : $p, $prods)));
             $first = is_array($prods[0] ?? null) ? $prods[0] : [];
@@ -729,7 +742,7 @@ class ProveedorController extends Controller
 
         $validator = Validator::make($request->all(), [
             'id_productos' => 'required|array|min:1',
-            'id_productos.*' => 'integer|exists:PRODUCTO,id_producto',
+            'id_productos.*' => 'integer|exists:producto,id_producto',
             'precio_acordado' => 'nullable|numeric|min:0',
             'es_proveedor_principal' => 'nullable|boolean',
         ], [
@@ -756,6 +769,8 @@ class ProveedorController extends Controller
             $yaAsociados = [];
 
             DB::transaction(function () use ($request, $id, $idsProductos, $now, $idUsuario, $precioAcordado, $esPrincipal, &$asociados, &$yaAsociados) {
+                sort($idsProductos, SORT_NUMERIC);
+                Producto::whereIn('id_producto', $idsProductos)->orderBy('id_producto')->lockForUpdate()->get();
                 foreach ($idsProductos as $idProducto) {
                     $existe = ProductoProveedor::where('id_producto', $idProducto)
                         ->where('id_proveedor', $id)
@@ -785,7 +800,7 @@ class ProveedorController extends Controller
                         $existe->update($updateData);
 
                         if ($precioAcordado !== null && $precioAcordado !== $precioAnteriorExiste) {
-                            app(\App\Modules\Proveedores\Services\HistorialPrecioService::class)->registrarSnapshot(
+                            app(HistorialPrecioService::class)->registrarSnapshot(
                                 $existe->id_producto_proveedor,
                                 (float) $precioAcordado,
                                 $idUsuario
@@ -793,13 +808,24 @@ class ProveedorController extends Controller
                         }
 
                         $asociados[] = $existe;
+
                         continue;
                     }
+
+                    $tieneOtroPrincipal = ProductoProveedor::where('id_producto', $idProducto)
+                        ->where('activo', true)
+                        ->where('id_proveedor', '!=', $id)
+                        ->where('es_proveedor_principal', true)
+                        ->exists();
+
+                    $nuevoPrincipal = $request->has('es_proveedor_principal')
+                        ? $esPrincipal
+                        : !$tieneOtroPrincipal;
 
                     $nuevo = ProductoProveedor::create([
                         'id_producto' => $idProducto,
                         'id_proveedor' => $id,
-                        'es_proveedor_principal' => $esPrincipal,
+                        'es_proveedor_principal' => $nuevoPrincipal,
                         'precio_acordado' => $precioAcordado,
                         'activo' => true,
                         'fecha_asociacion' => $now,
@@ -807,7 +833,7 @@ class ProveedorController extends Controller
                     ]);
 
                     if ($precioAcordado !== null && $precioAcordado >= 0) {
-                        app(\App\Modules\Proveedores\Services\HistorialPrecioService::class)->registrarSnapshot(
+                        app(HistorialPrecioService::class)->registrarSnapshot(
                             $nuevo->id_producto_proveedor,
                             (float) $precioAcordado,
                             $idUsuario
@@ -816,11 +842,9 @@ class ProveedorController extends Controller
                     $asociados[] = $nuevo;
                 }
 
-                if ($esPrincipal) {
-                    foreach ($idsProductos as $idProducto) {
-                        $p = Producto::find($idProducto);
-                        $p?->sincronizarCostoReposicion($idUsuario);
-                    }
+                foreach ($idsProductos as $idProducto) {
+                    $p = Producto::find($idProducto);
+                    $p?->sincronizarCostoReposicion($idUsuario);
                 }
             });
 
@@ -835,7 +859,7 @@ class ProveedorController extends Controller
         } catch (\Throwable $e) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Error al asociar productos: ' . $e->getMessage(),
+                'message' => 'Error al asociar productos: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -848,7 +872,7 @@ class ProveedorController extends Controller
     {
         $relacion = ProductoProveedor::with('proveedor')->find($id);
 
-        if (!$relacion) {
+        if (! $relacion) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'La asociación producto-proveedor no existe.',
@@ -895,7 +919,7 @@ class ProveedorController extends Controller
     {
         $relacion = ProductoProveedor::where('id_producto_proveedor', $id)->first();
 
-        if (!$relacion) {
+        if (! $relacion) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'La asociación producto-proveedor no existe.',
@@ -912,6 +936,9 @@ class ProveedorController extends Controller
             'id_usuario' => $idUsuario,
         ]);
 
+        $prod = Producto::find($relacion->id_producto);
+        $prod?->sincronizarCostoReposicion($idUsuario);
+
         return response()->json([
             'status' => 'success',
             'message' => 'Producto desasociado del proveedor.',
@@ -926,7 +953,7 @@ class ProveedorController extends Controller
     {
         $relacion = ProductoProveedor::with(['producto.categoria', 'producto.marca', 'proveedor'])->find($id);
 
-        if (!$relacion) {
+        if (! $relacion) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'La asociación producto-proveedor no existe.',
@@ -961,7 +988,7 @@ class ProveedorController extends Controller
     {
         $relacion = ProductoProveedor::with(['producto', 'proveedor'])->find($id);
 
-        if (!$relacion) {
+        if (! $relacion) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'La asociación producto-proveedor no existe.',
@@ -978,7 +1005,7 @@ class ProveedorController extends Controller
         $validator = Validator::make($request->all(), [
             'precio_acordado' => 'nullable|numeric|min:0',
             'es_proveedor_principal' => 'nullable|boolean',
-            'id_producto' => 'nullable|integer|exists:PRODUCTO,id_producto',
+            'id_producto' => 'nullable|integer|exists:producto,id_producto',
         ], [
             'precio_acordado.min' => 'El precio acordado no puede ser negativo.',
             'id_producto.exists' => 'El producto especificado no existe.',
@@ -1020,7 +1047,7 @@ class ProveedorController extends Controller
             ? ($request->input('precio_acordado') !== null && $request->input('precio_acordado') !== '' ? (float) $request->input('precio_acordado') : null)
             : ($relacion->precio_acordado !== null ? (float) $relacion->precio_acordado : null);
 
-        DB::transaction(function () use ($relacion, $nuevoProductoId, $esPrincipal, $precioAcordado, $idUsuario, $precioAnterior) {
+        DB::transaction(function () use ($relacion, $nuevoProductoId, $productoAnterior, $esPrincipal, $precioAcordado, $idUsuario, $precioAnterior) {
             if ($esPrincipal) {
                 ProductoProveedor::where('id_producto', $nuevoProductoId)
                     ->where('activo', true)
@@ -1038,11 +1065,19 @@ class ProveedorController extends Controller
             ]);
 
             if ($precioAcordado !== null && $precioAcordado !== $precioAnterior) {
-                app(\App\Modules\Proveedores\Services\HistorialPrecioService::class)->registrarSnapshot(
+                app(HistorialPrecioService::class)->registrarSnapshot(
                     $relacion->id_producto_proveedor,
                     (float) $precioAcordado,
                     $idUsuario
                 );
+            }
+
+            $prodNuevo = Producto::find($nuevoProductoId);
+            $prodNuevo?->sincronizarCostoReposicion($idUsuario);
+
+            if ($productoAnterior !== $nuevoProductoId) {
+                $prodAnterior = Producto::find($productoAnterior);
+                $prodAnterior?->sincronizarCostoReposicion($idUsuario);
             }
         });
 
@@ -1087,7 +1122,7 @@ class ProveedorController extends Controller
     {
         $proveedor = Proveedor::with(['usuarioCarga'])->find($id);
 
-        if (!$proveedor) {
+        if (! $proveedor) {
             return response()->json([
                 'status' => 'error',
                 'message' => "El proveedor con ID {$id} no existe.",
@@ -1105,7 +1140,7 @@ class ProveedorController extends Controller
 
         // Si no hay log de INSERT explícito en LOG_AUDITORIA, sintetizar el alta inicial
         $tieneAlta = collect($eventos)->contains(fn ($ev) => ($ev['accion'] ?? '') === 'INSERT' || ($ev['tipo_evento'] ?? '') === 'alta');
-        if (!$tieneAlta && $proveedor->fecha_alta) {
+        if (! $tieneAlta && $proveedor->fecha_alta) {
             $usuarioAlta = $proveedor->usuarioCarga;
             $usuarioNombreAlta = $usuarioAlta ? ($usuarioAlta->nombre ?: $usuarioAlta->usuario) : ($proveedor->id_usuario_carga ? "Usuario #{$proveedor->id_usuario_carga}" : 'Sistema');
 
@@ -1135,12 +1170,12 @@ class ProveedorController extends Controller
                 ],
                 'id_usuario' => $proveedor->id_usuario_carga,
                 'usuario_nombre' => $usuarioNombreAlta,
-                'fecha_hora' => $proveedor->fecha_alta instanceof \Carbon\CarbonInterface
+                'fecha_hora' => $proveedor->fecha_alta instanceof CarbonInterface
                     ? $proveedor->fecha_alta->format('Y-m-d H:i:s')
                     : (string) $proveedor->fecha_alta,
             ];
 
-            usort($eventos, fn ($a, $b) => strcmp((string)($b['fecha_hora'] ?? ''), (string)($a['fecha_hora'] ?? '')));
+            usort($eventos, fn ($a, $b) => strcmp((string) ($b['fecha_hora'] ?? ''), (string) ($a['fecha_hora'] ?? '')));
         }
 
         return response()->json([
@@ -1184,8 +1219,12 @@ class ProveedorController extends Controller
     {
         $ant = is_array($log->valores_anteriores) ? $log->valores_anteriores : json_decode((string) $log->valores_anteriores, true);
         $nue = is_array($log->valores_nuevos) ? $log->valores_nuevos : json_decode((string) $log->valores_nuevos, true);
-        if (!is_array($ant)) $ant = [];
-        if (!is_array($nue)) $nue = [];
+        if (! is_array($ant)) {
+            $ant = [];
+        }
+        if (! is_array($nue)) {
+            $nue = [];
+        }
 
         $accion = strtoupper((string) $log->accion);
         $tipoEvento = 'modificacion';
@@ -1296,4 +1335,3 @@ class ProveedorController extends Controller
         ];
     }
 }
-

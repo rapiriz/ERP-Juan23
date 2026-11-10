@@ -85,7 +85,7 @@ class G1PartnerApiConsumptionTest extends TestCase
             && $request['cliente_id'] === 12 && ($request['desde'] ?? null) === '2026-10-01'
             && ($request['hasta'] ?? null) === '2026-10-22' && ! $request->hasHeader('Authorization'));
         $this->assertFalse(Schema::hasTable('venta'));
-        $this->assertFalse(Schema::hasTable('PRODUCTO'));
+        $this->assertFalse(Schema::hasTable('producto'));
     }
 
     public function test_history_reads_every_page_and_ignores_external_pagination_urls(): void
@@ -166,7 +166,7 @@ class G1PartnerApiConsumptionTest extends TestCase
     public function test_catalog_consumes_the_g3_contract_and_does_not_forward_user_identity(): void
     {
         config(['services.catalog.url' => 'https://g3.test']);
-        $this->fake(['g3.test/api/v1/productos' => Http::response(['status' => 'success', 'data' => [
+        $this->fake(['g3.test/api/v1/productos*' => Http::response(['status' => 'success', 'data' => [
             ['id_producto' => 42, 'codigo' => 'P-42', 'nombre' => null, 'descripcion' => 'Yerba 1kg'],
             ['id_producto' => 12, 'codigo' => 'P-12', 'nombre' => 'Arroz', 'descripcion' => 'Bolsa'],
         ]])]);
@@ -175,7 +175,7 @@ class G1PartnerApiConsumptionTest extends TestCase
         $this->assertSame('Yerba 1kg', $products->last()->nombre);
         Http::assertSent(fn ($request) => $request->method() === 'GET' && ! $request->hasHeader('Authorization')
             && ! $request->hasHeader('X-User-Id') && ! $request->hasHeader('X-User-Username') && ! $request->hasHeader('Cookie'));
-        $this->assertFalse(Schema::hasTable('PRODUCTO'));
+        $this->assertFalse(Schema::hasTable('producto'));
     }
 
     public function test_catalog_errors_and_duplicate_ids_are_not_silently_accepted(): void
@@ -193,7 +193,7 @@ class G1PartnerApiConsumptionTest extends TestCase
     {
         $this->actorAndClients();
         config(['services.catalog.url' => 'https://g3.test']);
-        $this->fake(['g3.test/api/v1/productos' => Http::response(['data' => [
+        $this->fake(['g3.test/api/v1/productos*' => Http::response(['data' => [
             ['id_producto' => 42, 'codigo' => 'P-42', 'nombre' => 'Yerba', 'descripcion' => 'Yerba'],
         ]]), 'g4.test/api/ventas*' => Http::response(['data' => [$this->sale(), $this->sale(81, 99)]])]);
         $this->get('/reportes/clientes-por-producto?producto_id=42')->assertOk()->assertSeeText('Yerba')
@@ -203,7 +203,7 @@ class G1PartnerApiConsumptionTest extends TestCase
         Http::assertSentCount(3);
         Http::assertNotSent(fn ($request) => str_contains($request->url(), '/api/v1/reportes/'));
         $this->assertFalse(Schema::hasTable('venta'));
-        $this->assertFalse(Schema::hasTable('PRODUCTO'));
+        $this->assertFalse(Schema::hasTable('producto'));
     }
 
     public function test_pdf_and_excel_exports_accept_the_same_g4_resource(): void
@@ -234,7 +234,7 @@ class G1PartnerApiConsumptionTest extends TestCase
         Http::assertSentCount(2);
         Http::assertNotSent(fn ($request) => ! str_starts_with($request->url(), 'https://g4.test/api/ventas?'));
         $this->assertFalse(Schema::hasTable('venta'));
-        $this->assertFalse(Schema::hasTable('PRODUCTO'));
+        $this->assertFalse(Schema::hasTable('producto'));
     }
 
     public function test_sales_product_selector_distinguishes_empty_data_unknown_product_and_upstream_failure(): void

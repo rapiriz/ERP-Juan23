@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Modules\Compras\Models;
@@ -10,33 +11,61 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Compra extends Model
 {
-    protected $table = 'COMPRA';
+    protected $table = 'compra';
+
     protected $primaryKey = 'id_compra';
+
     public $timestamps = false;
 
     protected $fillable = [
+
         'numero_compra',
+
         'numero_comprobante',
+
         'id_proveedor',
+
         'id_orden',
+
         'importe_total',
+
         'saldo_pendiente',
+
         'estado',
+        'cierre_parcial',
+        'observaciones',
+
         'fecha_compra',
+        'fecha_entrega_prevista',
+
         'fecha_vencimiento',
+
         'fecha_cancelacion',
+
         'fecha_modificacion',
+
         'id_usuario',
+
         'id_usuario_modificacion',
+
     ];
 
     protected $casts = [
+        'cierre_parcial' => 'boolean',
+
         'id_compra' => 'integer',
+
         'importe_total' => 'float',
+
         'saldo_pendiente' => 'float',
+
         'fecha_compra' => 'date:Y-m-d',
+        'fecha_entrega_prevista' => 'date:Y-m-d',
+
         'fecha_vencimiento' => 'date:Y-m-d',
+
         'fecha_cancelacion' => 'date:Y-m-d',
+
     ];
 
     /**
@@ -46,17 +75,23 @@ class Compra extends Model
 
     public function proveedor(): BelongsTo
     {
+
         return $this->belongsTo(Proveedor::class, 'id_proveedor', 'id_proveedor');
+
     }
 
     public function detalles(): HasMany
     {
+
         return $this->hasMany(DetalleCompra::class, 'id_compra', 'id_compra');
+
     }
 
     public function recepciones(): HasMany
     {
+
         return $this->hasMany(Recepcion::class, 'id_compra', 'id_compra');
+
     }
 
     /**
@@ -64,18 +99,31 @@ class Compra extends Model
      */
     public function pagos(): HasMany
     {
-        return $this->hasMany(PagoProveedor::class, 'id_compra', 'id_compra')
+
+        return $this->hasMany(PagoProveedor::class, 'id_compra', 'id_compra')->whereNull('anulado_en')
+
             ->orderBy('fecha_pago', 'asc')
+
             ->orderBy('id_pago', 'asc');
+
     }
 
     public function totalPagado(): float
     {
+
         return round((float) $this->pagos()->sum('importe'), 2);
+
     }
 
     public function saldoFinal(): float
     {
-        return round((float) $this->importe_total - $this->totalPagado(), 2);
+
+        return $this->estado === 'cancelada' ? 0.0 : round((float) $this->importe_total - $this->totalPagado(), 2);
+
+    }
+
+    public function orden(): BelongsTo
+    {
+        return $this->belongsTo(\App\Modules\PedidosDeCompra\Models\OrdenCompra::class, 'id_orden', 'id_orden');
     }
 }

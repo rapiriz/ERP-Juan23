@@ -2,7 +2,9 @@
 
 namespace Tests\Feature;
 
-use Illuminate\Database\Schema\Blueprint;
+use App\Modules\Clientes\Models\Cliente;
+use App\Modules\Login\Models\User;
+use App\Modules\Ventas\Contracts\ClienteGateway;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -25,34 +27,16 @@ class VentasApiTest extends TestCase
     private const CLIENTE = 915736;
 
     // Archivo temporal donde escribe el canal de log "ventas" durante el test.
-    private string $archivoLog;
+    private string $archivoLog = '';
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        Schema::create('venta', function (Blueprint $table): void {
-            $table->increments('id_venta');
-            $table->unsignedInteger('id_cliente');
-            $table->date('fecha');
-            $table->decimal('total', 10, 2);
-            $table->decimal('descuento_global', 10, 2)->default(0);
-            $table->string('numFactura', 50);
-            $table->string('estado');
-            $table->string('observaciones', 150);
-            $table->unsignedInteger('id_usuario');
-        });
-
-        Schema::create('detalle_venta', function (Blueprint $table): void {
-            $table->increments('id_detalle');
-            $table->unsignedInteger('id_venta');
-            $table->unsignedInteger('id_producto');
-            $table->unsignedInteger('id_promocion')->nullable();
-            $table->unsignedInteger('cantidad');
-            $table->decimal('precio_unitario', 10, 2);
-            $table->decimal('descuento', 10, 2);
-            $table->decimal('subtotal', 10, 2);
-        });
+        $this->signInAs(User::factory()->create(['rol' => 'administrativo']));
+        foreach (app(ClienteGateway::class)->todos() as $client) {
+            Cliente::factory()->create(['id' => $client['id']]);
+        }
 
         // El log de ventas va a un archivo temporal para no ensuciar storage/logs/ventas.
         $this->archivoLog = tempnam(sys_get_temp_dir(), 'ventas_test_');
@@ -98,7 +82,7 @@ class VentasApiTest extends TestCase
 
     public function test_index_sin_ventas_devuelve_lista_vacia(): void
     {
-        $this->getJson('/api/ventas')
+        $this->getJson('/api/ventas?page=1')
             ->assertOk()
             ->assertJsonPath('data', [])
             ->assertJsonPath('meta.total', 0);
@@ -114,7 +98,7 @@ class VentasApiTest extends TestCase
             ],
         ]))->assertCreated();
 
-        $this->getJson('/api/ventas')
+        $this->getJson('/api/ventas?page=1')
             ->assertOk()
             ->assertJsonCount(2, 'data')
             ->assertJsonPath('data.0.id', 2)
@@ -196,7 +180,7 @@ class VentasApiTest extends TestCase
             'total' => 7650,
             'descuento_global' => 0,
             'estado' => 'pendiente',
-            'id_usuario' => config('cuenta_corriente.id_usuario_prueba'),
+            'id_usuario' => auth()->id(),
         ]);
         $this->assertDatabaseHas('detalle_venta', [
             'id_venta' => 1, 'id_producto' => 1, 'id_promocion' => null,

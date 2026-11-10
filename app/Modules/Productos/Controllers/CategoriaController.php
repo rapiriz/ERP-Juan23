@@ -1,151 +1,73 @@
 <?php
-declare(strict_types=1);
-
 namespace App\Modules\Productos\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Productos\Models\Categoria;
-use Illuminate\Http\JsonResponse;
+use App\Modules\Productos\Services\CategoryHierarchy;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
-use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class CategoriaController extends Controller
 {
-    /**
-     * Listar todas las categorías con conteo de productos asociados (P02)
-     */
-    public function index(): JsonResponse
+    public function index()
     {
-        $categorias = Categoria::withCount('productos as total_productos')
-            ->orderBy('nombre', 'asc')
-            ->get();
-
-        return response()->json([
-            'status' => 'success',
-            'data' => $categorias,
-        ]);
+        $records = DB::table('categoria')->get()->keyBy('id_categoria')->all();
+        $rows = Categoria::withCount('productos as total_productos')->orderBy('nombre')->get();
+        foreach ($rows as $row) {
+            $row->setAttribute('ruta', app(CategoryHierarchy::class)->path($row->id_categoria, $records));
+        }
+        return response()->json(['status' => 'success', 'data' => $rows]);
     }
 
-    /**
-     * Crear nueva categoría (P02)
-     */
-    public function store(Request $request): JsonResponse
+    public function show(int $id)
     {
-        $validator = Validator::make($request->all(), [
-            'nombre' => 'required|string|max:100|unique:CATEGORIA,nombre',
-        ], [
-            'nombre.required' => 'El nombre de la categoría es obligatorio.',
-            'nombre.unique' => "Ya existe una categoría con el nombre ':input'.",
-        ]);
+        return response()->json(['status' => 'success', 'data' => Categoria::withCount('productos as total_productos')->findOrFail($id)]);
+    }
 
+    public function store(Request $request)
+    {
+        return $this->save($request);
+    }
+
+    public function update(Request $request, int $id)
+    {
+        return $this->save($request, $id);
+    }
+
+    private function save(Request $request, ?int $id = null)
+    {
+        $request->merge(['nombre' => trim((string) $request->input('nombre'))]);
+        $rules = ['nombre' => ['required','string','max:100', \Illuminate\Validation\Rule::unique('categoria','nombre')->ignore($id,'id_categoria')],
+            'id_categoria_padre' => 'nullable|integer|min:1'];
+        $validator = validator($request->all(), $rules);
         if ($validator->fails()) {
-            return response()->json([
-                'status' => 'error',
-                'message' => $validator->errors()->first(),
-            ], 400);
+            return response()->json(['status' => 'error', 'message' => $validator->errors()->first()], 400);
         }
-
-        $now = Carbon::now()->toDateString();
-        $categoria = Categoria::create([
-            'nombre' => trim($request->input('nombre')),
-            'fecha_creacion' => $now,
-            'fecha_modificacion' => $now,
-        ]);
-
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Categoría creada exitosamente.',
-            'data' => $categoria,
-        ], 201);
+        $row = DB::transaction(function () use ($request, $id) {
+            DB::table('categoria')->orderBy('id_categoria')->lockForUpdate()->get();
+            $row = $id === null ? new Categoria : Categoria::findOrFail($id);
+            $parent = $request->exists('id_categoria_padre') ? ($request->filled('id_categoria_padre') ? (int) $request->input('id_categoria_padre') : null) : $row->id_categoria_padre;
+            app(CategoryHierarchy::class)->requireParent($id, $parent);
+            $row->nombre = $request->input('nombre');
+            $row->id_categoria_padre = $parent;
+            $row->fecha_creacion ??= today();
+            $row->fecha_modificacion = today();
+            $row->save();
+            return $row;
+        }, 3);
+        return response()->json(['status'=>'success', 'message'=>$id === null ? 'Categoría creada exitosamente.' : 'Categoría actualizada exitosamente.', 'data'=>$row], $id === null ? 201 : 200);
     }
 
-    /**
-     * Obtener una categoría por ID
-     */
-    public function show(int $id): JsonResponse
+    public function destroy(int $id)
     {
-        $categoria = Categoria::withCount('productos as total_productos')->find($id);
-
-        if (!$categoria) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Categoría no encontrada.',
-            ], 404);
-        }
-
-        return response()->json([
-            'status' => 'success',
-            'data' => $categoria,
-        ]);
-    }
-
-    /**
-     * Modificar categoría existente (P02)
-     */
-    public function update(Request $request, int $id): JsonResponse
-    {
-        $categoria = Categoria::find($id);
-
-        if (!$categoria) {
-            return response()->json([
-                'status' => 'error',
-                'message' => "La categoría con ID {$id} no existe.",
-            ], 404);
-        }
-
-        $validator = Validator::make($request->all(), [
-            'nombre' => "required|string|max:100|unique:CATEGORIA,nombre,{$id},id_categoria",
-        ], [
-            'nombre.required' => 'El nombre de la categoría es obligatorio.',
-            'nombre.unique' => "Ya existe otra categoría con el nombre ':input'.",
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'status' => 'error',
-                'message' => $validator->errors()->first(),
-            ], 400);
-        }
-
-        $categoria->update([
-            'nombre' => trim($request->input('nombre')),
-            'fecha_modificacion' => Carbon::now()->toDateString(),
-        ]);
-
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Categoría actualizada exitosamente.',
-            'data' => $categoria,
-        ]);
-    }
-
-    /**
-     * Eliminar categoría (P02 - Impide eliminación si está siendo utilizada por productos)
-     */
-    public function destroy(int $id): JsonResponse
-    {
-        $categoria = Categoria::withCount('productos')->find($id);
-
-        if (!$categoria) {
-            return response()->json([
-                'status' => 'error',
-                'message' => "La categoría con ID {$id} no existe.",
-            ], 404);
-        }
-
-        if ($categoria->productos_count > 0) {
-            return response()->json([
-                'status' => 'error',
-                'message' => "No se puede eliminar la categoría '{$categoria->nombre}' porque está siendo utilizada por {$categoria->productos_count} producto(s).",
-            ], 400);
-        }
-
-        $categoria->delete();
-
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Categoría eliminada exitosamente.',
-        ]);
+        return DB::transaction(function () use ($id) {
+            DB::table('categoria')->orderBy('id_categoria')->lockForUpdate()->get();
+            $row = Categoria::findOrFail($id);
+            if ($row->productos()->exists() || Categoria::where('id_categoria_padre', $id)->exists()) {
+                return response()->json(['status'=>'error','message'=>'No se puede eliminar la categoría porque tiene productos o subcategorías.'],400);
+            }
+            $row->delete();
+            return response()->json(['status'=>'success','message'=>'Categoría eliminada exitosamente.']);
+        }, 3);
     }
 }

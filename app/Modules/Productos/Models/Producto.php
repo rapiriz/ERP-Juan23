@@ -1,21 +1,23 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Modules\Productos\Models;
 
 use App\Modules\Login\Models\User;
+use App\Modules\Proveedores\Models\ProductoProveedor;
 use App\Modules\Stock\Models\MovimientoStock;
 use App\Modules\Stock\Models\Ubicacion;
 use App\Modules\Stock\Models\UnidadMedida;
-use App\Modules\Proveedores\Models\ProductoProveedor;
 use Database\Factories\ProductoFactory;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 #[UseFactory(ProductoFactory::class)]
@@ -24,8 +26,10 @@ class Producto extends Model
     /** @use HasFactory<ProductoFactory> */
     use HasFactory;
 
-    protected $table = 'PRODUCTO';
+    protected $table = 'producto';
+
     protected $primaryKey = 'id_producto';
+
     public $timestamps = false;
 
     public function getTable(): string
@@ -132,36 +136,37 @@ class Producto extends Model
         foreach ($attributes as $clave => $valor) {
             $claveNormalizada = $clave;
 
-            if ($clave === 'precio_unitario' && !in_array('precio_unitario', $columnas, true)) {
+            if ($clave === 'precio_unitario' && ! in_array('precio_unitario', $columnas, true)) {
                 if (in_array('precioMay', $columnas, true)) {
                     $normalizados['precioMay'] = $valor;
                 }
                 if (in_array('precioMin', $columnas, true)) {
                     $normalizados['precioMin'] = $valor;
                 }
+
                 continue;
             }
 
-            if ($clave === 'precioMay' && !in_array('precioMay', $columnas, true) && in_array('precio_unitario', $columnas, true)) {
+            if ($clave === 'precioMay' && ! in_array('precioMay', $columnas, true) && in_array('precio_unitario', $columnas, true)) {
                 $claveNormalizada = 'precio_unitario';
             }
 
-            if ($clave === 'precioMin' && !in_array('precioMin', $columnas, true) && in_array('precio_unitario', $columnas, true)) {
+            if ($clave === 'precioMin' && ! in_array('precioMin', $columnas, true) && in_array('precio_unitario', $columnas, true)) {
                 $claveNormalizada = 'precio_unitario';
             }
 
-            if (!in_array($claveNormalizada, $columnas, true) && !in_array($claveNormalizada, ['precio_unitario', 'precioMay', 'precioMin', 'stock_disponible', 'stock_actual', 'costo', 'recargo'], true)) {
+            if (! in_array($claveNormalizada, $columnas, true) && ! in_array($claveNormalizada, ['precio_unitario', 'precioMay', 'precioMin', 'stock_disponible', 'stock_actual', 'costo', 'recargo'], true)) {
                 continue;
             }
 
             $normalizados[$claveNormalizada] = $valor;
         }
 
-        if (!array_key_exists('fecha_alta', $normalizados) && in_array('fecha_alta', $columnas, true)) {
+        if (! array_key_exists('fecha_alta', $normalizados) && in_array('fecha_alta', $columnas, true)) {
             $normalizados['fecha_alta'] = now()->toDateString();
         }
 
-        if (!array_key_exists('id_usuario_carga', $normalizados) && in_array('id_usuario_carga', $columnas, true)) {
+        if (! array_key_exists('id_usuario_carga', $normalizados) && in_array('id_usuario_carga', $columnas, true)) {
             $normalizados['id_usuario_carga'] = 1;
         }
 
@@ -194,7 +199,14 @@ class Producto extends Model
      */
     public function getStockDisponibleAttribute(?int $value = null): int
     {
-        return (int) ($value ?? $this->stock);
+        $physical = (int) ($value ?? $this->stock);
+        if (! Schema::hasTable('stock_lote_movimientos')) {
+            return $physical;
+        }
+        $expired = DB::table('lote')->where('id_producto', $this->id_producto)
+            ->where('estado_trazabilidad', 'controlado')->where('cantidad_actual', '>', 0)
+            ->whereDate('fecha_vencimiento', '<', today())->sum('cantidad_actual');
+        return max(0, $physical - (int) $expired);
     }
 
     public function getStockActualAttribute(?int $value = null): int
@@ -222,6 +234,7 @@ class Producto extends Model
         if ($disponible <= $minimo) {
             return 'bajo';
         }
+
         return 'normal';
     }
 
@@ -284,16 +297,37 @@ class Producto extends Model
 
     /**
      * Retorna la asociación activa con el proveedor principal, si existe.
+     * Si ningún proveedor fue marcado explícitamente como principal pero el producto
+     * tiene un único proveedor activo con precio acordado > 0, se toma como referencia.
      */
     public function proveedorPrincipal(): ?ProductoProveedor
     {
-        return $this->proveedores()
+        $principal = $this->proveedores()
             ->where('es_proveedor_principal', true)
             ->where('activo', true)
             ->whereHas('proveedor', function (Builder $query) {
                 $query->where('estado', 'activo');
             })
             ->first();
+
+        if ($principal) {
+            return $principal;
+        }
+
+        $activosConPrecio = $this->proveedores()
+            ->where('activo', true)
+            ->whereNotNull('precio_acordado')
+            ->where('precio_acordado', '>', 0)
+            ->whereHas('proveedor', function (Builder $query) {
+                $query->where('estado', 'activo');
+            })
+            ->get();
+
+        if ($activosConPrecio->count() === 1) {
+            return $activosConPrecio->first();
+        }
+
+        return null;
     }
 
     /**
@@ -303,52 +337,59 @@ class Producto extends Model
      */
     public function sincronizarCostoReposicion(?int $idUsuario = null): bool
     {
-        $principal = $this->proveedorPrincipal();
+        return DB::transaction(function () use ($idUsuario) {
+            $fresh = self::whereKey($this->getKey())->lockForUpdate()->firstOrFail();
+            $this->setRawAttributes($fresh->getAttributes(), true);
+            $this->unsetRelations();
+            $principal = $this->proveedorPrincipal();
 
-        if ($principal && $principal->precio_acordado !== null && (float) $principal->precio_acordado > 0) {
-            $nuevoCosto = (float) $principal->precio_acordado;
-            $this->costo = $nuevoCosto;
+            if ($principal && $principal->precio_acordado !== null && (float) $principal->precio_acordado > 0) {
+                $nuevoCosto = (float) $principal->precio_acordado;
+                $this->costo = $nuevoCosto;
 
-            if ($this->recargo !== null) {
-                $precioCalculado = round($nuevoCosto * (1 + ((float) $this->recargo / 100.0)), 2);
-                $precioActual = (float) $this->precio_unitario;
+                if ($this->recargo !== null) {
+                    $precioCalculado = round($nuevoCosto * (1 + ((float) $this->recargo / 100.0)), 2);
+                    $precioActual = (float) $this->precio_unitario;
 
-                if (abs($precioCalculado - $precioActual) >= 0.01) {
-                    HistorialPrecio::create([
-                        'id_producto' => $this->id_producto,
-                        'tipo_precio' => 'general',
-                        'precio' => $precioCalculado,
-                        'porcentaje_aumento' => $precioActual > 0 ? round((($precioCalculado - $precioActual) / $precioActual) * 100, 2) : 0,
-                        'regla_redondeo' => 'sin_redondeo',
-                        'origen' => 'costo_reposicion',
-                        'fecha_cambio' => now()->toDateTimeString(),
-                        'id_usuario' => $idUsuario ?? 1,
-                    ]);
+                    if ((int) round($precioCalculado * 100) !== (int) round($precioActual * 100)) {
+                        HistorialPrecio::create([
+                            'id_producto' => $this->id_producto,
+                            'tipo_precio' => 'general',
+                            'precio' => $precioCalculado,
+                            'porcentaje_aumento' => $precioActual > 0 ? round((($precioCalculado - $precioActual) / $precioActual) * 100, 2) : 0,
+                            'regla_redondeo' => 'sin_redondeo',
+                            'origen' => 'costo_reposicion',
+                            'fecha_cambio' => now()->toDateTimeString(),
+                            'id_usuario' => $idUsuario ?? 1,
+                        ]);
 
-                    $this->precio_unitario = $precioCalculado;
-                    $this->fecha_modificacion = now()->toDateTimeString();
-                    $this->id_usuario_modificacion = $idUsuario;
+                        $this->precio_unitario = $precioCalculado;
+                        $this->fecha_modificacion = now()->toDateTimeString();
+                        $this->id_usuario_modificacion = $idUsuario;
+                    }
                 }
+
+                $this->save();
+
+                return true;
             }
 
-            $this->save();
-            return true;
-        }
+            // Si no tiene proveedor principal activo pero tenía costo cargado, limpiamos costo
+            if ($this->costo !== null) {
+                $this->costo = null;
+                $this->save();
 
-        // Si no tiene proveedor principal activo pero tenía costo cargado, limpiamos costo
-        if ($this->costo !== null) {
-            $this->costo = null;
-            $this->save();
-            return true;
-        }
+                return true;
+            }
 
-        return false;
+            return false;
+        }, 3);
     }
 
     public function historialPrecios(): HasMany
     {
         return $this->hasMany(HistorialPrecio::class, 'id_producto', 'id_producto')
-                    ->orderBy('id_historial', 'desc');
+            ->orderBy('id_historial', 'desc');
     }
 
     /**
@@ -357,7 +398,7 @@ class Producto extends Model
     public function movimientos(): HasMany
     {
         return $this->hasMany(MovimientoStock::class, 'id_producto', 'id_producto')
-                    ->orderBy('id_movimiento', 'desc');
+            ->orderBy('id_movimiento', 'desc');
     }
 
     /**
@@ -415,6 +456,7 @@ class Producto extends Model
         $u = $this->relationLoaded('unidades')
             ? $this->unidades->firstWhere('es_base', 1)
             : $this->unidades()->where('es_base', 1)->first();
+
         return $u ? (int) $u->id_unidad : null;
     }
 
@@ -453,12 +495,14 @@ class Producto extends Model
     {
         if ($term && trim($term) !== '') {
             $term = trim($term);
+
             return $query->where(function (Builder $q) use ($term) {
                 $q->where('codigo', 'LIKE', "%{$term}%")
-                  ->orWhere('nombre', 'LIKE', "%{$term}%")
-                  ->orWhere('descripcion', 'LIKE', "%{$term}%");
+                    ->orWhere('nombre', 'LIKE', "%{$term}%")
+                    ->orWhere('descripcion', 'LIKE', "%{$term}%");
             });
         }
+
         return $query;
     }
 
@@ -470,6 +514,7 @@ class Producto extends Model
         if ($categoriaId && $categoriaId > 0) {
             return $query->where('id_categoria', $categoriaId);
         }
+
         return $query;
     }
 
@@ -481,8 +526,29 @@ class Producto extends Model
         if ($marcaId && $marcaId > 0) {
             return $query->where('id_marca', $marcaId);
         }
+
         return $query;
     }
+
+    /**
+     * Scope para filtrar por proveedor activo asociado al producto (PV05 / P07)
+     */
+    public function scopeFilterProveedor(Builder $query, ?int $proveedorId): Builder
+    {
+        if ($proveedorId && $proveedorId > 0) {
+            return $query->whereHas('proveedores', function (Builder $q) use ($proveedorId) {
+                $q->where('id_proveedor', $proveedorId)
+                    ->where('activo', true);
+            });
+        }
+
+        return $query;
+    }
+
+    /**
+     * Scope para filtrar por proveedor activo asociado al producto (PV05 / P07)
+     */
+
 
     /**
      * Scope para filtrar por estado (P05 / P06)
@@ -492,6 +558,7 @@ class Producto extends Model
         if ($estado && in_array(strtolower($estado), ['activo', 'inactivo'])) {
             return $query->where('estado', strtolower($estado));
         }
+
         return $query;
     }
 }

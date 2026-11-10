@@ -4,18 +4,22 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <script src="{{ asset('assets/js/safe-html.js') }}"></script>
     <title>@yield('title', $__env->yieldContent('titulo', 'Sistema de gestión'))</title>
     <link rel="stylesheet" href="{{ asset('assets/css/styles.css') }}">
     <link rel="stylesheet" href="{{ asset('css/modules.css') }}">
     @yield('styles')
     @stack('styles')
     <link rel="stylesheet" href="{{ asset('assets/css/navigation.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/accessibility.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/erp-theme.css') }}">
 </head>
 <body class="erp-body erp-shell">
+<a class="erp-skip" href="#main-content">Saltar al contenido</a>
     @include('partials.sidebar')
     <div class="app-workspace">
-        <main class="layout @yield('layout-class')">
-            @foreach (['mensaje' => 'success', 'error' => 'error', 'permission_error' => 'error'] as $flash => $kind)
+        <main id="main-content" tabindex="-1" class="layout @yield('layout-class')">
+            @foreach (['success' => 'success', 'mensaje' => 'success', 'error' => 'error', 'permission_error' => 'error'] as $flash => $kind)
                 @if (session($flash))
                     <div class="alert alert-{{ $kind }}" role="alert">{{ session($flash) }}</div>
                 @endif
@@ -45,5 +49,6 @@
         <script src="{{ asset('assets/js/g1-rendiciones.js') }}" defer></script>
     @endif
     <script src="{{ asset('assets/js/navigation.js') }}" defer></script>
+<script src="{{ asset('assets/js/accessibility.js') }}" defer></script>
 </body>
 </html>

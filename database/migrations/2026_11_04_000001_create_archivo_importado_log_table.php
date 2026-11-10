@@ -11,6 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasTable('ARCHIVO_IMPORTADO_LOG')) {
+            return;
+        }
+
         Schema::create('ARCHIVO_IMPORTADO_LOG', function (Blueprint $table) {
             $table->increments('id_archivo_importado_log');
             $table->string('nombre_original', 255);

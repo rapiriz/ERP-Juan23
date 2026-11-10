@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Modules\Compras\Controllers;
@@ -7,10 +8,12 @@ use App\Http\Controllers\Controller;
 use App\Modules\Compras\Models\Compra;
 use App\Modules\Compras\Models\DetalleCompra;
 use App\Modules\Compras\Models\DetalleRecepcion;
-use App\Modules\Productos\Models\Producto;
-use App\Modules\Proveedores\Models\ProductoProveedor;
 use App\Modules\Compras\Models\Recepcion;
 use App\Modules\PedidosDeCompra\Models\OrdenCompra;
+use App\Modules\PedidosDeCompra\Services\PurchaseOrderProgress;
+use App\Modules\Productos\Models\Producto;
+use App\Modules\Proveedores\Models\ProductoProveedor;
+use App\Modules\Stock\Services\ProductUnitService;
 use App\Modules\Stock\Services\StockService;
 use App\Support\UsuarioActual;
 use Carbon\Carbon;
@@ -29,9 +32,7 @@ use RuntimeException;
  */
 class RecepcionController extends Controller
 {
-    public function __construct(private StockService $stockService)
-    {
-    }
+    public function __construct(private StockService $stockService) {}
 
     /**
      * C06 - Registrar una recepción (parcial o total) de una compra.
@@ -39,7 +40,7 @@ class RecepcionController extends Controller
     public function store(Request $request, int $id): JsonResponse
     {
         $compra = Compra::with('detalles')->find($id);
-        if (!$compra) {
+        if (! $compra) {
             return response()->json(['status' => 'error', 'message' => 'La compra no existe.'], 404);
         }
 
@@ -54,13 +55,15 @@ class RecepcionController extends Controller
             return response()->json(['status' => 'error', 'message' => 'No se puede recibir de un proveedor inactivo. (PV04)'], 400);
         }
 
-        if (!$request->has('items') && $request->has('detalles')) {
+        if (! $request->has('items') && $request->has('detalles')) {
             $request->merge(['items' => $request->input('detalles')]);
         }
 
         $validator = Validator::make($request->all(), [
             'fecha_recepcion' => 'nullable|date|before_or_equal:today',
-            'items' => 'required|array|min:1',
+            'items' => 'required|array|min:1|max:100',
+            'items.*.nro_lote' => 'nullable|required_with:items.*.fecha_vencimiento|string|max:100',
+            'items.*.fecha_vencimiento' => 'nullable|required_with:items.*.nro_lote|date_format:Y-m-d',
         ], [
             'fecha_recepcion.before_or_equal' => 'La fecha de recepción no puede ser posterior a la fecha actual.',
             'items.required' => 'Debe indicar al menos un producto recibido.',
@@ -75,10 +78,13 @@ class RecepcionController extends Controller
 
         // Normalizar la solicitud: preservar lotes y sumar cantidades por producto
         $itemsNormalizados = [];
-        $totalPorProducto = [];
         foreach ($items as $item) {
             $idProducto = (int) ($item['id_producto'] ?? 0);
-            $cantidad = (int) ($item['cantidad'] ?? $item['cantidad_recibida'] ?? 0);
+            $rawQuantity = $item['cantidad'] ?? $item['cantidad_recibida'] ?? 0;
+            if (filter_var($rawQuantity, FILTER_VALIDATE_INT) === false) {
+                return response()->json(['status' => 'error', 'message' => 'La cantidad debe ser entera.'], 400);
+            }
+            $cantidad = (int) $rawQuantity;
 
             if ($idProducto <= 0) {
                 return response()->json(['status' => 'error', 'message' => 'Cada ítem debe indicar un producto.'], 400);
@@ -87,39 +93,55 @@ class RecepcionController extends Controller
                 return response()->json(['status' => 'error', 'message' => 'La cantidad recibida debe ser mayor a cero.'], 400);
             }
 
-            $totalPorProducto[$idProducto] = ($totalPorProducto[$idProducto] ?? 0) + $cantidad;
             $itemsNormalizados[] = [
                 'id_producto' => $idProducto,
+                'nro_lote' => trim((string) ($item['nro_lote'] ?? '')),
+                'fecha_vencimiento' => $item['fecha_vencimiento'] ?? null,
                 'cantidad' => $cantidad,
+                'id_unidad' => isset($item['id_unidad']) ? (int) $item['id_unidad'] : null,
+                'id_detalle_compra' => isset($item['id_detalle_compra']) ? (int) $item['id_detalle_compra'] : null,
             ];
-        }
-
-        // Mapear los detalles de la compra por producto.
-        $detalles = $compra->detalles->keyBy('id_producto');
-
-        // Validar cantidades contra los pendientes antes de la transacción
-        foreach ($totalPorProducto as $idProducto => $cantTotal) {
-            $detalle = $detalles->get($idProducto);
-            if (!$detalle) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => "El producto con ID {$idProducto} no forma parte de esta compra.",
-                ], 400);
-            }
-            $pendiente = (int) $detalle->cantidad - (int) $detalle->cantidad_recibida;
-            if ($cantTotal > $pendiente) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => "La cantidad recibida del producto ID {$idProducto} excede el pendiente ({$pendiente}).",
-                ], 400);
-            }
         }
 
         $idUsuario = UsuarioActual::id($request);
         $fecha = $request->input('fecha_recepcion') ?? Carbon::now()->toDateString();
 
         try {
-            $resultado = DB::transaction(function () use ($compra, $detalles, $itemsNormalizados, $idUsuario, $fecha) {
+            $resultado = DB::transaction(function () use ($compra, $itemsNormalizados, $idUsuario, $fecha) {
+                if ($compra->id_orden) {
+                    $order = OrdenCompra::whereKey($compra->id_orden)->lockForUpdate()->firstOrFail();
+                    abort_if($order->estado === 'cancelada', 409, 'La orden vinculada está cancelada.');
+                }
+                $compra = Compra::query()->whereKey($compra->id_compra)->lockForUpdate()->firstOrFail();
+                if (in_array($compra->estado, ['cancelada', 'completada'], true)) {
+                    throw new RuntimeException('La compra ya está cancelada o completamente recibida.');
+                }
+                $detalles = $compra->detalles()->orderBy('id_producto')->lockForUpdate()->get()->keyBy('id_detalle_compra');
+                $totales = [];
+                foreach ($itemsNormalizados as &$item) {
+                    $matches = $detalles->filter(fn ($d) => (int) $d->id_producto === $item['id_producto']
+                        && ($item['id_unidad'] === null || (int) $d->id_unidad === $item['id_unidad'])
+                        && ($item['id_detalle_compra'] === null || (int) $d->id_detalle_compra === $item['id_detalle_compra']));
+                    if ($matches->count() !== 1) {
+                        throw new RuntimeException('Indicá el detalle de compra o la unidad cuando el producto tenga varias presentaciones.');
+                    }
+                    $detailId = (int) $matches->first()->id_detalle_compra;
+                    $item['detalle_id'] = $detailId;
+                    $totales[$detailId] = ($totales[$detailId] ?? 0) + $item['cantidad'];
+                }
+                unset($item);
+                foreach ($totales as $detailId => $quantity) {
+                    $detail = $detalles->get($detailId);
+                    if ($quantity > (int) $detail->cantidad - (int) $detail->cantidad_recibida) {
+                        throw new RuntimeException('La recepción excede el pendiente actual de la compra.');
+                    }
+                }
+                $productIds = $detalles->pluck('id_producto');
+                if ($compra->id_orden) {
+                    $productIds = $productIds->merge($order->detalles()->pluck('id_producto'));
+                }
+                $productIds = $productIds->unique()->sort()->values();
+                Producto::query()->whereIn('id_producto', $productIds)->orderBy('id_producto')->lockForUpdate()->get();
                 $recepcion = Recepcion::create([
                     'id_compra' => $compra->id_compra,
                     'id_proveedor' => $compra->id_proveedor,
@@ -133,12 +155,12 @@ class RecepcionController extends Controller
                     $idProducto = $it['id_producto'];
                     $cantidadRecibida = $it['cantidad'];
                     /** @var DetalleCompra $detalle */
-                    $detalle = $detalles->get($idProducto);
+                    $detalle = $detalles->get($it['detalle_id']);
 
                     $pendiente = (int) $detalle->cantidad - (int) $detalle->cantidad_recibida;
 
                     $producto = Producto::find($idProducto);
-                    if (!$producto || $producto->estado !== 'activo') {
+                    if (! $producto || $producto->estado !== 'activo') {
                         throw new RuntimeException("El producto con ID {$idProducto} no existe o no está activo.");
                     }
 
@@ -155,24 +177,28 @@ class RecepcionController extends Controller
                     $detalle->save();
 
                     // Sumar al stock como ingreso (C06 depende de S03).
-                    $this->sumarStock($producto, $cantidadRecibida, $idUsuario, $detalle->id_unidad, $recepcion->id_recepcion, $fecha);
+                    $lotId = null;
+                    if ($it['nro_lote'] !== '') {
+                        $lotId = app(\App\Modules\Stock\Services\LotService::class)->forReceipt($idProducto, $it['nro_lote'], $it['fecha_vencimiento'])->id_lote;
+                    }
+                    $this->sumarStock($producto, $cantidadRecibida, $idUsuario, $detalle->id_unidad, $recepcion->id_recepcion, $fecha, $lotId);
 
                     // PV05: Asociar automáticamente el producto al proveedor si aún no lo está
                     $asocProv = ProductoProveedor::where('id_producto', $idProducto)
                         ->where('id_proveedor', $compra->id_proveedor)
                         ->first();
-                    $costoUnitario = (float) $detalle->precio_unitario;
+                    $costoUnitario = round((float) $detalle->precio_unitario / (float) ProductUnitService::resolve((int) $producto->id_producto, (int) $detalle->id_unidad)->equivalencia_base, 2);
 
-                    if (!$asocProv) {
+                    if (! $asocProv) {
                         $tieneOtroPrincipal = ProductoProveedor::where('id_producto', $idProducto)
                             ->where('activo', true)
                             ->where('es_proveedor_principal', true)
                             ->exists();
 
-                        ProductoProveedor::create([
+                        $asocProv = ProductoProveedor::create([
                             'id_producto' => $idProducto,
                             'id_proveedor' => $compra->id_proveedor,
-                            'es_proveedor_principal' => !$tieneOtroPrincipal,
+                            'es_proveedor_principal' => ! $tieneOtroPrincipal,
                             'precio_acordado' => $costoUnitario,
                             'activo' => true,
                             'fecha_asociacion' => $fecha,
@@ -180,10 +206,14 @@ class RecepcionController extends Controller
                         ]);
                     } else {
                         $upd = ['activo' => true, 'fecha_desasociacion' => null];
-                        if ($asocProv->precio_acordado === null) {
+                        if ($costoUnitario > 0) {
                             $upd['precio_acordado'] = $costoUnitario;
                         }
                         $asocProv->update($upd);
+                    }
+
+                    if ($asocProv && $asocProv->es_proveedor_principal && $costoUnitario > 0) {
+                        $producto->sincronizarCostoReposicion($idUsuario);
                     }
 
                     $recibidos[] = [
@@ -206,9 +236,7 @@ class RecepcionController extends Controller
                 $todasCompletas = $recibidoTotal >= $saldoTotal;
                 $compra->estado = $todasCompletas ? 'completada' : 'parcialmente_recibida';
 
-                if ($saldoTotal > 0) {
-                    $compra->saldo_pendiente = round($compra->importe_total * $pendienteTotal / $saldoTotal, 2);
-                }
+                $compra->saldo_pendiente = $todos->sum(fn ($d) => max(0, (int) $d->cantidad - (int) $d->cantidad_recibida) * (int) round($d->precio_unitario * 100)) / 100;
 
                 $compra->save();
 
@@ -216,9 +244,7 @@ class RecepcionController extends Controller
                 if ($compra->id_orden) {
                     $orden = OrdenCompra::find($compra->id_orden);
                     if ($orden && $orden->estado !== 'cancelada') {
-                        $orden->estado = $todasCompletas ? 'completada' : 'recibida_parcialmente';
-                        $orden->fecha_modificacion = Carbon::now()->toDateString();
-                        $orden->save();
+                        app(PurchaseOrderProgress::class)->sync($orden);
                     }
                 }
 
@@ -235,17 +261,19 @@ class RecepcionController extends Controller
                     'id_recepcion' => $resultado['recepcion']->id_recepcion,
                     'id_compra' => $compra->id_compra,
                     'fecha_recepcion' => $resultado['recepcion']->fecha_recepcion->format('Y-m-d'),
-                    'estado_compra' => $compra->estado,
+                    'estado_compra' => $compra->fresh()->estado,
                     'items' => $resultado['recibidos'],
                     'recibidos' => $resultado['recibidos'],
                 ],
             ], 201);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            throw $e;
         } catch (RuntimeException $e) {
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 400);
         } catch (\Throwable $e) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Error al registrar la recepción: ' . $e->getMessage(),
+                'message' => 'Error al registrar la recepción: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -260,7 +288,8 @@ class RecepcionController extends Controller
         int $idUsuario,
         ?int $idUnidad = null,
         ?int $idRecepcion = null,
-        \Carbon\Carbon|string|null $fecha = null
+        Carbon|string|null $fecha = null,
+        ?int $idLote = null
     ): void {
         $this->stockService->registrarMovimiento(
             $producto,
@@ -272,7 +301,8 @@ class RecepcionController extends Controller
             null,
             $idRecepcion,
             $fecha,
-            false
+            false,
+            idLote: $idLote
         );
     }
 }

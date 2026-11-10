@@ -10,11 +10,12 @@ return [
 
     /*
     | ¿De dónde salen productos, clientes y stock?
-    |   "mock" → datos de prueba (App\Services\Mock*). ES EL VALOR POR DEFECTO.
+    |   "internal" → APIs registradas en esta aplicación, con identidad de servicio (por defecto).
+    |   "mock" → datos de prueba, únicamente mediante selección explícita.
     |   "http" → APIs reales de los otros grupos (App\Modules\Ventas\Integraciones\Http*).
     | El cambio se aplica en app/Providers/AppServiceProvider.php.
     */
-    'integracion' => env('VENTAS_INTEGRACION', 'mock'),
+    'integracion' => env('VENTAS_INTEGRACION', 'internal'),
 
     /*
     | Direcciones de las APIs de los otros módulos (solo se usan con "http").

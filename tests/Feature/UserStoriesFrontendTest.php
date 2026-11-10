@@ -1,38 +1,45 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use Tests\TestCase;
-use Illuminate\Foundation\Testing\DatabaseTransactions;
-use App\Modules\Productos\Models\Producto;
+use App\Modules\Compras\Models\Compra;
+use App\Modules\Login\Enums\UserRole;
+use App\Modules\Login\Enums\UserStatus;
+use App\Modules\Login\Models\User;
+use App\Modules\PedidosDeCompra\Models\OrdenCompra;
 use App\Modules\Productos\Models\Categoria;
+use App\Modules\Productos\Models\HistorialPrecio;
 use App\Modules\Productos\Models\Marca;
-use App\Modules\Proveedores\Models\Proveedor;
+use App\Modules\Productos\Models\Producto;
 use App\Modules\Proveedores\Models\ProductoProveedor;
+use App\Modules\Proveedores\Models\Proveedor;
+use App\Modules\Stock\Models\MovimientoStock;
 use App\Modules\Stock\Models\Ubicacion;
 use App\Modules\Stock\Models\UnidadMedida;
-use App\Modules\Stock\Models\MovimientoStock;
-use App\Modules\Compras\Models\Compra;
-use App\Modules\PedidosDeCompra\Models\OrdenCompra;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Support\Facades\Hash;
+use Tests\TestCase;
+use Tests\UsesG3Database;
 
 class UserStoriesFrontendTest extends TestCase
 {
     use DatabaseTransactions, \Tests\UsesG3Database {
-        \Tests\UsesG3Database::beginDatabaseTransaction insteadof DatabaseTransactions;
+        UsesG3Database::beginDatabaseTransaction insteadof DatabaseTransactions;
     }
 
     protected function setUp(): void
     {
         parent::setUp();
-        $admin = \App\Modules\Login\Models\User::where('usuario', 'admin')->first()
-            ?? \App\Modules\Login\Models\User::firstOrCreate(
+        $admin = User::where('usuario', 'admin')->first()
+            ?? User::firstOrCreate(
                 ['usuario' => 'admin'],
                 [
-                    'password_hash' => \Illuminate\Support\Facades\Hash::make('Admin1234'),
+                    'password_hash' => Hash::make('Admin1234'),
                     'nombre' => 'Usuario Administrativo',
-                    'rol' => \App\Modules\Login\Enums\UserRole::ADMINISTRATIVO,
-                    'estado' => \App\Modules\Login\Enums\UserStatus::ACTIVO,
+                    'rol' => UserRole::ADMINISTRATIVO,
+                    'estado' => UserStatus::ACTIVO,
                 ]
             );
         $this->signInAs($admin);
@@ -84,7 +91,7 @@ class UserStoriesFrontendTest extends TestCase
         $resProv->assertSee('Plazo de Entrega Promedio');
 
         // 5. Subvistas Especializadas (Vencimientos S11 y Sugerencias PC07)
-        $this->get('/vencimientos')->assertRedirect('/inventario');
+        $this->get('/vencimientos')->assertRedirect('/inventario/lotes?estado=proximo');
         $this->get('/sugerencias-reposicion')->assertOk();
         $this->get('/dashboard-reposicion')->assertOk();
     }
@@ -122,7 +129,7 @@ class UserStoriesFrontendTest extends TestCase
         // 2. Obtener categoría y marca existentes
         $categoria = Categoria::first();
         $marca = Marca::first();
-        $codigoTest = 'TEST-P01-' . uniqid();
+        $codigoTest = 'TEST-P01-'.uniqid();
 
         // P01: Crear Producto vía API (consumida por modalProducto) incluyendo imagen
         $storeRes = $this->postJson('/api/productos', [
@@ -131,7 +138,7 @@ class UserStoriesFrontendTest extends TestCase
             'descripcion' => 'Descripción detallada P01',
             'precio_unitario' => 1500.50,
             'precio_mayorista' => 1350.00,
-            'imagen' => '/assets/catalogo/test-p01.webp',
+            'imagen_archivo' => \Illuminate\Http\UploadedFile::fake()->image('producto-p01.png', 80, 80),
             'id_categoria' => $categoria->id_categoria,
             'id_marca' => $marca->id_marca,
             'stock_disponible' => 20,
@@ -140,14 +147,23 @@ class UserStoriesFrontendTest extends TestCase
         $storeRes->assertStatus(201);
         $prodId = $storeRes->json('data.id_producto');
         $this->assertNotNull($prodId);
-        $this->assertEquals('/assets/catalogo/test-p01.webp', $storeRes->json('data.imagen'));
-        $this->assertEquals('/assets/catalogo/test-p01.webp', $storeRes->json('data.imagen_url'));
+        $image = $storeRes->json('data.imagen');
+        $this->beforeApplicationDestroyed(static function () use ($image): void {
+            if (is_string($image) && preg_match('~^/assets/catalogo/producto-[a-f0-9-]+\.webp$~D', $image)) {
+                $path = public_path(ltrim($image, '/'));
+                if (is_file($path)) {
+                    unlink($path);
+                }
+            }
+        });
+        $this->assertFileExists(public_path(ltrim($image, '/')));
+        $this->assertEquals($image, $storeRes->json('data.imagen_url'));
 
         // Consulta directa por código y por id_producto
         $byCodRes = $this->getJson("/api/productos/codigo/{$codigoTest}");
         $byCodRes->assertOk()
             ->assertJsonPath('data.id_producto', $prodId)
-            ->assertJsonPath('data.imagen_url', '/assets/catalogo/test-p01.webp');
+            ->assertJsonPath('data.imagen_url', $image);
 
         // Validación P01: Código duplicado debe ser rechazado
         $dupRes = $this->postJson('/api/productos', [
@@ -180,7 +196,7 @@ class UserStoriesFrontendTest extends TestCase
         ]);
         $updateRes->assertOk();
         $this->assertEquals('Producto Test Modificado P04', $updateRes->json('data.nombre'));
-        $this->assertEquals(1800.00, (float)$updateRes->json('data.precio_unitario'));
+        $this->assertEquals(1800.00, (float) $updateRes->json('data.precio_unitario'));
 
         // P04: Historial de modificaciones y auditoría
         $auditProdRes = $this->getJson("/api/productos/{$prodId}/auditoria");
@@ -209,7 +225,7 @@ class UserStoriesFrontendTest extends TestCase
         $viewRes->assertSee('abrirModalMarcas()', false);
 
         // P02: Crear Categoría
-        $catNombre = 'Cat Test ' . uniqid();
+        $catNombre = 'Cat Test '.uniqid();
         $catRes = $this->postJson('/api/categorias', [
             'nombre' => $catNombre,
             'descripcion' => 'Categoría de prueba para test suite',
@@ -219,7 +235,7 @@ class UserStoriesFrontendTest extends TestCase
         $this->assertEquals($catNombre, $catRes->json('data.nombre'));
 
         // P02: Modificar Categoría
-        $catModNombre = $catNombre . ' Mod';
+        $catModNombre = $catNombre.' Mod';
         $updateCatRes = $this->putJson("/api/categorias/{$catId}", [
             'nombre' => $catModNombre,
         ]);
@@ -243,7 +259,7 @@ class UserStoriesFrontendTest extends TestCase
         $listCatRes->assertOk();
 
         // P03: Crear Marca
-        $marcaNombre = 'Marca Test ' . uniqid();
+        $marcaNombre = 'Marca Test '.uniqid();
         $marcaRes = $this->postJson('/api/marcas', [
             'nombre' => $marcaNombre,
             'descripcion' => 'Marca de prueba para test suite',
@@ -253,7 +269,7 @@ class UserStoriesFrontendTest extends TestCase
         $this->assertEquals($marcaNombre, $marcaRes->json('data.nombre'));
 
         // P03: Modificar Marca
-        $marcaModNombre = $marcaNombre . ' Mod';
+        $marcaModNombre = $marcaNombre.' Mod';
         $updateMarcaRes = $this->putJson("/api/marcas/{$marcaId}", [
             'nombre' => $marcaModNombre,
         ]);
@@ -345,7 +361,7 @@ class UserStoriesFrontendTest extends TestCase
                 "La regla {$caso['regla']} debe calcular el precio esperado."
             );
 
-            $historial = \App\Modules\Productos\Models\HistorialPrecio::where('id_producto', $producto->id_producto)
+            $historial = HistorialPrecio::where('id_producto', $producto->id_producto)
                 ->where('origen', 'aumento_masivo')
                 ->latest('id_historial')
                 ->first();
@@ -470,7 +486,7 @@ class UserStoriesFrontendTest extends TestCase
                 [
                     'id_producto' => $producto->id_producto,
                     'cantidad' => 15,
-                ]
+                ],
             ],
             'observaciones' => 'Ingreso de prueba test S03',
         ]);
@@ -513,7 +529,7 @@ class UserStoriesFrontendTest extends TestCase
     public function test_s04_actualizacion_automatica_por_venta(): void
     {
         $producto = Producto::where('estado', 'activo')->first();
-        if (!$producto) {
+        if (! $producto) {
             $producto = Producto::first();
         }
         $producto->stock = 25;
@@ -759,11 +775,11 @@ class UserStoriesFrontendTest extends TestCase
         $this->assertEquals(1.0, (float) $prodCheck->json('data.equivalencia_unidad'));
 
         // S08: Crear unidad de medida y establecerla como activa
-        $maxEq = (float) (\App\Modules\Stock\Models\UnidadMedida::where('id_producto', $prodId)->max('equivalencia_base') ?? 10.0);
+        $maxEq = (float) (UnidadMedida::where('id_producto', $prodId)->max('equivalencia_base') ?? 10.0);
         $eq1 = $maxEq + 5.0;
         $eq2 = $maxEq + 15.0;
 
-        $nombreUnidad = 'Display x' . rand(100, 999);
+        $nombreUnidad = 'Display x'.rand(100, 999);
         $createRes = $this->postJson("/api/productos/{$prodId}/unidades", [
             'nombre_unidad' => $nombreUnidad,
             'equivalencia_base' => $eq1,
@@ -787,7 +803,7 @@ class UserStoriesFrontendTest extends TestCase
 
         // S08: Modificar unidad
         $updateRes = $this->putJson("/api/productos/{$prodId}/unidades/{$idUnidad}", [
-            'nombre_unidad' => $nombreUnidad . ' Editado',
+            'nombre_unidad' => $nombreUnidad.' Editado',
             'equivalencia_base' => $eq2,
         ]);
         $updateRes->assertOk();
@@ -801,7 +817,7 @@ class UserStoriesFrontendTest extends TestCase
         // S08: Elegir nuevamente la unidad creada como activa para el producto
         $selectRes = $this->postJson("/api/productos/{$prodId}/unidades/{$idUnidad}/seleccionar");
         $selectRes->assertOk();
-        $this->assertEquals($nombreUnidad . ' Editado', $selectRes->json('data.unidad_activa'));
+        $this->assertEquals($nombreUnidad.' Editado', $selectRes->json('data.unidad_activa'));
         $this->assertEquals($eq2, (float) $selectRes->json('data.equivalencia_unidad'));
 
         // S08: Eliminar unidad creada
@@ -820,13 +836,13 @@ class UserStoriesFrontendTest extends TestCase
         $viewRes->assertSee('prodUnidadesPorBulto');
         $viewRes->assertSee('actualizarPreviewBultoProducto');
 
-        $categoria = \App\Modules\Productos\Models\Categoria::first();
-        $marca = \App\Modules\Productos\Models\Marca::first();
+        $categoria = Categoria::first();
+        $marca = Marca::first();
         $this->assertNotNull($categoria);
         $this->assertNotNull($marca);
 
         // 1. Alta con campos opcionales omitidos (debe tomar Unidad y 1 por defecto)
-        $cod1 = 'TEST-BULTO-DEF-' . uniqid();
+        $cod1 = 'TEST-BULTO-DEF-'.uniqid();
         $resDef = $this->postJson('/api/productos', [
             'codigo' => $cod1,
             'nombre' => 'Producto Suelto Test',
@@ -841,7 +857,7 @@ class UserStoriesFrontendTest extends TestCase
         $this->assertEquals(1, $resDef->json('data.unidades_por_bulto'));
 
         // 2. Alta con presentación comercial explícita (Caja x 12)
-        $cod2 = 'TEST-BULTO-CAJA-' . uniqid();
+        $cod2 = 'TEST-BULTO-CAJA-'.uniqid();
         $resCaja = $this->postJson('/api/productos', [
             'codigo' => $cod2,
             'nombre' => 'Alfajores Artesanales Caja',
@@ -911,13 +927,13 @@ class UserStoriesFrontendTest extends TestCase
         $prodId = $producto->id_producto;
 
         // Crear una unidad activa con equivalencia conocida
-        $maxEq = (float) (\App\Modules\Stock\Models\UnidadMedida::where('id_producto', $prodId)->max('equivalencia_base') ?? 10.0);
+        $maxEq = (float) (UnidadMedida::where('id_producto', $prodId)->max('equivalencia_base') ?? 10.0);
         $eq = $maxEq + 10.0;
         $cantIngresoEsperada = 5 * (int) $eq;
         $cantAjusteEsperada = 2 * (int) $eq;
         $cantDevEsperada = 1 * (int) $eq;
 
-        $nombreUnidad = 'Display x' . (int)$eq . ' ' . uniqid();
+        $nombreUnidad = 'Display x'.(int) $eq.' '.uniqid();
         $createRes = $this->postJson("/api/productos/{$prodId}/unidades", [
             'nombre_unidad' => $nombreUnidad,
             'equivalencia_base' => $eq,
@@ -937,7 +953,7 @@ class UserStoriesFrontendTest extends TestCase
                     'id_producto' => $prodId,
                     'cantidad' => 5, // 5 Displays = 5 * $eq unidades base
                     'id_unidad' => $idUnidad,
-                ]
+                ],
             ],
             'observaciones' => 'Ingreso de 5 cajas con unidad activa',
         ]);
@@ -1005,7 +1021,7 @@ class UserStoriesFrontendTest extends TestCase
     }
 
     /**
-     * S10, S11 - Verificar eliminación de lotes y vencimientos.
+     * S10, S11 - El acceso anterior conduce a la gestión recuperada de lotes.
      */
     public function test_s10_s11_consulta_lotes_vencimientos_y_criticidad(): void
     {
@@ -1014,8 +1030,10 @@ class UserStoriesFrontendTest extends TestCase
         $viewRes->assertDontSee('tabBtn-lotes');
         $viewRes->assertDontSee('pestana-lotes');
 
-        // /vencimientos redirige ordenadamente a /inventario
-        $this->get('/vencimientos')->assertRedirect('/inventario');
+        // El acceso histórico conserva su URL y conduce a la consulta de próximos lotes.
+        $this->get('/inventario/lotes')->assertOk()->assertViewIs('inventario.lotes');
+        $this->getJson('/inventario/lotes/datos')->assertOk()->assertJsonStructure(['data', 'meta', 'alertas']);
+        $this->get('/vencimientos')->assertRedirect('/inventario/lotes?estado=proximo');
     }
 
     /**
@@ -1055,7 +1073,7 @@ class UserStoriesFrontendTest extends TestCase
         $viewRes->assertSee('prodUbicacion');
 
         // S14: CRUD de Ubicaciones Físicas
-        $nombreUbic = 'PASILLO-TEST-' . uniqid();
+        $nombreUbic = 'PASILLO-TEST-'.uniqid();
         $createUbicRes = $this->postJson('/api/ubicaciones', [
             'descripcion' => $nombreUbic,
         ]);
@@ -1065,7 +1083,7 @@ class UserStoriesFrontendTest extends TestCase
 
         // S14: Modificar Ubicación
         $updateUbicRes = $this->putJson("/api/ubicaciones/{$idUbic}", [
-            'descripcion' => $nombreUbic . ' MOD',
+            'descripcion' => $nombreUbic.' MOD',
         ]);
         $updateUbicRes->assertOk();
 
@@ -1079,7 +1097,7 @@ class UserStoriesFrontendTest extends TestCase
         $delUbicRes->assertOk();
 
         // S14: Validar impedimento de borrar si está en uso
-        $ubicEnUso = \App\Modules\Stock\Models\Ubicacion::has('productos')->first();
+        $ubicEnUso = Ubicacion::has('productos')->first();
         if ($ubicEnUso) {
             $delUsedRes = $this->deleteJson("/api/ubicaciones/{$ubicEnUso->id_ubicacion}");
             $delUsedRes->assertStatus(400);
@@ -1110,7 +1128,7 @@ class UserStoriesFrontendTest extends TestCase
         $viewRes->assertSee('filtroEstadoProvs');
 
         // PV01: Alta de proveedor
-        $cuitTest = '30-' . rand(10000000, 99999999) . '-' . rand(0, 9);
+        $cuitTest = '30-'.rand(10000000, 99999999).'-'.rand(0, 9);
         $altaRes = $this->postJson('/api/proveedores', [
             'razon_social' => 'Distribuciones Test SA',
             'cuit' => $cuitTest,
@@ -1120,7 +1138,7 @@ class UserStoriesFrontendTest extends TestCase
             'direccion' => 'Av. Independencia 450, Pigüé',
             'plazo_entrega_dias' => 7,
         ]);
-        $altaRes->assertStatus(201);
+        $this->assertSame(201, $altaRes->status(), $altaRes->getContent());
         $provId = $altaRes->json('data.id_proveedor');
         $this->assertNotNull($provId);
         $this->assertEquals('Carlos Gerente', $altaRes->json('data.contacto'));
@@ -1147,7 +1165,7 @@ class UserStoriesFrontendTest extends TestCase
         // Validación: No permitir letras en Teléfono
         $telConLetrasRes = $this->postJson('/api/proveedores', [
             'razon_social' => 'Proveedor Invalido Tel',
-            'cuit' => '30-' . rand(10000000, 99999999) . '-1',
+            'cuit' => '30-'.rand(10000000, 99999999).'-1',
             'telefono' => '011-TEL-4567',
         ]);
         $telConLetrasRes->assertStatus(400);
@@ -1219,8 +1237,8 @@ class UserStoriesFrontendTest extends TestCase
                     'cantidad' => 10,
                     'nro_lote' => 'LOTE-TEST-INACTIVO',
                     'fecha_vencimiento' => now()->addMonths(6)->toDateString(),
-                ]
-            ]
+                ],
+            ],
         ]);
         $ingresoFail->assertStatus(400);
 
@@ -1232,8 +1250,8 @@ class UserStoriesFrontendTest extends TestCase
                     'id_producto' => $producto->id_producto,
                     'cantidad' => 5,
                     'precio_unitario' => 100,
-                ]
-            ]
+                ],
+            ],
         ]);
         $compraFail->assertStatus(400);
 
@@ -1245,8 +1263,8 @@ class UserStoriesFrontendTest extends TestCase
                     'id_producto' => $producto->id_producto,
                     'cantidad_solicitada' => 5,
                     'precio_estimado' => 100,
-                ]
-            ]
+                ],
+            ],
         ]);
         $ordenFail->assertStatus(400);
 
@@ -1321,8 +1339,8 @@ class UserStoriesFrontendTest extends TestCase
                     'codigo',
                     'precio_acordado',
                     'es_proveedor_principal',
-                ]
-            ]
+                ],
+            ],
         ]);
         $encontrado = collect($listRes->json('data'))->firstWhere('id_producto', $producto->id_producto);
         $this->assertNotNull($encontrado);
@@ -1370,7 +1388,7 @@ class UserStoriesFrontendTest extends TestCase
                 'nuevas',
                 'actualizadas',
                 'total_asociaciones',
-            ]
+            ],
         ]);
         $this->assertEquals('success', $syncRes->json('status'));
     }
@@ -1424,7 +1442,7 @@ class UserStoriesFrontendTest extends TestCase
         $viewRes->assertSee('verHistorialProveedor');
 
         // 1. Alta de un nuevo proveedor
-        $randomCuit = '30-' . rand(10000000, 99999999) . '-1';
+        $randomCuit = '30-'.rand(10000000, 99999999).'-1';
         $altaRes = $this->postJson('/api/proveedores', [
             'razon_social' => 'Proveedor Historial Test S.A.',
             'cuit' => $randomCuit,
@@ -1434,7 +1452,7 @@ class UserStoriesFrontendTest extends TestCase
             'direccion' => 'Calle Auditoría 123',
             'plazo_entrega_dias' => 7,
         ]);
-        $altaRes->assertStatus(201);
+        $this->assertSame(201, $altaRes->status(), $altaRes->getContent());
         $idProveedor = $altaRes->json('data.id_proveedor');
         $this->assertNotNull($idProveedor);
 
@@ -1468,8 +1486,8 @@ class UserStoriesFrontendTest extends TestCase
                     'titulo',
                     'usuario_nombre',
                     'fecha_hora',
-                ]
-            ]
+                ],
+            ],
         ]);
 
         $eventos = collect($histRes->json('data'));
@@ -1511,20 +1529,20 @@ class UserStoriesFrontendTest extends TestCase
         // C01: Registrar Compra
         $compraRes = $this->postJson('/api/compras', [
             'id_proveedor' => $proveedor->id_proveedor,
-            'numero_comprobante' => 'FC-TEST-' . rand(1000, 9999),
+            'numero_comprobante' => 'FC-TEST-'.rand(1000, 9999),
             'fecha_compra' => now()->toDateString(),
             'items' => [
                 [
                     'id_producto' => $producto->id_producto,
                     'cantidad' => 10,
                     'precio_unitario' => 1200.00,
-                ]
-            ]
+                ],
+            ],
         ]);
         $compraRes->assertStatus(201);
         $compraId = $compraRes->json('data.id_compra');
         $this->assertNotNull($compraId);
-        $this->assertEquals(12000.00, (float)$compraRes->json('data.importe_total'));
+        $this->assertEquals(12000.00, (float) $compraRes->json('data.importe_total'));
 
         // C02: Consultar compras
         $listRes = $this->getJson('/api/compras');
@@ -1546,15 +1564,15 @@ class UserStoriesFrontendTest extends TestCase
 
         $compraRes = $this->postJson('/api/compras', [
             'id_proveedor' => $proveedor->id_proveedor,
-            'numero_comprobante' => 'FC-CANC-' . rand(1000, 9999),
+            'numero_comprobante' => 'FC-CANC-'.rand(1000, 9999),
             'fecha_compra' => now()->toDateString(),
             'items' => [
                 [
                     'id_producto' => $producto->id_producto,
                     'cantidad' => 5,
                     'precio_unitario' => 1000.00,
-                ]
-            ]
+                ],
+            ],
         ]);
         $compraRes->assertStatus(201);
         $compraId = $compraRes->json('data.id_compra');
@@ -1581,15 +1599,15 @@ class UserStoriesFrontendTest extends TestCase
 
         $compraRes = $this->postJson('/api/compras', [
             'id_proveedor' => $proveedor->id_proveedor,
-            'numero_comprobante' => 'FC-RECEP-' . rand(1000, 9999),
+            'numero_comprobante' => 'FC-RECEP-'.rand(1000, 9999),
             'fecha_compra' => now()->toDateString(),
             'items' => [
                 [
                     'id_producto' => $producto->id_producto,
                     'cantidad' => 10,
                     'precio_unitario' => 1000.00,
-                ]
-            ]
+                ],
+            ],
         ]);
         $compraRes->assertStatus(201);
         $compraId = $compraRes->json('data.id_compra');
@@ -1607,8 +1625,8 @@ class UserStoriesFrontendTest extends TestCase
                 [
                     'id_producto' => $producto->id_producto,
                     'cantidad_recibida' => 5,
-                ]
-            ]
+                ],
+            ],
         ]);
         $recepRes->assertStatus(201);
 
@@ -1641,7 +1659,7 @@ class UserStoriesFrontendTest extends TestCase
 
         $compraRes = $this->postJson('/api/compras', [
             'id_proveedor' => $proveedor->id_proveedor,
-            'numero_comprobante' => 'FC-PAGO-' . rand(1000, 9999),
+            'numero_comprobante' => 'FC-PAGO-'.rand(1000, 9999),
             'fecha_compra' => now()->toDateString(),
             'fecha_vencimiento' => now()->addDays(30)->toDateString(),
             'items' => [
@@ -1649,8 +1667,8 @@ class UserStoriesFrontendTest extends TestCase
                     'id_producto' => $producto->id_producto,
                     'cantidad' => 10,
                     'precio_unitario' => 1000.00,
-                ]
-            ]
+                ],
+            ],
         ]);
         $compraRes->assertStatus(201);
         $compraId = $compraRes->json('data.id_compra');
@@ -1666,9 +1684,9 @@ class UserStoriesFrontendTest extends TestCase
         // C09: Resumen de saldo adeudado por compra
         $resumenRes = $this->getJson("/api/compras/{$compraId}/pagos/resumen");
         $resumenRes->assertOk();
-        $this->assertEquals(10000.00, (float)$resumenRes->json('data.importe_total'));
-        $this->assertEquals(4000.00, (float)$resumenRes->json('data.total_pagado'));
-        $this->assertEquals(6000.00, (float)$resumenRes->json('data.saldo_a_pagar'));
+        $this->assertEquals(10000.00, (float) $resumenRes->json('data.importe_total'));
+        $this->assertEquals(4000.00, (float) $resumenRes->json('data.total_pagado'));
+        $this->assertEquals(6000.00, (float) $resumenRes->json('data.saldo_a_pagar'));
 
         // C09: Endpoint global de deudas con proveedores (Issue #42)
         $deudasRes = $this->getJson('/api/compras/deudas');
@@ -1706,13 +1724,13 @@ class UserStoriesFrontendTest extends TestCase
                     'id_producto' => $producto->id_producto,
                     'cantidad_solicitada' => 25,
                     'precio_estimado' => 950.00,
-                ]
-            ]
+                ],
+            ],
         ]);
         $ordenRes->assertStatus(201);
         $ordenId = $ordenRes->json('data.id_orden');
         $this->assertNotNull($ordenId);
-        $this->assertEquals(23750.00, (float)$ordenRes->json('data.total_estimado'));
+        $this->assertEquals(23750.00, (float) $ordenRes->json('data.total_estimado'));
 
         // PC02: Listar órdenes
         $listRes = $this->getJson('/api/ordenes-compra');
@@ -1741,8 +1759,8 @@ class UserStoriesFrontendTest extends TestCase
                     'id_producto' => $producto->id_producto,
                     'cantidad_solicitada' => 10,
                     'precio_estimado' => 500.00,
-                ]
-            ]
+                ],
+            ],
         ]);
         $orden1Res->assertStatus(201);
         $orden1Id = $orden1Res->json('data.id_orden');
@@ -1756,8 +1774,8 @@ class UserStoriesFrontendTest extends TestCase
                     'id_producto' => $producto->id_producto,
                     'cantidad_solicitada' => 15,
                     'precio_estimado' => 500.00,
-                ]
-            ]
+                ],
+            ],
         ]);
         $editRes->assertOk();
         $this->assertEquals(7500.00, (float) $editRes->json('data.total_estimado'));
@@ -1776,8 +1794,8 @@ class UserStoriesFrontendTest extends TestCase
                     'id_producto' => $producto->id_producto,
                     'cantidad_solicitada' => 20,
                     'precio_estimado' => 500.00,
-                ]
-            ]
+                ],
+            ],
         ]);
         $editSentRes->assertStatus(400);
 
@@ -1790,8 +1808,8 @@ class UserStoriesFrontendTest extends TestCase
                     'id_producto' => $producto->id_producto,
                     'cantidad_solicitada' => 5,
                     'precio_estimado' => 600.00,
-                ]
-            ]
+                ],
+            ],
         ]);
         $orden2Res->assertStatus(201);
         $orden2Id = $orden2Res->json('data.id_orden');
@@ -1808,23 +1826,28 @@ class UserStoriesFrontendTest extends TestCase
         $this->assertEquals('cancelada', $showCancRes->json('data.orden.estado'));
         $this->assertCount(1, $showCancRes->json('data.detalles'));
 
-        // PC05: Impedir cancelar una orden no pendiente (ej. enviada o completada)
-        $cancSentRes = $this->patchJson("/api/ordenes-compra/{$orden1Id}/cancelar");
-        $cancSentRes->assertStatus(400);
-        $this->assertStringContainsString('Solo se pueden cancelar órdenes pendientes', $cancSentRes->json('message'));
-
         // PC06: Visualizar avance de estado: enviada -> recibida_parcialmente -> completada
+        $this->patchJson("/api/ordenes-compra/{$orden1Id}/cambiar-estado", ['estado' => 'completada'])->assertUnprocessable();
+        $compra = $this->postJson('/api/compras', ['id_orden' => $orden1Id, 'id_proveedor' => $proveedor->id_proveedor,
+            'items' => [['id_producto' => $producto->id_producto, 'cantidad' => 15, 'precio_unitario' => 500]]])->assertCreated()->json('data.id_compra');
+        $this->postJson("/api/compras/{$compra}/recepciones", ['items' => [['id_producto' => $producto->id_producto, 'cantidad' => 5]]])->assertCreated();
         $parcialRes = $this->patchJson("/api/ordenes-compra/{$orden1Id}/cambiar-estado", [
             'estado' => 'recibida_parcialmente',
         ]);
         $parcialRes->assertOk();
         $this->assertEquals('recibida_parcialmente', $parcialRes->json('data.estado'));
 
+        $this->postJson("/api/compras/{$compra}/recepciones", ['items' => [['id_producto' => $producto->id_producto, 'cantidad' => 10]]])->assertCreated();
         $compRes = $this->patchJson("/api/ordenes-compra/{$orden1Id}/cambiar-estado", [
             'estado' => 'completada',
         ]);
-        $compRes->assertOk();
-        $this->assertEquals('completada', $compRes->json('data.estado'));
+        $compRes->assertStatus(400); // La recepción anterior ya completó la orden.
+        $this->assertDatabaseHas('orden_compra', ['id_orden' => $orden1Id, 'estado' => 'completada']);
+
+        // PC05: Impedir cancelar una orden ya completada
+        $cancCompRes = $this->patchJson("/api/ordenes-compra/{$orden1Id}/cancelar");
+        $cancCompRes->assertStatus(400);
+        $this->assertStringContainsString('completada', $cancCompRes->json('message'));
 
         // PC06: Consultar y filtrar órdenes por estado
         $filtroPend = $this->getJson('/api/ordenes-compra?estado=pendiente');
@@ -1870,7 +1893,7 @@ class UserStoriesFrontendTest extends TestCase
         $listSugRes->assertJsonPath('exito', true);
 
         $sugerencias = $listSugRes->json('datos');
-        if (!empty($sugerencias)) {
+        if (! empty($sugerencias)) {
             $primeraId = $sugerencias[0]['id'];
             $genOrdenRes = $this->postJson("/api/sugerencias-reposicion/{$primeraId}/generar-orden");
             $genOrdenRes->assertStatus(201);
@@ -1914,8 +1937,8 @@ class UserStoriesFrontendTest extends TestCase
                     'id_producto' => $producto->id_producto,
                     'cantidad_solicitada' => 15,
                     'precio_estimado' => 1200.00,
-                ]
-            ]
+                ],
+            ],
         ]);
         $ordenRes->assertStatus(201);
         $ordenId = $ordenRes->json('data.id_orden');
@@ -1926,7 +1949,7 @@ class UserStoriesFrontendTest extends TestCase
         $this->assertEquals('enviada', $enviarRes->json('data.estado'));
 
         // 4. COMPRAS (C01): Convertir orden a compra confirmada/facturada
-        $nroComprobante = 'FAC-CICLO-' . rand(1000, 9999);
+        $nroComprobante = 'FAC-CICLO-'.rand(1000, 9999);
         $compraRes = $this->postJson('/api/compras', [
             'id_proveedor' => $proveedor->id_proveedor,
             'id_orden' => $ordenId,
@@ -1938,12 +1961,12 @@ class UserStoriesFrontendTest extends TestCase
                     'id_producto' => $producto->id_producto,
                     'cantidad' => 15,
                     'precio_unitario' => 1200.00,
-                ]
-            ]
+                ],
+            ],
         ]);
         $compraRes->assertStatus(201);
         $compraId = $compraRes->json('data.id_compra');
-        $this->assertEquals(18000.00, (float)$compraRes->json('data.importe_total'));
+        $this->assertEquals(18000.00, (float) $compraRes->json('data.importe_total'));
 
         // 5. RECEPCIÓN & STOCK (C06, S03): Recepción total directa a stock del producto
         $recepRes = $this->postJson("/api/compras/{$compraId}/recepciones", [
@@ -1952,15 +1975,15 @@ class UserStoriesFrontendTest extends TestCase
                 [
                     'id_producto' => $producto->id_producto,
                     'cantidad_recibida' => 15,
-                ]
-            ]
+                ],
+            ],
         ]);
         $recepRes->assertStatus(201);
         $this->assertEquals('completada', $recepRes->json('data.estado_compra'));
 
         // 6. Verificar actualización del Stock directo del producto
         $producto->refresh();
-        $this->assertEquals($stockInicial + 15, (int)$producto->stock_actual);
+        $this->assertEquals($stockInicial + 15, (int) $producto->stock_actual);
 
         // 7. Verificar que la orden vinculada avanzó automáticamente a completada (PC06)
         $ordenDb = OrdenCompra::find($ordenId);
@@ -1976,15 +1999,15 @@ class UserStoriesFrontendTest extends TestCase
 
         $resumenPago = $this->getJson("/api/compras/{$compraId}/pagos/resumen");
         $resumenPago->assertOk();
-        $this->assertEquals(18000.00, (float)$resumenPago->json('data.importe_total'));
-        $this->assertEquals(8000.00, (float)$resumenPago->json('data.total_pagado'));
-        $this->assertEquals(10000.00, (float)$resumenPago->json('data.saldo_a_pagar'));
+        $this->assertEquals(18000.00, (float) $resumenPago->json('data.importe_total'));
+        $this->assertEquals(8000.00, (float) $resumenPago->json('data.total_pagado'));
+        $this->assertEquals(10000.00, (float) $resumenPago->json('data.saldo_a_pagar'));
 
         // 9. Auditoría de Deudas del Proveedor (C09)
         $deudasRes = $this->getJson('/api/compras/deudas');
         $deudasRes->assertOk();
         $provDeuda = collect($deudasRes->json('data.por_proveedor') ?? $deudasRes->json('data.proveedores'))->firstWhere('id_proveedor', $proveedor->id_proveedor);
         $this->assertNotNull($provDeuda);
-        $this->assertGreaterThanOrEqual(10000.00, (float)($provDeuda['total_adeudado'] ?? $provDeuda['saldo_adeudado']));
+        $this->assertGreaterThanOrEqual(10000.00, (float) ($provDeuda['total_adeudado'] ?? $provDeuda['saldo_adeudado']));
     }
 }

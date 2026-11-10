@@ -4,29 +4,11 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <script src="{{ asset('assets/js/safe-html.js') }}"></script>
     <title>@yield('title', 'Distribuidora PyB - Sistema de Gestión Comercial')</title>
 
-    <!-- Google Fonts Inter -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
-                    },
-                    colors: {
-                        app: '#EBF4FC',
-                    }
-                }
-            }
-        }
-    </script>
+    <!-- Utilidades compiladas y dependencias locales con versiones bloqueadas -->
+    <link rel="stylesheet" href="{{ asset('assets/vendor/g3-utilities.css') }}">
 
     <!-- Estilos Claymorfismo PyB y Módulos G1 -->
     <link rel="stylesheet" href="{{ asset('assets/css/styles.css') }}">
@@ -34,14 +16,17 @@
     <link rel="stylesheet" href="{{ asset('css/claymorfismo.css') }}">
 
     <!-- Lucide Icons & FontAwesome -->
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="{{ asset('assets/vendor/lucide.min.js') }}"></script>
+    <link rel="stylesheet" href="{{ asset('assets/vendor/fontawesome/css/all.min.css') }}">
 
     @yield('styles')
     @stack('styles')
     <link rel="stylesheet" href="{{ asset('assets/css/navigation.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/accessibility.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/erp-theme.css') }}">
 </head>
 <body class="erp-shell bg-[#EBF4FC] text-slate-800 font-sans min-h-screen antialiased">
+<a class="erp-skip" href="#main-content">Saltar al contenido</a>
 
     @include('partials.sidebar')
 
@@ -76,7 +61,7 @@
         </header>
 
         <!-- CONTENIDO DE LA PÁGINA -->
-        <main class="flex-1 p-4 md:p-8 overflow-y-auto">
+        <main id="main-content" tabindex="-1" class="flex-1 p-4 md:p-8 overflow-y-auto">
             @include('partials.messages')
             @yield('content')
         </main>
@@ -113,7 +98,7 @@
 
             toast.innerHTML = `
                 <i data-lucide="${iconName}" class="w-4 h-4 shrink-0"></i>
-                <span>${mensaje}</span>
+                <span>${window.erpSafeHtml.escape(mensaje)}</span>
             `;
             cont.appendChild(toast);
             if (window.lucide) window.lucide.createIcons();
@@ -136,9 +121,10 @@ if (window.lucide) {
         });
     </script>
     <!-- Bootstrap 5 JS Bundle (para soporte de modales y tabs en submódulos) -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ asset('assets/vendor/bootstrap.bundle.min.js') }}"></script>
     @yield('scripts')
     @stack('scripts')
     <script src="{{ asset('assets/js/navigation.js') }}" defer></script>
+<script src="{{ asset('assets/js/accessibility.js') }}" defer></script>
 </body>
 </html>

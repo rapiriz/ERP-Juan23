@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Modules\Stock\Controllers;
@@ -9,10 +10,23 @@ use App\Modules\Stock\Models\UnidadMedida;
 use App\Modules\Stock\Services\StockService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 
 class UnidadController extends Controller
 {
+    /** Consulta una presentación sólo dentro del producto solicitado. */
+    public function show(int $id, int $idUnidad): JsonResponse
+    {
+        $unidad = UnidadMedida::where('id_producto', $id)->whereKey($idUnidad)->first();
+        if (! $unidad) {
+            return response()->json(['status' => 'error', 'message' => 'Unidad de medida no encontrada para este producto.'], 404);
+        }
+
+        return response()->json(['status' => 'success', 'data' => $unidad]);
+    }
+
     /**
      * S08 - Listar todas las unidades de medida de un producto.
      */
@@ -20,7 +34,7 @@ class UnidadController extends Controller
     {
         $producto = Producto::with('unidades')->find($id);
 
-        if (!$producto) {
+        if (! $producto) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Producto no encontrado.',
@@ -66,9 +80,18 @@ class UnidadController extends Controller
      */
     public function store(Request $request, int $id): JsonResponse
     {
+        return DB::transaction(function () use ($request, $id) {
+            Producto::query()->whereKey($id)->lockForUpdate()->firstOrFail();
+
+            return $this->storeLocked($request, $id);
+        });
+    }
+
+    private function storeLocked(Request $request, int $id): JsonResponse
+    {
         $producto = Producto::find($id);
 
-        if (!$producto) {
+        if (! $producto) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Producto no encontrado.',
@@ -77,7 +100,7 @@ class UnidadController extends Controller
 
         $validator = Validator::make($request->all(), [
             'nombre_unidad' => 'required|string|max:50',
-            'equivalencia_base' => 'required|numeric|gt:0',
+            'equivalencia_base' => 'required|integer|gt:0',
             'descripcion' => 'nullable|string|max:255',
             'es_base' => 'nullable|boolean',
         ], [
@@ -152,11 +175,20 @@ class UnidadController extends Controller
      */
     public function update(Request $request, int $id, int $idUnidad): JsonResponse
     {
+        return DB::transaction(function () use ($request, $id, $idUnidad) {
+            Producto::query()->whereKey($id)->lockForUpdate()->firstOrFail();
+
+            return $this->updateLocked($request, $id, $idUnidad);
+        });
+    }
+
+    private function updateLocked(Request $request, int $id, int $idUnidad): JsonResponse
+    {
         $unidad = UnidadMedida::where('id_unidad', $idUnidad)
             ->where('id_producto', $id)
             ->first();
 
-        if (!$unidad) {
+        if (! $unidad) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Unidad de medida no encontrada para este producto.',
@@ -165,7 +197,7 @@ class UnidadController extends Controller
 
         $validator = Validator::make($request->all(), [
             'nombre_unidad' => 'sometimes|required|string|max:50',
-            'equivalencia_base' => 'sometimes|required|numeric|gt:0',
+            'equivalencia_base' => 'sometimes|required|integer|gt:0',
             'descripcion' => 'nullable|string|max:255',
         ], [
             'nombre_unidad.required' => 'Debe indicar el nombre de la unidad.',
@@ -206,6 +238,9 @@ class UnidadController extends Controller
                     'message' => "Ya existe otra unidad con equivalencia {$eqNueva} para este producto.",
                 ], 400);
             }
+            if ($eqNueva != (float) $unidad->equivalencia_base && $this->referenced((int) $unidad->id_unidad)) {
+                return response()->json(['status' => 'error', 'message' => 'La equivalencia ya tiene operaciones. Creá otra unidad para preservar las cantidades históricas.'], 409);
+            }
             $unidad->equivalencia_base = $eqNueva;
         }
 
@@ -239,8 +274,17 @@ class UnidadController extends Controller
      */
     public function seleccionar(Request $request, int $id, int $idUnidad): JsonResponse
     {
+        return DB::transaction(function () use ($request, $id, $idUnidad) {
+            Producto::query()->whereKey($id)->lockForUpdate()->firstOrFail();
+
+            return $this->seleccionarLocked($request, $id, $idUnidad);
+        });
+    }
+
+    private function seleccionarLocked(Request $request, int $id, int $idUnidad): JsonResponse
+    {
         $producto = Producto::find($id);
-        if (!$producto) {
+        if (! $producto) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Producto no encontrado.',
@@ -252,6 +296,7 @@ class UnidadController extends Controller
             $producto->formato_bulto = 'Unidad';
             $producto->unidades_por_bulto = 1;
             $producto->save();
+
             return response()->json([
                 'status' => 'success',
                 'message' => 'El producto ahora se visualizará en unidades individuales por defecto (u.).',
@@ -266,7 +311,7 @@ class UnidadController extends Controller
         }
 
         $unidad = UnidadMedida::where('id_producto', $id)->where('id_unidad', $idUnidad)->first();
-        if (!$unidad) {
+        if (! $unidad) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'La unidad de medida seleccionada no pertenece a este producto.',
@@ -296,12 +341,21 @@ class UnidadController extends Controller
      */
     public function destroy(int $id, int $idUnidad): JsonResponse
     {
+        return DB::transaction(function () use ($id, $idUnidad) {
+            Producto::query()->whereKey($id)->lockForUpdate()->firstOrFail();
+
+            return $this->destroyLocked($id, $idUnidad);
+        });
+    }
+
+    private function destroyLocked(int $id, int $idUnidad): JsonResponse
+    {
         $unidad = UnidadMedida::where('id_unidad', $idUnidad)
             ->where('id_producto', $id)
             ->withCount('movimientos')
             ->first();
 
-        if (!$unidad) {
+        if (! $unidad) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Unidad de medida no encontrada para este producto.',
@@ -315,6 +369,9 @@ class UnidadController extends Controller
             ], 400);
         }
 
+        if ($this->referenced($idUnidad)) {
+            return response()->json(['status' => 'error', 'message' => 'La unidad está referenciada por operaciones.'], 409);
+        }
         $unidad->delete();
 
         return response()->json([
@@ -330,8 +387,8 @@ class UnidadController extends Controller
     public function convertir(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'id_unidad_origen' => 'required|integer|exists:UNIDAD_MEDIDA,id_unidad',
-            'id_unidad_destino' => 'required|integer|exists:UNIDAD_MEDIDA,id_unidad',
+            'id_unidad_origen' => 'required|integer|exists:unidad_medida,id_unidad',
+            'id_unidad_destino' => 'required|integer|exists:unidad_medida,id_unidad',
             'cantidad' => 'required|numeric|gt:0',
         ], [
             'id_unidad_origen.required' => 'Debe indicar la unidad de origen.',
@@ -374,5 +431,16 @@ class UnidadController extends Controller
                 'cantidad_destino' => round($resultado, 4),
             ],
         ]);
+    }
+
+    private function referenced(int $unit): bool
+    {
+        foreach (['movimiento_stock', 'detalle_compra', 'detalle_orden', 'detalle_recepcion'] as $table) {
+            if (Schema::hasTable($table) && DB::table($table)->where('id_unidad', $unit)->exists()) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

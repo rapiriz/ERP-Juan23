@@ -5,6 +5,7 @@ namespace App\Modules\Rendiciones\Repositories;
 use App\Modules\Entregas\Integraciones\VentasApiClient;
 use App\Modules\Rendiciones\Models\Rendicion;
 use App\Modules\Rendiciones\Models\RendicionCobro;
+use App\Modules\Shared\Services\UsuarioService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
@@ -22,8 +23,9 @@ class RendicionRepository
 
     public function __construct(?VentasApiClient $ventasClient = null)
     {
-        $this->ventasClient = $ventasClient ?? new VentasApiClient();
+        $this->ventasClient = $ventasClient ?? new VentasApiClient;
     }
+
     /**
      * Crea una nueva rendición en estado 'pendiente'.
      */
@@ -31,10 +33,10 @@ class RendicionRepository
     {
         return Rendicion::create([
             'id_repartidor' => $datos['id_repartidor'],
-            'id_entrega'    => $datos['id_entrega'] ?? null,
-            'fecha'         => $datos['fecha'] ?? now(),
+            'id_entrega' => $datos['id_entrega'] ?? null,
+            'fecha' => $datos['fecha'] ?? now(),
             'total_rendido' => $datos['total_rendido'] ?? 0.0,
-            'estado'        => Rendicion::ESTADO_PENDIENTE,
+            'estado' => Rendicion::ESTADO_PENDIENTE,
             'observaciones' => $datos['observaciones'] ?? null,
         ]);
     }
@@ -44,7 +46,7 @@ class RendicionRepository
      */
     public function buscarPorId(int $idRendicion): ?Rendicion
     {
-        return Rendicion::with('cobros')->find($idRendicion);
+        return Rendicion::with('cobros')->when(DB::transactionLevel() > 0, fn ($q) => $q->lockForUpdate())->find($idRendicion);
     }
 
     /**
@@ -59,25 +61,28 @@ class RendicionRepository
     {
         $query = Rendicion::with('cobros');
 
-        if (!empty($filtros['fecha'])) {
+        if (! empty($filtros['fecha'])) {
             $query->whereDate('fecha', $filtros['fecha']);
         }
 
-        if (!empty($filtros['id_repartidor'])) {
+        if (! empty($filtros['id_repartidor'])) {
             $query->where('id_repartidor', (int) $filtros['id_repartidor']);
         }
 
-        if (!empty($filtros['estado'])) {
+        if (! empty($filtros['estado'])) {
             $query->where('estado', strtolower($filtros['estado']));
         }
 
         $rendiciones = $query->orderBy('fecha', 'desc')->get()->toArray();
         foreach ($rendiciones as &$r) {
+            $r['diferencia'] = DB::table('g2_rendicion_diferencias')->where('id_rendicion', $r['id_rendicion'])->first();
+            $r['devoluciones'] = DB::table('g2_rendicion_devoluciones')->where('id_rendicion', $r['id_rendicion'])->orderBy('id')->get()->toArray();
             $r['repartidor'] = [
                 'id_usuario' => $r['id_repartidor'],
-                'nombre' => \App\Modules\Shared\Services\UsuarioService::obtenerNombre((int)$r['id_repartidor'])
+                'nombre' => UsuarioService::obtenerNombre((int) $r['id_repartidor']),
             ];
         }
+
         return $rendiciones;
     }
 
@@ -92,10 +97,10 @@ class RendicionRepository
     ): Rendicion {
         $rendicion = Rendicion::findOrFail($idRendicion);
 
-        $rendicion->estado               = $nuevoEstado;
+        $rendicion->estado = $nuevoEstado;
         $rendicion->id_usuario_validador = $idUsuarioValidador;
-        $rendicion->fecha_validacion     = now();
-        $rendicion->motivo_rechazo       = $motivoRechazo;
+        $rendicion->fecha_validacion = now();
+        $rendicion->motivo_rechazo = $motivoRechazo;
         $rendicion->save();
 
         return $rendicion->fresh('cobros');
@@ -107,6 +112,7 @@ class RendicionRepository
     public function guardar(Rendicion $rendicion): Rendicion
     {
         $rendicion->save();
+
         return $rendicion;
     }
 
@@ -116,12 +122,13 @@ class RendicionRepository
     public function agregarCobro(int $idRendicion, array $datosCobro): RendicionCobro
     {
         $cobro = RendicionCobro::create([
-            'id_rendicion'   => $idRendicion,
-            'id_cliente'     => $datosCobro['id_cliente'],
-            'id_factura'     => $datosCobro['id_factura'],
-            'monto'          => $datosCobro['monto'],
-            'medio_pago'     => $datosCobro['medio_pago'],
+            'id_rendicion' => $idRendicion,
+            'id_cliente' => $datosCobro['id_cliente'],
+            'id_factura' => $datosCobro['id_factura'],
+            'monto' => $datosCobro['monto'],
+            'medio_pago' => $datosCobro['medio_pago'],
             'fecha_registro' => now(),
+            'datos_medio_pago' => $datosCobro['datos_medio_pago'] ?? null,
         ]);
 
         // Actualiza el total acumulado de la rendición
@@ -137,7 +144,8 @@ class RendicionRepository
      */
     public function repartidorEstaActivo(int $idRepartidor): bool
     {
-        $u = \App\Modules\Shared\Services\UsuarioService::obtenerUsuario($idRepartidor);
+        $u = UsuarioService::obtenerUsuario($idRepartidor);
+
         return $u !== null && ($u['rol'] ?? '') === 'repartidor';
     }
 
@@ -147,7 +155,7 @@ class RendicionRepository
     public function entregaExiste(int $idEntrega): bool
     {
         $tabla = Schema::hasTable('entrega') ? 'entrega' : (Schema::hasTable('ENTREGA') ? 'ENTREGA' : null);
-        if (!$tabla) {
+        if (! $tabla) {
             return false;
         }
 
@@ -166,12 +174,13 @@ class RendicionRepository
         if ($venta === null) {
             // Si el servicio no está disponible o no existe la venta, asumimos pendiente con advertencia en log
             Log::warning("G2 - facturaEstaPendiente: No se pudo verificar venta #{$idFactura} en G4. Se asume pendiente para no bloquear el flujo.");
+
             return true;
         }
 
         // Si viene un indicador booleano explícito
         if (isset($venta['pagado']) && is_bool($venta['pagado'])) {
-            return !$venta['pagado'];
+            return ! $venta['pagado'];
         }
 
         // Si no viene booleano explícito, inferir a partir del estado de la venta

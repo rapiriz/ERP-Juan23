@@ -14,9 +14,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class RendicionCobro extends Model
 {
-    protected $table      = 'RENDICION_COBRO';
+    protected $table = 'RENDICION_COBRO';
+
     protected $primaryKey = 'id_rendicion_cobro';
-    public $timestamps    = false;
+
+    public $timestamps = false;
 
     protected $fillable = [
         'id_rendicion',
@@ -25,15 +27,17 @@ class RendicionCobro extends Model
         'monto',
         'medio_pago',       // efectivo | transferencia | cheque
         'fecha_registro',
+        'datos_medio_pago', 'estado_revision', 'id_cobro_aplicado', 'revisado_por', 'fecha_revision', 'nota_revision',
     ];
 
     protected $casts = [
         'id_rendicion_cobro' => 'integer',
-        'id_rendicion'       => 'integer',
-        'id_cliente'         => 'integer',
-        'id_factura'         => 'integer',
-        'monto'              => 'float',
-        'fecha_registro'     => 'datetime',
+        'id_rendicion' => 'integer',
+        'id_cliente' => 'integer',
+        'id_factura' => 'integer',
+        'monto' => 'float',
+        'fecha_registro' => 'datetime',
+        'datos_medio_pago' => 'array', 'fecha_revision' => 'datetime',
     ];
 
     // --- RELACIONES ELOQUENT ---

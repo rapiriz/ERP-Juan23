@@ -46,11 +46,11 @@ class Sprint4ReportsTest extends TestCase
         $second = Cliente::factory()->create(['creado_por' => $admin->id]);
         $this->configureServices();
         Http::fake([
-            'saldos.example.test/api/v1/clientes/deudores' => Http::response(['data' => [
+            'saldos.example.test/api/v1/clientes/deudores*' => Http::response(['data' => [
                 ['cliente_id' => $first->id, 'saldo' => '100.00'],
                 ['cliente_id' => $second->id, 'saldo' => '500.00'],
             ]]),
-            'facturas.example.test/api/v1/facturas/pendientes' => Http::response(['data' => [
+            'facturas.example.test/api/v1/facturas/pendientes*' => Http::response(['data' => [
                 ['id' => 7, 'cliente_id' => $second->id, 'numero' => 'F-7', 'vencimiento' => '2026-10-20', 'importe_pendiente' => '500.00'],
             ]]),
         ]);

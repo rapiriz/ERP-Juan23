@@ -9,10 +9,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class ConciliacionDetalle extends Model
 {
     protected $table = 'CONCILIACION_DETALLE';
+
     protected $primaryKey = 'id_detalle';
+
     public $timestamps = false;
 
     protected $fillable = [
+        'id_grupo', 'monto_aplicado',
         'id_movimiento_bancario',
         'id_cobro',
         'id_movimiento_caja',
@@ -55,6 +58,7 @@ class ConciliacionDetalle extends Model
     public function tieneOrigenUnico(): bool
     {
         $origenes = [$this->id_cobro, $this->id_movimiento_caja, $this->id_ajuste, $this->id_cheque];
+
         return count(array_filter($origenes, fn ($v) => $v !== null)) === 1;
     }
 }

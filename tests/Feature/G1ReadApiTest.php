@@ -263,7 +263,7 @@ class G1ReadApiTest extends TestCase
             'dni_cuit' => '12345678', 'tipo_documento' => 'dni', 'telefono' => '2923123456',
             'email' => 'maria@empresa.com', 'direccion' => 'San Martín 123',
             'direccion_calle' => 'San Martín', 'direccion_numero' => '123', 'localidad' => 'Pigüé',
-            'zona_id' => $zone->id, 'condicion_iva' => null, 'tipo_cliente' => 'minorista', 'estado' => 'activo',
+            'zona_id' => $zone->id, 'condicion_iva' => null, 'tipo_cliente' => 'minorista', 'estado' => 'activo', 'limite_credito' => null,
         ];
         $this->withToken('g1-read-service-test')->getJson('/api/v1/clientes')->assertOk()->assertExactJson([
             'data' => [$expected], 'meta' => ['current_page' => 1, 'last_page' => 1, 'per_page' => 20, 'total' => 1],

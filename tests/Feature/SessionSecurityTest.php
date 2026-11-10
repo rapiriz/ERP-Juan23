@@ -11,11 +11,11 @@ class SessionSecurityTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_session_expires_after_two_hours_of_inactivity(): void
+    public function test_session_expires_after_thirty_minutes_of_inactivity(): void
     {
         $user = User::factory()->create();
         $this->signInAs($user)->withSession([
-            'last_activity' => now()->subHours(2)->subSecond()->timestamp,
+            'last_activity' => now()->subMinutes(30)->subSecond()->timestamp,
         ]);
 
         $this->get(route('dashboard'))

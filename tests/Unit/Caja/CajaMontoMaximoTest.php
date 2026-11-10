@@ -19,6 +19,7 @@ class CajaMontoMaximoTest extends TestCase
     private const PASADO_DE_RANGO = 100000000.00; // un centavo por encima del tope
 
     private $repositorio;
+
     private CajaService $service;
 
     protected function setUp(): void
@@ -26,6 +27,8 @@ class CajaMontoMaximoTest extends TestCase
         parent::setUp();
 
         $this->repositorio = Mockery::mock(CajaRepository::class);
+        $this->repositorio->shouldReceive('bloquearUsuario')->byDefault()->andReturnNull();
+        $this->repositorio->shouldReceive('movimientoProtegido')->byDefault()->andReturnFalse();
         $this->service = new CajaService($this->repositorio);
     }
 

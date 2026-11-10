@@ -23,6 +23,7 @@ final readonly class ProductoCatalogo
         public string $presentacion,
         public string $disponibilidad,
         public ?string $imagen,
+        public array $categoriaRuta = [],
     ) {}
 
     public static function fromApi(array $row): self
@@ -38,6 +39,9 @@ final readonly class ProductoCatalogo
             'stock_disponible' => ['nullable', 'numeric'],
             'stock_minimo' => ['nullable', 'numeric', 'min:0'],
             'categoria_nombre' => ['nullable', 'string', 'max:300'],
+            'categoria_ruta' => ['sometimes', 'array', 'max:8'],
+            'categoria_ruta.*.id' => ['required', 'integer', 'min:1'],
+            'categoria_ruta.*.nombre' => ['required', 'string', 'max:100'],
             'marca_nombre' => ['nullable', 'string', 'max:300'],
             'id_categoria' => ['nullable', 'integer', 'min:1'],
             'id_marca' => ['nullable', 'integer', 'min:1'],
@@ -71,6 +75,7 @@ final readonly class ProductoCatalogo
             isset($row['id_marca']) ? (string) $row['id_marca'] : 'otras',
             isset($row['precio_unitario']) ? number_format((float) $row['precio_unitario'], 2, '.', '') : null,
             $presentacion, $disponibilidad, self::safeImage($row['imagen_url'] ?? $row['imagen'] ?? null),
+            array_map(fn ($c) => ['id' => (string) $c['id'], 'nombre' => $c['nombre']], $row['categoria_ruta'] ?? []),
         );
     }
 

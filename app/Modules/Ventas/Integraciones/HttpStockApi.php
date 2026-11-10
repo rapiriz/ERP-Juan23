@@ -4,14 +4,21 @@ namespace App\Modules\Ventas\Integraciones;
 
 use App\Modules\Ventas\Contracts\StockGateway;
 use App\Modules\Ventas\Exceptions\IntegracionNoDisponibleException;
+use App\Services\Integrations\InternalApiClient;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 use Throwable;
 
 /** Stock desde la API real de Productos/Stock. */
 class HttpStockApi implements StockGateway
 {
     public function ajustar(array $cambios, int $ventaId, string $motivo): void
+    {
+        $this->ajustarConClave($cambios, $ventaId, $motivo, (string) Str::uuid());
+    }
+
+    public function ajustarConClave(array $cambios, int $ventaId, string $motivo, string $key): void
     {
         // Se descartan los productos sin cambios (cantidad 0): no hay nada que avisar.
         $items = [];
@@ -28,6 +35,7 @@ class HttpStockApi implements StockGateway
         try {
             $this->cliente()->post('/api/v1/stock/movimientos', [
                 'origen' => 'ventas',
+                'request_key' => $key,
                 'venta_id' => $ventaId,
                 'motivo' => $motivo,
                 'items' => $items,
@@ -67,8 +75,12 @@ class HttpStockApi implements StockGateway
         return $disponible === null ? null : (int) $disponible;
     }
 
-    private function cliente(): PendingRequest
+    private function cliente(): PendingRequest|InternalApiClient
     {
+        if (config('ventas.integracion') === 'internal') {
+            return new InternalApiClient(config('services.internal_api.token'));
+        }
+
         $cliente = Http::baseUrl(rtrim((string) config('ventas.servicios.stock.url'), '/'))
             ->timeout((int) config('ventas.timeout'))
             ->acceptJson();

@@ -1,0 +1,67 @@
+name: ERP validation
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+  workflow_dispatch:
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MARIADB_ROOT_PASSWORD: qa-only-password
+        ports: ["3315:3306"]
+        options: >-
+          --health-cmd="mariadb-admin ping -h 127.0.0.1 -pqa-only-password"
+          --health-interval=10s --health-timeout=5s --health-retries=12
+    env:
+      APP_ENV: testing
+      APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      ERP_G3_G4_TEST_DATABASE: erp_qa_ci
+      ERP_TEST_DB_PASSWORD: qa-only-password
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, pdo_mysql, pdo_sqlite, gd, zip, bcmath
+          coverage: none
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: composer install --no-interaction --prefer-dist
+      - run: cp .env.example .env
+      - run: composer validate --strict
+      - run: composer audit --locked
+      - run: npm ci --prefix tools/frontend
+      - run: npm audit --prefix tools/frontend
+      - run: npm run build --prefix tools/frontend
+      - run: php scripts/prepare-test-database.php
+      - run: php vendor/bin/phpunit --fail-on-risky --fail-on-skipped
+      - run: node --test tests/Frontend/*.cjs tests/Frontend/*.js
+      - run: php scripts/audit-source.php
+      - run: php scripts/audit-routes.php
+      - name: Verify backup and preserving update in an isolated database
+        env:
+          MYSQL_PWD: qa-only-password
+          ERP_RESTORE_TEST_DATABASE: erp_qa_ci_restore
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mariadb-client
+          mariadb-dump --host=127.0.0.1 --port=3315 --user=root --single-transaction erp_qa_ci > "$RUNNER_TEMP/erp-qa.sql"
+          php scripts/restore-test-backup.php "$RUNNER_TEMP/erp-qa.sql"
+          php scripts/compare-test-databases.php
+          ERP_G3_G4_TEST_DATABASE=erp_qa_ci_restore php scripts/migrate-test-database.php
+      - run: npm ci --prefix tests/Browser
+      - run: npm audit --prefix tests/Browser
+      - run: npx --prefix tests/Browser playwright install --with-deps chromium
+      - run: php tests/Browser/seed.php
+      - run: python3 scripts/start-browser-qa.py
+      - run: npm test --prefix tests/Browser
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: browser-review
+          path: tests/Browser/results/

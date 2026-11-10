@@ -4,6 +4,7 @@
 <link rel="stylesheet" href="{{ asset('css/g2.css') }}">
 <link rel="stylesheet" href="{{ asset('css/pigue-claymorphism.css') }}">
 @endpush
+@push('styles')<link rel="stylesheet" href="{{ asset('assets/css/g2-operations.css') }}">@endpush
 @section('content')
 <div class="g2-page" data-g2-role="{{ \App\Modules\Shared\Auth\G2Identity::role() }}">
 <div class="g2-content">
@@ -383,7 +384,7 @@
                 <span style="font-size: 0.85rem; color: var(--success); font-weight: 600;">
                     Los pedidos entregados se precargan automáticamente en Rendiciones para la administración.
                 </span>
-                <button class="clay-btn clay-btn-primary" onclick="cerrarModalHojaRuta()">Cerrar</button>
+                <button class="button button-secondary" type="button" id="editDeliveryButton" hidden>Modificar pedidos</button><button class="clay-btn clay-btn-primary" onclick="cerrarModalHojaRuta()">Cerrar</button>
             </div>
         </div>
     </div>
@@ -393,8 +394,10 @@
 
     
 </div>
+<section class="section-block" id="deliveryEditor" hidden style="position:fixed;inset:10% 5%;z-index:2500;overflow:auto;background:var(--surface,#fffaf0);padding:2rem;box-shadow:0 10px 60px #10204055"><h2>Modificar pedidos de la entrega</h2><p>Quitá o incorporá pedidos de la misma zona. Sólo se guarda si la entrega continúa en preparación.</p><p id="deliveryEditorStatus" role="status"></p><div id="deliveryEditorOrders"></div><button type="button" class="button button-primary" id="deliveryEditorSave">Guardar pedidos</button><button type="button" class="button button-secondary" id="deliveryEditorCancel">Cancelar</button></section>
 @endsection
 @push('scripts')
 <script src="{{ asset('js/g2-http.js') }}" defer></script>
 <script src="{{ asset('js/g2-entregas.js') }}" defer></script>
+<script src="{{ asset('js/g2-delivery-editor.js') }}" defer></script>
 @endpush

@@ -1,22 +1,22 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Modules\Stock\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Productos\Models\Producto;
+use App\Modules\Stock\Models\UnidadMedida;
 use App\Modules\Stock\Services\StockService;
 use App\Support\UsuarioActual;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
 class DevolucionController extends Controller
 {
-    public function __construct(private StockService $stockService)
-    {
-    }
+    public function __construct(private StockService $stockService) {}
 
     /**
      * S05 - Registrar devolución de un producto al depósito.
@@ -31,11 +31,11 @@ class DevolucionController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'id_producto' => 'required|integer|exists:PRODUCTO,id_producto',
+            'id_producto' => 'required|integer|exists:producto,id_producto',
             'cantidad' => 'required|integer|min:1',
             'motivo' => 'required|string|max:255',
             'tipo_devolucion' => 'nullable|string|in:cliente,proveedor',
-            'id_unidad' => 'nullable|integer|exists:UNIDAD_MEDIDA,id_unidad',
+            'id_unidad' => 'nullable|integer|exists:unidad_medida,id_unidad',
             'fecha' => 'nullable|date|before_or_equal:today',
         ], [
             'id_producto.required' => 'Debe seleccionar el producto devuelto.',
@@ -55,7 +55,7 @@ class DevolucionController extends Controller
         try {
             $producto = Producto::find((int) $request->input('id_producto'));
 
-            if (!$producto) {
+            if (! $producto) {
                 return response()->json([
                     'status' => 'error',
                     'message' => 'Producto no encontrado.',
@@ -80,8 +80,8 @@ class DevolucionController extends Controller
             // Proveedor: se devuelve mercadería al proveedor -> DESCUENTA del stock ($esIncremento = false)
             $esIncremento = ($tipoDevolucion === 'cliente');
 
-            $cantidadBase = StockService::cantidadEnUnidadBase($cantidad, $idUnidad);
-            if (!$esIncremento && $producto->stock_disponible < $cantidadBase) {
+            $cantidadBase = StockService::cantidadEnUnidadBase($cantidad, $idUnidad, (int) $producto->id_producto);
+            if (! $esIncremento && $producto->stock_disponible < $cantidadBase) {
                 return response()->json([
                     'status' => 'error',
                     'message' => "Stock insuficiente para devolver al proveedor. Stock actual disponible: {$producto->stock_disponible}, solicitado: {$cantidadBase}.",
@@ -91,16 +91,16 @@ class DevolucionController extends Controller
             $fechaDev = null;
             if ($request->has('fecha') && $request->input('fecha')) {
                 try {
-                    $fechaDev = \Carbon\Carbon::parse($request->input('fecha'));
-                    if (!str_contains((string) $request->input('fecha'), ':')) {
-                        $ahora = \Carbon\Carbon::now();
+                    $fechaDev = Carbon::parse($request->input('fecha'));
+                    if (! str_contains((string) $request->input('fecha'), ':')) {
+                        $ahora = Carbon::now();
                         $fechaDev->setTime($ahora->hour, $ahora->minute, $ahora->second);
                     }
                 } catch (\Throwable $e) {
-                    $fechaDev = \Carbon\Carbon::now();
+                    $fechaDev = Carbon::now();
                 }
             } else {
-                $fechaDev = \Carbon\Carbon::now();
+                $fechaDev = Carbon::now();
             }
 
             $prefijo = $esIncremento ? '[Devolución Cliente]' : '[Devolución a Proveedor]';
@@ -123,12 +123,12 @@ class DevolucionController extends Controller
 
             $producto->refresh();
 
-            $unidadObj = $idUnidad ? \App\Modules\Stock\Models\UnidadMedida::find($idUnidad) : null;
+            $unidadObj = $idUnidad ? UnidadMedida::find($idUnidad) : null;
             $nombreUnidad = $unidadObj ? $unidadObj->nombre_unidad : 'u.';
             $equivTexto = ($unidadObj && (float) $unidadObj->equivalencia_base > 1.0)
                 ? "{$cantidad} {$nombreUnidad} ({$cantidadBase} u. individuales)"
                 : "{$cantidadBase} u.";
-            $unidadMsg = ($unidadObj && (float) $unidadObj->equivalencia_base > 1.0) ? " [Equivalencia: {$equivTexto}]" : "";
+            $unidadMsg = ($unidadObj && (float) $unidadObj->equivalencia_base > 1.0) ? " [Equivalencia: {$equivTexto}]" : '';
 
             $mensaje = $esIncremento
                 ? "Devolución de cliente registrada exitosamente (+{$cantidadBase} u. sumadas al stock){$unidadMsg}."
@@ -161,4 +161,3 @@ class DevolucionController extends Controller
         }
     }
 }
-

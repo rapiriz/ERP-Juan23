@@ -15,3 +15,7 @@ Artisan::command('caja:cerrar-vencidas', function () {
 })->purpose('Cierra las cajas de repartidor vencidas (72 h), sin contar');
 
 Schedule::command('caja:cerrar-vencidas')->everyFifteenMinutes()->withoutOverlapping();
+
+Schedule::command('ventas:reenviar-stock --limit=100')->everyMinute()->withoutOverlapping();
+
+Schedule::command('erp:scheduler-heartbeat')->everyMinute()->withoutOverlapping();

@@ -7,7 +7,6 @@ use App\Modules\Rendiciones\Models\Rendicion;
 use App\Modules\Rendiciones\Models\RendicionCobro;
 use App\Modules\Rendiciones\Repositories\RendicionRepository;
 use App\Modules\Rendiciones\Services\RendicionService;
-use InvalidArgumentException;
 use Tests\TestCase;
 
 /**
@@ -23,6 +22,7 @@ class RendicionServiceTest extends TestCase
         if (isset($attrs['id_rendicion'])) {
             $r->id_rendicion = $attrs['id_rendicion'];
         }
+
         return $r;
     }
 
@@ -83,91 +83,6 @@ class RendicionServiceTest extends TestCase
         $this->assertEquals(2, $resultado['cantidad_cobros_asociados']);
     }
 
-    public function test_revisar_rendicion_lanza_excepcion_si_no_existe(): void
-    {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('No se encontró la rendición');
-
-        $repoMock = $this->createMock(RendicionRepository::class);
-        $repoMock->method('buscarPorId')->with(999)->willReturn(null);
-
-        $service = new RendicionService($repoMock);
-        $service->revisarRendicion(999, ['accion' => 'aprobar', 'id_usuario_validador' => 1]);
-    }
-
-    public function test_revisar_rendicion_lanza_excepcion_si_ya_fue_validada(): void
-    {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Solo se puede aprobar una rendición en estado pendiente');
-
-        $rYaAprobada = $this->rendicionFake([
-            'id_rendicion' => 5,
-            'id_repartidor' => 2,
-            'estado' => Rendicion::ESTADO_APROBADA,
-        ]);
-
-        $repoMock = $this->createMock(RendicionRepository::class);
-        $repoMock->method('buscarPorId')->with(5)->willReturn($rYaAprobada);
-
-        $service = new RendicionService($repoMock);
-        $service->revisarRendicion(5, ['accion' => 'aprobar', 'id_usuario_validador' => 1]);
-    }
-
-    public function test_rechazar_rendicion_sin_motivo_lanza_excepcion(): void
-    {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('motivo');
-
-        $rPendiente = $this->rendicionFake([
-            'id_rendicion' => 3,
-            'id_repartidor' => 2,
-            'estado' => Rendicion::ESTADO_PENDIENTE,
-        ]);
-
-        $repoMock = $this->createMock(RendicionRepository::class);
-        $repoMock->method('buscarPorId')->with(3)->willReturn($rPendiente);
-
-        $service = new RendicionService($repoMock);
-        $service->revisarRendicion(3, ['accion' => 'rechazar', 'id_usuario_validador' => 1, 'motivo_rechazo' => '']);
-    }
-
-    public function test_resiliencia_si_falla_api_externa_ventas_g4_la_aprobacion_no_se_interrumpe(): void
-    {
-        $rPendiente = $this->rendicionFake([
-            'id_rendicion' => 4,
-            'id_repartidor' => 2,
-            'total_rendido' => 10000.00,
-            'estado' => Rendicion::ESTADO_PENDIENTE,
-        ]);
-
-        $cobro = new RendicionCobro([
-            'id_rendicion_cobro' => 10,
-            'id_rendicion' => 4,
-            'id_cliente' => 1,
-            'id_factura' => 888,
-            'monto' => 10000.00,
-            'medio_pago' => 'transferencia',
-        ]);
-        $rPendiente->setRelation('cobros', collect([$cobro]));
-
-        $repoMock = $this->createMock(RendicionRepository::class);
-        $repoMock->method('buscarPorId')->with(4)->willReturn($rPendiente);
-
-        $ventasMock = $this->createMock(VentasApiClient::class);
-        // Simulamos que la API externa de Ventas (G4) arroja una excepción o error 500
-        $ventasMock->expects($this->once())
-            ->method('actualizarEstadoVenta')
-            ->with(888, 'pagada')
-            ->willThrowException(new \RuntimeException('Connection timed out to Ventas G4'));
-
-        $service = new RendicionService($repoMock, $ventasMock);
-
-        // La aprobación debe completarse con éxito a pesar de la caída de la API externa
-        $resultado = $service->revisarRendicion(4, [
-            'accion' => 'aprobar',
-            'id_usuario_validador' => 1,
-        ]);
-
-        $this->assertEquals(Rendicion::ESTADO_APROBADA, $resultado['estado_actual']);
-    }
+    // La revisión se prueba con persistencia real en G2FinancialOperationsTest.
+    // Se reemplazaron los cuatro casos de revisión con mocks por pruebas del circuito transaccional.
 }

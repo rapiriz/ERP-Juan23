@@ -1,3 +1,4 @@
+const escapeG2Html = value => window.erpSafeHtml.escape(value);
 const g2Admin = document.querySelector('[data-g2-role]')?.dataset.g2Role === 'admin';
 /**
  * LÓGICA FRONTEND: MÓDULO DE RENDICIONES & COBROS (GRUPO 2)
@@ -67,7 +68,7 @@ function showToast(mensaje, tipo = 'info') {
     };
     const toast = document.createElement('div');
     toast.className = `toast toast-${tipo}`;
-    toast.innerHTML = `<span style="display:inline-flex;align-items:center;">${icons[tipo] || ''}</span><span>${mensaje}</span>`;
+    toast.innerHTML = `<span style="display:inline-flex;align-items:center;">${icons[tipo] || ''}</span><span>${escapeG2Html(mensaje)}</span>`;
     container.appendChild(toast);
 
     setTimeout(() => {
@@ -93,7 +94,7 @@ async function cargarListadoRendiciones() {
         const json = await res.json();
 
         if (json.error) {
-            tbody.innerHTML = `<tr><td colspan="8"><div class="table-empty" style="color:var(--danger);">${json.mensaje}</div></td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="8"><div class="table-empty" style="color:var(--danger);">${escapeG2Html(json.mensaje)}</div></td></tr>`;
             return;
         }
 
@@ -137,18 +138,18 @@ function renderizarTabla(rendiciones) {
 
         const nombreRepartidor = r.repartidor ? r.repartidor.nombre : `Repartidor #${r.id_repartidor}`;
         const entregaTag = r.id_entrega
-            ? `<span class="badge badge-zona">Reparto #${r.id_entrega}</span>`
+            ? `<span class="badge badge-zona">Reparto #${Number(r.id_entrega)}</span>`
             : `<span style="color: var(--text-light); font-size: 0.8rem;">—</span>`;
 
         const totalFormateado = Number(r.total_rendido).toLocaleString('es-AR', { minimumFractionDigits: 2 });
         const obs = r.observaciones
-            ? `<span title="${r.observaciones}" style="max-width: 160px; display: inline-block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${r.observaciones}</span>`
+            ? `<span title="${escapeG2Html(r.observaciones)}" style="max-width: 160px; display: inline-block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeG2Html(r.observaciones)}</span>`
             : `<span style="color: var(--text-light); font-size: 0.8rem;">—</span>`;
 
         tr.innerHTML = `
-            <td><strong style="color: var(--primary); font-family: monospace;">#REND-${r.id_rendicion.toString().padStart(4, '0')}</strong></td>
+            <td><strong style="color: var(--primary); font-family: monospace;">#REND-${Number(r.id_rendicion).toString().padStart(4, '0')}</strong></td>
             <td style="color: var(--text-muted); font-size: 0.875rem;">${fechaFormat}</td>
-            <td><strong>${nombreRepartidor}</strong></td>
+            <td><strong>${escapeG2Html(nombreRepartidor)}</strong></td>
             <td>${entregaTag}</td>
             <td style="text-align: right; font-weight: 800; color: var(--text-main); font-variant-numeric: tabular-nums;">
                 $${totalFormateado}
@@ -159,14 +160,14 @@ function renderizarTabla(rendiciones) {
             <td style="font-size: 0.875rem;">${obs}</td>
             <td style="text-align: center;">
                 <div style="display: flex; gap: 0.4rem; justify-content: center; flex-wrap: wrap;">
-                    <button class="clay-btn clay-btn-secondary clay-btn-xs" onclick="verDetalleRendicion(${r.id_rendicion})" title="Ver detalle y validar">
+                    <button class="clay-btn clay-btn-secondary clay-btn-xs" onclick="verDetalleRendicion(${Number(r.id_rendicion)})" title="Ver detalle y validar">
                         Ver
                     </button>
                     ${g2Admin && r.estado === 'pendiente' ? `
-                    <button class="clay-btn clay-btn-xs" style="background: var(--success); color: white;" onclick="aprobarRapido(${r.id_rendicion})" title="Aprobar directamente">
+                    <button class="clay-btn clay-btn-xs" style="background: var(--success); color: white;" onclick="aprobarRapido(${Number(r.id_rendicion)})" title="Aprobar directamente">
                         Aprobar
                     </button>
-                    <button class="clay-btn clay-btn-xs" style="background: var(--danger); color: white;" onclick="rechazarRapido(${r.id_rendicion})" title="Rechazar">
+                    <button class="clay-btn clay-btn-xs" style="background: var(--danger); color: white;" onclick="rechazarRapido(${Number(r.id_rendicion)})" title="Rechazar">
                         Rechazar
                     </button>` : ''}
                 </div>
@@ -363,8 +364,8 @@ async function alCambiarEntregaSelect(idEntrega) {
 
                 tr.innerHTML = `
                     <td>
-                        <strong>#PED-${c.id_venta.toString().padStart(4, '0')}</strong> — ${c.cliente_nombre}
-                        ${c.numero_remito ? `<br><small style="color:var(--text-muted);">Remito: ${c.numero_remito}</small>` : ''}
+                        <strong>#PED-${Number(c.id_venta).toString().padStart(4, '0')}</strong> — ${escapeG2Html(c.cliente_nombre)}
+                        ${c.numero_remito ? `<br><small style="color:var(--text-muted);">Remito: ${escapeG2Html(c.numero_remito)}</small>` : ''}
                     </td>
                     <td style="text-align:right; font-weight:700; color:#1E3A8A;">
                         $${Number(c.monto).toLocaleString('es-AR', {minimumFractionDigits: 2})}
@@ -516,11 +517,13 @@ async function verDetalleRendicion(idRendicion) {
         }
 
         const r = json.data;
-        document.getElementById('detIdRendicion').textContent = `#REND-${r.id_rendicion.toString().padStart(4,'0')}`;
+        document.getElementById('detIdRendicion').textContent = `#REND-${Number(r.id_rendicion).toString().padStart(4,'0')}`;
         document.getElementById('detRepartidor').textContent  = r.repartidor ? r.repartidor.nombre : `Repartidor #${r.id_repartidor}`;
         document.getElementById('detFecha').textContent       = new Date(r.fecha).toLocaleString('es-AR');
         document.getElementById('detTotal').textContent       = `$${Number(r.total_rendido).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
         document.getElementById('detObs').textContent         = r.observaciones || 'Sin observaciones.';
+
+        renderRenditionIncidents(r);
 
         // Badge de estado
         const estadoBadge = document.getElementById('detEstadoBadge');
@@ -531,7 +534,7 @@ async function verDetalleRendicion(idRendicion) {
             estadoBadge.innerHTML = `<span class="badge badge-aprobada">Aprobada</span>`;
             adminBox.style.display = 'none';
         } else if (r.estado === 'rechazada') {
-            estadoBadge.innerHTML = `<span class="badge badge-rechazada">Rechazada${r.motivo_rechazo ? ' — ' + r.motivo_rechazo : ''}</span>`;
+            estadoBadge.innerHTML = `<span class="badge badge-rechazada">Rechazada${r.motivo_rechazo ? ' — ' + escapeG2Html(r.motivo_rechazo) : ''}</span>`;
             adminBox.style.display = 'none';
         } else {
             estadoBadge.innerHTML = `<span class="badge badge-pendiente">Pendiente</span>`;
@@ -558,13 +561,13 @@ async function verDetalleRendicion(idRendicion) {
                 const meta = medioPagoMeta[c.medio_pago] || { label: c.medio_pago, badge: 'badge-zona', destino: 'General' };
 
                 tr.innerHTML = `
-                    <td><strong>Cliente #${c.id_cliente}</strong> — Fac. #${c.id_factura}</td>
-                    <td><span class="badge ${meta.badge}">${meta.label}</span></td>
+                    <td>${g2Admin && (c.estado_revision || 'pendiente') === 'pendiente' ? `<input type="checkbox" class="cobro-revision" value="${Number(c.id_rendicion_cobro)}" checked aria-label="Seleccionar cobro">` : ''}<strong>Cliente #${Number(c.id_cliente)}</strong> — Fac. #${Number(c.id_factura)}</td>
+                    <td><span class="badge ${meta.badge}">${escapeG2Html(meta.label)}</span></td>
                     <td style="text-align:right;font-weight:700;font-variant-numeric:tabular-nums;">
                         $${Number(c.monto).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                     </td>
                     <td style="text-align:center;font-size:0.85rem;font-weight:600;color:var(--text-main);">
-                        ${meta.destino}
+                        ${window.erpSafeHtml.escape(c.estado_revision || 'pendiente')} · ${escapeG2Html(meta.destino)}
                     </td>
                 `;
                 cobrosBody.appendChild(tr);
@@ -605,6 +608,7 @@ async function procesarValidacionAdmin(accion) {
         motivo_rechazo: motivoRechazo
     };
 
+    if (accion === 'aprobar') payload.cobros_aprobados = [...document.querySelectorAll('.cobro-revision:checked')].map(c => Number(c.value));
     try {
         const res  = await g2Fetch(`${API_BASE}/rendiciones/${rendicionSeleccionadaId}/revisar`, {
             method:  'PATCH',
@@ -619,7 +623,7 @@ async function procesarValidacionAdmin(accion) {
                 rechazar: 'La rendición ha sido rechazada.',
                 cancelar: 'La rendición ha sido cancelada/anulada.'
             };
-            showToast(mensajes[accion] || 'Operación completada.', accion === 'aprobar' ? 'success' : 'info');
+            showToast(json.data?.revision_parcial ? 'Revisión parcial: se aplicaron los seleccionados y quedan cobros pendientes.' : (mensajes[accion] || 'Operación completada.'), accion === 'aprobar' ? 'success' : 'info');
             cerrarModalDetalle();
             cargarContadoresGlobales();
             cargarListadoRendiciones();
@@ -634,7 +638,7 @@ async function procesarValidacionAdmin(accion) {
 // Acciones rápidas desde la tabla
 async function aprobarRapido(idRendicion) {
     if (!confirm(`¿Aprobar y liquidar la Rendición #${idRendicion}?`)) return;
-    rendicionSeleccionadaId = idRendicion;
+    await verDetalleRendicion(idRendicion);
     await procesarValidacionAdmin('aprobar');
 }
 
@@ -686,6 +690,8 @@ async function guardarDevolucion(e) {
         if (!json.error) {
             showToast('¡Devolución registrada correctamente!', 'success');
             cerrarModalDevolucion();
+            cargarListadoRendiciones();
+            await verDetalleRendicion(Number(payload.id_rendicion));
         } else {
             showToast('Error: ' + json.mensaje, 'error');
         }
@@ -718,4 +724,65 @@ function limpiarFiltros() {
     document.getElementById('filtroRepartidor').value = '';
     document.getElementById('filtroFecha').value = '';
     filtrarEstadoTab('');
+}
+
+
+function renderRenditionIncidents(r) {
+    let box = document.getElementById('rendicionIncidentes');
+    if (!box) {
+        box = document.createElement('section');
+        box.id = 'rendicionIncidentes';
+        document.getElementById('detObs').parentElement.appendChild(box);
+    }
+    box.replaceChildren();
+    const heading = document.createElement('h4');
+    heading.textContent = 'Devoluciones y diferencias registradas';
+    box.appendChild(heading);
+    for (const incident of r.devoluciones || []) {
+        const line = document.createElement('p');
+        line.textContent = `Devolución #${incident.id}: pedido #${incident.id_pedido} — ${incident.motivo}. ${incident.observaciones || ''}`;
+        box.appendChild(line);
+    }
+    const d = r.diferencia;
+    const line = document.createElement('p');
+    line.textContent = d ? `${d.tipo_diferencia}: $${Number(d.diferencia).toLocaleString('es-AR')} — ${d.diferencia_pendiente ? 'Pendiente de resolución' : 'Sin diferencia pendiente'}. ${d.motivo || ''} ${d.resolucion || ''}` : 'Sin diferencias registradas.';
+    box.appendChild(line);
+    if (r.estado !== 'pendiente') return;
+    const form = document.createElement('form');
+    const label = document.createElement('label');
+    label.textContent = 'Motivo del faltante o sobrante';
+    const reason = document.createElement('input');
+    reason.className = 'clay-input'; reason.maxLength = 500; reason.name = 'motivo';
+    label.appendChild(reason); form.appendChild(label);
+    const button = document.createElement('button');
+    button.type = 'submit'; button.className = 'clay-btn clay-btn-secondary'; button.textContent = 'Calcular y registrar diferencia';
+    form.appendChild(button);
+    form.addEventListener('submit', async event => {
+        event.preventDefault(); button.disabled = true;
+        try {
+            const res = await g2Fetch(`${API_BASE}/rendiciones/${Number(r.id_rendicion)}/diferencias`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({motivo: reason.value})});
+            const data = await res.json();
+            if (!res.ok || data.error) throw new Error(data.mensaje || data.message || 'No se pudo registrar la diferencia.');
+            await verDetalleRendicion(Number(r.id_rendicion));
+        } catch (error) { showToast(error.message, 'error'); }
+        finally { button.disabled = false; }
+    });
+    box.appendChild(form);
+    if (g2Admin && d?.diferencia_pendiente) {
+        const resolve = document.createElement('button');
+        resolve.type = 'button'; resolve.className = 'clay-btn clay-btn-primary'; resolve.textContent = 'Resolver diferencia con observación';
+        resolve.addEventListener('click', async () => {
+            const resolucion = prompt('Indicá cómo se verificó y resolvió la diferencia. Esta acción no crea un cobro ni un ajuste de caja:');
+            if (!resolucion?.trim()) return;
+            resolve.disabled = true;
+            try {
+                const res = await g2Fetch(`${API_BASE}/rendiciones/${Number(r.id_rendicion)}/diferencias/${Number(d.id)}/resolver`, {method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({resolucion})});
+                const data = await res.json();
+                if (!res.ok || data.error) throw new Error(data.mensaje || data.message || 'No se pudo resolver.');
+                await verDetalleRendicion(Number(r.id_rendicion));
+            } catch (error) { showToast(error.message, 'error'); }
+            finally { resolve.disabled = false; }
+        });
+        box.appendChild(resolve);
+    }
 }

@@ -59,6 +59,11 @@ class PagoProveedorRepository
 
     private function base(int $idCompra): Builder
     {
-        return PagoProveedor::where('id_compra', $idCompra);
+        return PagoProveedor::where('id_compra', $idCompra)->whereNull('anulado_en');
+    }
+
+    public function historial(int $idCompra)
+    {
+        return PagoProveedor::where('id_compra', $idCompra)->orderBy('fecha_pago')->orderBy('id_pago')->get();
     }
 }

@@ -21,10 +21,10 @@ return new class extends Migration
 
         if ($tablaProducto) {
             Schema::table($tablaProducto, function (Blueprint $table) use ($tablaProducto) {
-                if (!Schema::hasColumn($tablaProducto, 'costo')) {
+                if (! Schema::hasColumn($tablaProducto, 'costo')) {
                     $table->decimal('costo', 12, 2)->nullable();
                 }
-                if (!Schema::hasColumn($tablaProducto, 'recargo')) {
+                if (! Schema::hasColumn($tablaProducto, 'recargo')) {
                     $table->decimal('recargo', 8, 2)->nullable();
                 }
             });
@@ -43,7 +43,7 @@ return new class extends Migration
 
                 foreach ($principales as $p) {
                     $prod = DB::table($tablaProducto)->where('id_producto', $p->id_producto)->first();
-                    if (!$prod) {
+                    if (! $prod) {
                         continue;
                     }
 
@@ -82,7 +82,7 @@ return new class extends Migration
                 fn (string $c): bool => Schema::hasColumn($tablaProducto, $c)
             ));
 
-            if (!empty($columnas)) {
+            if (! empty($columnas)) {
                 Schema::table($tablaProducto, function (Blueprint $table) use ($columnas) {
                     $table->dropColumn($columnas);
                 });

@@ -1,0 +1,11 @@
+@extends('layouts.app')
+@section('title', 'Operaciones de stock')
+@section('content')
+<section class="page-heading"><p class="eyebrow">Administración</p><h1>Sincronización de stock</h1><p>Revisá ajustes pendientes y su último resultado. Cada reintento conserva la clave original.</p></section>
+<section class="section-block"><h2>Programador automático</h2>
+@if($heartbeat)<p>Último pulso: <time>{{ $heartbeat['at'] ?? 'Sin fecha' }}</time>. {{ now()->timestamp - ($heartbeat['timestamp'] ?? 0) > 180 ? 'Atención: no se recibió un pulso reciente.' : 'Pulso reciente.' }}</p>@else<p>No se registró un pulso. Revisá la tarea programada antes de depender de los reintentos automáticos.</p>@endif
+<form method="get" class="toolbar-form"><div class="field"><label for="stock-estado">Estado</label><select id="stock-estado" name="estado">@foreach(['pendiente'=>'Pendientes','aplicado'=>'Aplicadas','todas'=>'Todas'] as $value=>$label)<option value="{{ $value }}" @selected($state===$value)>{{ $label }}</option>@endforeach</select></div><button class="button button-primary">Consultar</button></form></section>
+<section class="section-block"><div class="table-scroll" tabindex="0" role="region" aria-label="Operaciones de stock"><table><caption class="sr-only">Ajustes de stock y reintentos</caption><thead><tr><th scope="col">Operación / Venta</th><th scope="col">Estado</th><th scope="col">Intentos</th><th scope="col">Detalle</th><th scope="col">Acción</th></tr></thead><tbody>
+@forelse($operations as $op)<tr><td>#{{ $op->id }} / #{{ $op->venta_id }}</td><td>{{ $op->estado }}</td><td>{{ $op->intentos }}</td><td><details><summary>Ver ajuste y diagnóstico</summary><p>{{ $op->motivo }}</p><small>Clave: {{ $op->request_key }}</small><pre>{{ $op->cambios }}</pre><p>{{ $op->ultimo_error ?? 'Sin errores registrados' }}</p><small>{{ $op->updated_at }}</small></details></td><td>@if($op->estado==='pendiente')<form method="post" action="{{ route('operaciones.stock.retry', $op->id) }}">@csrf<button class="button button-primary">Reintentar #{{ $op->id }}</button></form>@else Aplicada @endif</td></tr>@empty<tr><td colspan="5">No hay operaciones para este filtro.</td></tr>@endforelse
+</tbody></table></div>{{ $operations->links() }}</section>
+@endsection

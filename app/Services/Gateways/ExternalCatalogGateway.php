@@ -16,7 +16,7 @@ class ExternalCatalogGateway
 
     public function products(): Collection
     {
-        $rows = $this->client->get('catalog', config('services.catalog.products_path'));
+        $rows = $this->client->getList('catalog', config('services.catalog.products_path'));
         if (! array_is_list($rows) || Validator::make($rows, [
             '*' => ['array'],
             '*.id_producto' => ['required', 'integer', 'min:1', 'distinct'],

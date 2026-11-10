@@ -15,7 +15,7 @@ class ClientePolicy
 
     public function view(User $user, Cliente $cliente): bool
     {
-        return $this->viewAny($user);
+        return $this->viewAny($user) || $user->rol === UserRole::CONTADOR;
     }
 
     public function create(User $user): bool

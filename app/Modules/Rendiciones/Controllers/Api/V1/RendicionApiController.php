@@ -7,6 +7,7 @@ use App\Modules\Rendiciones\Models\Rendicion;
 use App\Modules\Rendiciones\Models\RendicionCobro;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class RendicionApiController extends Controller
 {
@@ -28,15 +29,15 @@ class RendicionApiController extends Controller
 
         $query = Rendicion::query()->with('cobros');
 
-        if (!empty($validated['fecha'])) {
+        if (! empty($validated['fecha'])) {
             $query->whereDate('fecha', $validated['fecha']);
         }
 
-        if (!empty($validated['id_repartidor'])) {
+        if (! empty($validated['id_repartidor'])) {
             $query->where('id_repartidor', (int) $validated['id_repartidor']);
         }
 
-        if (!empty($validated['estado'])) {
+        if (! empty($validated['estado'])) {
             $query->where('estado', strtolower($validated['estado']));
         }
 
@@ -55,6 +56,8 @@ class RendicionApiController extends Controller
                     'total_rendido' => number_format((float) $rendicion->total_rendido, 2, '.', ''),
                     'estado' => $rendicion->estado,
                     'observaciones' => $rendicion->observaciones,
+                    'devoluciones' => DB::table('g2_rendicion_devoluciones')->where('id_rendicion', $rendicion->id_rendicion)->orderBy('id')->get(),
+                    'diferencia' => DB::table('g2_rendicion_diferencias')->where('id_rendicion', $rendicion->id_rendicion)->first(),
                     'id_usuario_validador' => $rendicion->id_usuario_validador,
                     'fecha_validacion' => $rendicion->fecha_validacion?->toDateTimeString() ?? (string) $rendicion->fecha_validacion,
                     'motivo_rechazo' => $rendicion->motivo_rechazo,
@@ -66,6 +69,9 @@ class RendicionApiController extends Controller
                             'id_factura' => $cobro->id_factura,
                             'monto' => number_format((float) $cobro->monto, 2, '.', ''),
                             'medio_pago' => $cobro->medio_pago,
+                            'estado_revision' => $cobro->estado_revision ?? 'pendiente',
+                            'id_cobro_aplicado' => $cobro->id_cobro_aplicado,
+                            'nota_revision' => $cobro->nota_revision,
                             'fecha_registro' => $cobro->fecha_registro?->toDateTimeString() ?? (string) $cobro->fecha_registro,
                         ];
                     })->values()->all(),
@@ -86,4 +92,3 @@ class RendicionApiController extends Controller
         ])->header('Cache-Control', 'no-store');
     }
 }
-

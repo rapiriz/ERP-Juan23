@@ -39,6 +39,31 @@
             "key": "csrfToken",
             "value": "",
             "type": "string"
+        },
+        {
+            "key": "clienteId",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "ventaId",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "detalleVentaId",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "devolucionId",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "devolucion_request_key",
+            "value": "",
+            "type": "string"
         }
     ],
     "item": [
@@ -14385,6 +14410,140 @@
                             "response": []
                         }
                     ]
+                }
+            ]
+        },
+        {
+            "name": "Crédito y devoluciones (09-11-2026)",
+            "item": [
+                {
+                    "name": "Consultar crédito",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/api/ventas/clientes/{{clienteId}}/credito",
+                        "description": "Requiere Bearer de usuario y permisos. IDs propios; escrituras reales, no ejecutar automáticamente sobre producción."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Configurar límite (administrativo)",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/api/ventas/clientes/{{clienteId}}/credito",
+                        "description": "Requiere Bearer de usuario y permisos. IDs propios; escrituras reales, no ejecutar automáticamente sobre producción.",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"limite_credito\": 150000.5\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Listar devoluciones",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/api/ventas/devoluciones?page=1",
+                        "description": "Requiere Bearer de usuario y permisos. IDs propios; escrituras reales, no ejecutar automáticamente sobre producción."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Detalle de devolución",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/api/ventas/devoluciones/{{devolucionId}}",
+                        "description": "Requiere Bearer de usuario y permisos. IDs propios; escrituras reales, no ejecutar automáticamente sobre producción."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Recibir devolución (UUID estable por operación)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/api/ventas/{{ventaId}}/devoluciones",
+                        "description": "Requiere Bearer de usuario y permisos. IDs propios; escrituras reales, no ejecutar automáticamente sobre producción.",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"request_key\": \"{{devolucion_request_key}}\",\n  \"motivo\": \"Recepción física de mercadería\",\n  \"items\": [\n    {\n      \"detalle_venta_id\": \"{{detalleVentaId}}\",\n      \"cantidad\": 1,\n      \"condicion\": \"apto\"\n    }\n  ]\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Editar o vaciar observaciones",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/api/ventas/{{ventaId}}/observaciones",
+                        "description": "Requiere Bearer de usuario y permisos. IDs propios; escrituras reales, no ejecutar automáticamente sobre producción.",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"observaciones\": \"Comentario de prueba\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "response": []
                 }
             ]
         }

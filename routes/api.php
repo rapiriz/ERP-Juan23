@@ -10,19 +10,24 @@ use App\Modules\Login\Middleware\AuthenticateApiReadRequest;
 use App\Modules\Reclamos\Controllers\Api\V1\ClaimController;
 use App\Modules\Rendiciones\Controllers\Api\V1\CobroApiController;
 use App\Modules\Rendiciones\Controllers\Api\V1\RendicionApiController;
+use App\Modules\Reportes\Controllers\OperationalReportController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function (): void {
     Route::get('/catalogo', [CatalogoApiController::class, 'index'])->middleware('throttle:60,1');
     Route::get('/catalogo/{producto}', [CatalogoApiController::class, 'show'])->where('producto', '[1-9][0-9]{0,9}')->middleware('throttle:60,1');
-    Route::get('/rendiciones', [RendicionApiController::class, 'index'])->middleware('throttle:60,1');
-    Route::get('/cobros', [CobroApiController::class, 'index'])->middleware('throttle:60,1');
     Route::post('/auth/login', [AuthController::class, 'login'])
-        ->middleware('throttle:5,1');
+        ->middleware('throttle:5,1,api-login');
 
     Route::middleware([AuthenticateApiReadRequest::class, 'throttle:60,1'])->group(function (): void {
+        Route::get('/rendiciones', [RendicionApiController::class, 'index'])->middleware('api.audience:administrativo,contador');
+        Route::get('/cobros', [CobroApiController::class, 'index'])->middleware('api.audience:administrativo,contador');
         Route::get('/health', fn () => response()->json(['status' => 'ok'])
             ->header('Cache-Control', 'no-store'));
+        foreach (['ventas-diarias' => 'daily-sales', 'caja-diaria' => 'daily-cash', 'stock-bajo' => 'low-stock', 'vencimientos' => 'due-invoices'] as $uri => $report) {
+            Route::get('/reportes/'.$uri, [OperationalReportController::class, 'data'])->defaults('report', $report)
+                ->middleware('api.audience:administrativo,contador');
+        }
         Route::get('/clientes', [ClientController::class, 'index'])->middleware('api.audience:administrativo,repartidor');
         Route::get('/clientes/{cliente}', [ClientController::class, 'show'])->whereNumber('cliente')->middleware('api.audience:administrativo,repartidor');
         Route::get('/zonas', ZoneController::class)->middleware('api.audience:administrativo,repartidor');

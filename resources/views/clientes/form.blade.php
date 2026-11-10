@@ -100,6 +100,11 @@
         </div>
     </div>
 
+    <div class="field"><label for="limite_credito">Límite de crédito ($)</label>
+        <input id="limite_credito" name="limite_credito" type="number" min="0" max="9999999999.99" step="0.01" value="{{ old('limite_credito', $cliente->limite_credito ?? '') }}">
+        <small>Vacío: sin límite configurado. Cero: requiere crédito o pago acreditado para confirmar.</small>
+        @error('limite_credito')<small class="field-error">{{ $message }}</small>@enderror
+    </div>
     <div class="form-actions">
         <a class="button button-secondary" href="{{ $editing ? route('clientes.index') : route('dashboard') }}">Cancelar</a>
         <button type="submit" class="button button-primary">{{ $editing ? 'Guardar cambios' : 'Registrar cliente' }}</button>

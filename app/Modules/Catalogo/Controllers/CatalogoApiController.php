@@ -48,6 +48,7 @@ class CatalogoApiController extends Controller
         return ['id' => $product->id, 'codigo' => $product->codigo, 'nombre' => $product->nombre,
             'descripcion' => $product->descripcion,
             'categoria' => ['id' => $product->categoriaId, 'nombre' => $product->categoria],
+            'categoria_ruta' => $product->categoriaRuta,
             'marca' => ['id' => $product->marcaId, 'nombre' => $product->marca],
             'precio' => $product->precio, 'moneda' => 'ARS', 'presentacion' => $product->presentacion,
             'disponibilidad' => $product->disponibilidad, 'imagen' => $product->imagen];

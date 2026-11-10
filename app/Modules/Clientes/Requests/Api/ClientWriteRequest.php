@@ -53,6 +53,7 @@ class ClientWriteRequest extends FormRequest
             'zona' => ['sometimes', 'required', 'string', 'max:120', 'regex:'.ClientFields::ZONE, 'prohibits:zona_id'],
             'zona_id' => [...$optional, 'integer', Rule::exists('zonas', 'id')],
             'condicion_iva' => [...$optional, 'string', 'max:60'],
+            'limite_credito' => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:9999999999.99', 'decimal:0,2'],
             'saldo' => ['prohibited'],
             'creado_por' => ['prohibited'],
         ];

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Modules\Stock\Controllers;
@@ -11,12 +12,12 @@ use App\Support\UsuarioActual;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 class StockController extends Controller
 {
-    public function __construct(private StockService $stockService)
-    {
-    }
+    public function __construct(private StockService $stockService) {}
+
     /**
      * S01 - Consultar stock disponible de todos los productos.
      * Permite buscar por nombre o código y muestra la cantidad disponible actualizada.
@@ -28,13 +29,17 @@ class StockController extends Controller
 
         $query = Producto::with(['categoria', 'marca'])
             ->where('estado', 'activo');
+        if ($request->filled('id_producto')) {
+            $request->validate(['id_producto' => 'required|integer|min:1']);
+            $query->whereKey((int) $request->input('id_producto'));
+        }
 
         if ($search && trim($search) !== '') {
             $term = trim($search);
             $query->where(function ($q) use ($term) {
                 $q->where('codigo', 'LIKE', "%{$term}%")
-                  ->orWhere('descripcion', 'LIKE', "%{$term}%")
-                  ->orWhere('nombre', 'LIKE', "%{$term}%");
+                    ->orWhere('descripcion', 'LIKE', "%{$term}%")
+                    ->orWhere('nombre', 'LIKE', "%{$term}%");
             });
         }
 
@@ -50,9 +55,10 @@ class StockController extends Controller
         $productos = $query->orderBy('descripcion', 'asc')
             ->get()
             ->filter(function (Producto $p) use ($estado) {
-                if (!$estado || !in_array($estado, ['normal', 'bajo', 'critico'], true)) {
+                if (! $estado || ! in_array($estado, ['normal', 'bajo', 'critico'], true)) {
                     return true;
                 }
+
                 return $p->estado_alerta === $estado;
             })
             ->values()
@@ -72,7 +78,7 @@ class StockController extends Controller
     {
         $producto = Producto::with('unidades')->find($id);
 
-        if (!$producto) {
+        if (! $producto) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Producto no encontrado.',
@@ -87,22 +93,24 @@ class StockController extends Controller
         }
 
         $stockActual = (int) $producto->stock;
+        $stockDisponible = (int) $producto->stock_disponible;
 
-        $unidades = $producto->unidades->map(function ($u) use ($stockActual) {
+        $unidades = $producto->unidades->map(function ($u) use ($stockDisponible) {
             $equivalencia = (float) $u->equivalencia_base;
+
             return [
                 'id_unidad' => $u->id_unidad,
                 'nombre_unidad' => $u->nombre_unidad,
                 'equivalencia_base' => $equivalencia,
                 'descripcion' => $u->descripcion,
-                'disponible_en_unidad' => $this->disponibleEnUnidad($stockActual, $equivalencia),
+                'disponible_en_unidad' => $this->disponibleEnUnidad($stockDisponible, $equivalencia),
             ];
         });
 
         return response()->json([
             'status' => 'success',
             'stock' => $stockActual,
-            'disponible' => $stockActual,
+            'disponible' => $stockDisponible,
             'data' => [
                 'id' => $producto->id_producto,
                 'id_producto' => $producto->id_producto,
@@ -113,7 +121,7 @@ class StockController extends Controller
                 'precio_mayorista' => (float) $producto->precio_mayorista,
                 'precio_minorista' => (float) $producto->precio_minorista,
                 'stock' => $stockActual,
-                'stock_disponible' => $stockActual,
+                'stock_disponible' => $stockDisponible,
                 'disponible' => $stockActual,
                 'stock_minimo' => $producto->stock_minimo,
                 'estado_alerta' => $producto->estado_alerta,
@@ -135,11 +143,11 @@ class StockController extends Controller
     public function registrarMovimientosLote(Request $request): JsonResponse
     {
         $items = $request->input('items');
-        if (!is_array($items) || empty($items)) {
+        if (! is_array($items) || empty($items)) {
             if ($request->filled('id_producto') && $request->filled('cantidad')) {
                 $items = [[
                     'id_producto' => (int) $request->input('id_producto'),
-                    'cantidad' => (int) $request->input('cantidad'),
+                    'cantidad' => $request->input('cantidad'),
                     'id_unidad' => $request->input('id_unidad'),
                     'tipo' => $request->input('tipo'),
                 ]];
@@ -151,6 +159,12 @@ class StockController extends Controller
             }
         }
 
+        $request->merge(['items' => $items]);
+        $request->validate(['request_key' => ['nullable', 'uuid'], 'items' => ['sometimes', 'array', 'max:100'],
+            'items.*.id_producto' => ['required', 'integer', 'min:1'], 'items.*.cantidad' => ['required', 'integer', 'not_in:0', 'between:-2147483647,2147483647'],
+            'items.*.id_unidad' => ['nullable', 'integer', 'min:1']]);
+        $key = $request->input('request_key');
+        usort($items, fn ($a, $b) => (int) ($a['id_producto'] ?? 0) <=> (int) ($b['id_producto'] ?? 0));
         $idUsuario = UsuarioActual::id($request);
         $idVenta = $request->filled('venta_id')
             ? (int) $request->input('venta_id')
@@ -162,7 +176,18 @@ class StockController extends Controller
         $motivoBase = trim((string) ($request->input('motivo') ?? 'Movimiento de stock por API'));
 
         try {
-            $resultados = DB::transaction(function () use ($items, $idUsuario, $idVenta, $origen, $motivoBase) {
+            $resultados = DB::transaction(function () use ($items, $idUsuario, $idVenta, $origen, $motivoBase, $key) {
+                if ($key !== null) {
+                    $hash = hash('sha256', json_encode([$items, $idVenta, $origen, $motivoBase], JSON_THROW_ON_ERROR));
+                    DB::table('g3_stock_requests')->insertOrIgnore(['request_key' => $key, 'payload_hash' => $hash,
+                        'actor_id' => $idUsuario, 'created_at' => now(), 'updated_at' => now()]);
+                    $receipt = DB::table('g3_stock_requests')->where('request_key', $key)->lockForUpdate()->firstOrFail();
+                    abort_unless(hash_equals($receipt->payload_hash, $hash) && (int) $receipt->actor_id === $idUsuario,
+                        409, 'La clave ya pertenece a otra solicitud de stock.');
+                    if ($receipt->respuesta !== null) {
+                        return json_decode($receipt->respuesta, true, 512, JSON_THROW_ON_ERROR);
+                    }
+                }
                 $procesados = [];
 
                 foreach ($items as $idx => $item) {
@@ -174,14 +199,14 @@ class StockController extends Controller
                     }
 
                     $producto = Producto::lockForUpdate()->find($idProducto);
-                    if (!$producto || $producto->estado !== 'activo') {
+                    if (! $producto || $producto->estado !== 'activo') {
                         throw new \RuntimeException("El producto #{$idProducto} no existe o se encuentra inactivo.");
                     }
 
                     $tipoExplicito = isset($item['tipo']) ? strtolower(trim((string) $item['tipo'])) : null;
                     if ($tipoExplicito && in_array($tipoExplicito, StockService::TIPOS, true)) {
                         $tipo = $tipoExplicito;
-                        $esIncremento = in_array($tipo, ['ingreso', 'devolucion'], true) && $cantidadRaw > 0;
+                        $esIncremento = $cantidadRaw > 0;
                     } else {
                         $esIncremento = $cantidadRaw > 0;
                         $tipo = $esIncremento
@@ -219,6 +244,11 @@ class StockController extends Controller
                     ];
                 }
 
+                if ($key !== null) {
+                    DB::table('g3_stock_requests')->where('request_key', $key)->update([
+                        'respuesta' => json_encode($procesados, JSON_THROW_ON_ERROR), 'updated_at' => now()]);
+                }
+
                 return $procesados;
             });
 
@@ -227,6 +257,8 @@ class StockController extends Controller
                 'message' => 'Movimientos de stock registrados correctamente.',
                 'data' => $resultados,
             ], 200);
+        } catch (HttpExceptionInterface $e) {
+            throw $e;
         } catch (\Throwable $e) {
             return response()->json([
                 'status' => 'error',
@@ -242,7 +274,7 @@ class StockController extends Controller
     {
         $producto = Producto::with(['movimientos.unidad', 'movimientos.usuario'])->find($id);
 
-        if (!$producto) {
+        if (! $producto) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Producto no encontrado.',

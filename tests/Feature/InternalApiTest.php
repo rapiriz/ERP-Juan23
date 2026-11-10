@@ -51,10 +51,10 @@ class InternalApiTest extends TestCase
             ]]),
             'facturas.example.test/api/v1/cobros*' => Http::response(['data' => [[
                 'id' => 9, 'cliente_id' => $client->id, 'fecha' => '2026-10-01T10:00:00-03:00',
-                'monto_total' => '100.00', 'medio_pago' => 'efectivo',
+                'monto_total' => '100.00', 'medio_pago' => 'efectivo', 'confirmacion_individual' => true,
             ], [
                 'id' => 8, 'cliente_id' => $client->id, 'fecha' => '2026-10-14T10:00:00-03:00',
-                'monto_total' => '250.00', 'medio_pago' => 'transferencia',
+                'monto_total' => '250.00', 'medio_pago' => 'transferencia', 'confirmacion_individual' => true,
             ]]]),
         ]);
         $this->withToken('test-internal-token');

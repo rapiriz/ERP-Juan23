@@ -1,0 +1,25 @@
+# Completar dominio y certificado; raíz EXCLUSIVA public/.
+server {
+    listen 80;
+    server_name erp.example.com;
+    return 301 https://$host$request_uri;
+}
+server {
+    listen 443 ssl;
+    server_name erp.example.com;
+    root /var/www/erp/public;
+    index index.php;
+    ssl_certificate /etc/letsencrypt/live/erp.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/erp.example.com/privkey.pem;
+    add_header X-Content-Type-Options nosniff always;
+    add_header Referrer-Policy strict-origin-when-cross-origin always;
+    location / { try_files $uri $uri/ /index.php?$query_string; }
+    location = /index.php {
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $realpath_root/index.php;
+        fastcgi_pass unix:/run/php/php8.2-fpm.sock;
+    }
+    location ~ \.php$ { return 404; }
+    location ~ /\. { deny all; }
+    location ~* ^/(?:vendor|storage/app|database|tests|docs|scripts|deploy)/ { deny all; }
+}

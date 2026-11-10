@@ -1,0 +1,13 @@
+{
+  "name": "erp-browser-validation",
+  "private": true,
+  "scripts": {
+    "test": "node smoke.cjs && node completion.cjs",
+    "smoke": "node smoke.cjs",
+    "completion": "node completion.cjs"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
+    "playwright": "^1.65.0"
+  }
+}

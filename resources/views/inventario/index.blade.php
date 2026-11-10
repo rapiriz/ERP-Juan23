@@ -93,17 +93,17 @@
                 </div>
 
                 <!-- Filtro Categoría -->
-                <select id="filtroCategoria" onchange="renderProductos()" class="clay-input py-2 text-xs font-bold text-slate-700 min-w-[150px]">
+                <select id="filtroCategoria" aria-label="Categoría" onchange="renderProductos()" class="clay-input py-2 text-xs font-bold text-slate-700 min-w-[150px]">
                     <option value="">Todas las Categorías</option>
                 </select>
 
                 <!-- Filtro Marca -->
-                <select id="filtroMarca" onchange="renderProductos()" class="clay-input py-2 text-xs font-bold text-slate-700 min-w-[140px]">
+                <select id="filtroMarca" aria-label="Marca" onchange="renderProductos()" class="clay-input py-2 text-xs font-bold text-slate-700 min-w-[140px]">
                     <option value="">Todas las Marcas</option>
                 </select>
 
                 <!-- Filtro Estado -->
-                <select id="filtroEstado" onchange="renderProductos()" class="clay-input py-2 text-xs font-bold text-slate-700 min-w-[120px]">
+                <select id="filtroEstado" aria-label="Estado del producto" onchange="renderProductos()" class="clay-input py-2 text-xs font-bold text-slate-700 min-w-[120px]">
                     <option value="todos">Todos los Estados</option>
                     <option value="activo">Solo Activos</option>
                     <option value="inactivo">Solo Inactivos</option>
@@ -583,7 +583,7 @@
     <div class="clay-modal-content max-w-xl p-6 space-y-5" onclick="event.stopPropagation()">
         <div class="flex items-center justify-between pb-3 border-b border-slate-100">
             <h3 id="modalProductoTitulo" class="text-base font-black text-slate-800">Nuevo Producto</h3>
-            <button onclick="cerrarModalProducto()" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+            <button onclick="cerrarModalProducto()" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg" aria-label="Cerrar diálogo">
                 <i data-lucide="x" class="w-5 h-5"></i>
             </button>
         </div>
@@ -610,11 +610,11 @@
             <div class="grid grid-cols-2 gap-3">
                 <div>
                     <label class="block text-[11px] font-extrabold text-slate-600 uppercase mb-1">Categoría</label>
-                    <select id="prodCategoria" class="clay-input w-full text-xs font-bold"></select>
+                    <select id="prodCategoria" aria-label="Categoría del producto" class="clay-input w-full text-xs font-bold"></select>
                 </div>
                 <div>
                     <label class="block text-[11px] font-extrabold text-slate-600 uppercase mb-1">Marca</label>
-                    <select id="prodMarca" class="clay-input w-full text-xs font-bold"></select>
+                    <select id="prodMarca" aria-label="Marca del producto" class="clay-input w-full text-xs font-bold"></select>
                 </div>
             </div>
 
@@ -657,8 +657,8 @@
 
             <div class="flex items-center justify-between gap-3 p-2.5 bg-slate-50/80 rounded-xl border border-slate-200/70">
                 <div class="flex-1">
-                    <label class="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">O subir archivo de imagen (JPG, PNG, WEBP)</label>
-                    <input type="file" id="prodImagenArchivo" accept=".png,.jpg,.jpeg,.webp" onchange="actualizarPreviewImagenProducto()" class="text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                    <label class="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Subir foto (JPG, PNG o WEBP; hasta 4 MB y 4096 × 4096 px)</label>
+                    <input type="file" id="prodImagenArchivo" aria-label="Archivo de imagen del producto" accept=".png,.jpg,.jpeg,.webp" onchange="actualizarPreviewImagenProducto()" class="text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
                 </div>
                 <img id="prodImagenPreview" src="" alt="Vista previa" class="w-11 h-11 rounded-lg object-cover border border-slate-200 hidden">
             </div>
@@ -666,11 +666,11 @@
             <div class="grid grid-cols-2 gap-3">
                 <div>
                     <label class="block text-[11px] font-extrabold text-slate-600 uppercase mb-1">Stock Mínimo Alerta</label>
-                    <input type="number" min="0" id="prodStockMin" value="10" required class="clay-input w-full font-bold text-sm">
+                    <input type="number" min="0" id="prodStockMin" aria-label="Stock mínimo de alerta" value="10" required class="clay-input w-full font-bold text-sm">
                 </div>
                 <div>
                     <label class="block text-[11px] font-extrabold text-slate-600 uppercase mb-1">Ubicación Física</label>
-                    <select id="prodUbicacion" class="clay-input w-full text-xs font-bold">
+                    <select id="prodUbicacion" aria-label="Ubicación física del producto" class="clay-input w-full text-xs font-bold">
                         <option value="">Sin asignar</option>
                     </select>
                 </div>
@@ -687,7 +687,7 @@
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Formato de Presentación</label>
-                        <select id="prodFormatoBulto" onchange="actualizarPreviewBultoProducto()" class="clay-input w-full text-xs font-bold">
+                        <select id="prodFormatoBulto" aria-label="Formato de presentación comercial" onchange="actualizarPreviewBultoProducto()" class="clay-input w-full text-xs font-bold">
                             <option value="Unidad">Unidad (Suelto / Individual)</option>
                             <option value="Caja">Caja</option>
                             <option value="Pack">Pack</option>
@@ -731,7 +731,7 @@
                 <h3 class="text-base font-black text-slate-800">Registrar Ingreso de Mercadería</h3>
                 <p class="text-[11px] text-slate-500 font-bold">Ingreso directo de mercadería al inventario</p>
             </div>
-            <button onclick="cerrarModalIngreso()" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+            <button onclick="cerrarModalIngreso()" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg" aria-label="Cerrar diálogo">
                 <i data-lucide="x" class="w-5 h-5"></i>
             </button>
         </div>
@@ -788,7 +788,7 @@
     <div class="clay-modal-content max-w-md p-6 space-y-4" onclick="event.stopPropagation()">
         <div class="flex items-center justify-between pb-3 border-b border-slate-100">
             <h3 class="text-base font-black text-slate-800">Ajuste Manual de Inventario</h3>
-            <button onclick="cerrarModalAjuste()" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+            <button onclick="cerrarModalAjuste()" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg" aria-label="Cerrar diálogo">
                 <i data-lucide="x" class="w-5 h-5"></i>
             </button>
         </div>
@@ -858,19 +858,35 @@
                 <h3 class="text-base font-black text-slate-800">Aumento Masivo de Precios</h3>
                 <p class="text-[11px] font-bold text-slate-500">Actualización porcentual directa sin regla de redondeo</p>
             </div>
-            <button onclick="cerrarModalAumentoMasivo()" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+            <button onclick="cerrarModalAumentoMasivo()" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg" aria-label="Cerrar diálogo">
                 <i data-lucide="x" class="w-5 h-5"></i>
             </button>
         </div>
 
         <form onsubmit="aplicarAumentoMasivo(event)" class="space-y-4">
-            <div>
-                <label class="block text-[11px] font-extrabold text-slate-600 uppercase mb-1">Criterio de Aplicación</label>
-                <select id="aumentoCriterio" class="clay-input w-full text-xs font-bold" onchange="actualizarCriterioAumento()">
-                    <option value="todos">Todos los Productos Activos</option>
-                    <option value="categoria">Por Categoría</option>
-                    <option value="marca">Por Marca</option>
-                </select>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-[11px] font-extrabold text-slate-600 uppercase mb-1">Criterio de Aplicación</label>
+                    <select id="aumentoCriterio" class="clay-input w-full text-xs font-bold" onchange="actualizarCriterioAumento()">
+                        <option value="todos">Todos los Productos Activos</option>
+                        <option value="proveedor">Por Proveedor</option>
+                        <option value="categoria">Por Categoría</option>
+                        <option value="marca">Por Marca</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-[11px] font-extrabold text-slate-600 uppercase mb-1">Impacto del Aumento</label>
+                    <select id="aumentoBase" class="clay-input w-full text-xs font-bold" onchange="actualizarVistaPreviaAumento()">
+                        <option value="precio">Sobre Precio de Venta (sube margen)</option>
+                        <option value="costo">Sobre Costo de Reposición (mantiene % recargo)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="aumentoProveedorGrupo" class="hidden">
+                <label class="block text-[11px] font-extrabold text-slate-600 uppercase mb-1">Proveedor</label>
+                <select id="aumentoProveedorSelect" class="clay-input w-full text-xs font-bold" onchange="actualizarVistaPreviaAumento()"></select>
             </div>
 
             <div id="aumentoCategoriaGrupo" class="hidden">
@@ -938,7 +954,7 @@
                 <h3 class="text-base font-black text-slate-800">Historial y Auditoría de Productos</h3>
                 <p id="historialProductoTitulo" class="text-xs font-bold text-slate-500">Historial Global de Precios y Modificaciones</p>
             </div>
-            <button onclick="cerrarModalHistorial()" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+            <button onclick="cerrarModalHistorial()" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg" aria-label="Cerrar diálogo">
                 <i data-lucide="x" class="w-5 h-5"></i>
             </button>
         </div>
@@ -1028,13 +1044,14 @@
                 <h3 class="text-base font-black text-slate-800">Administrar Categorías</h3>
                 <p class="text-[11px] font-bold text-slate-500">Alta, modificación y baja controlada de categorías</p>
             </div>
-            <button onclick="cerrarModalCategorias()" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+            <button onclick="cerrarModalCategorias()" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg" aria-label="Cerrar diálogo">
                 <i data-lucide="x" class="w-5 h-5"></i>
             </button>
         </div>
 
         <form onsubmit="guardarCategoria(event)" class="space-y-3 bg-slate-50/70 p-3.5 rounded-2xl border border-slate-200/60">
             <input type="hidden" id="catId">
+            <div><label for="catPadre" class="block text-xs font-bold">Categoría superior (opcional)</label><select id="catPadre" class="clay-input w-full"><option value="">Categoría principal</option></select></div>
             <div>
                 <label class="block text-[11px] font-extrabold text-slate-600 uppercase mb-1">Nombre de Categoría *</label>
                 <input type="text" id="catNombre" required placeholder="Bebidas, Lácteos, Limpieza..." class="clay-input w-full text-sm font-bold bg-white">
@@ -1085,7 +1102,7 @@
                 <h3 class="text-base font-black text-slate-800">Administrar Marcas</h3>
                 <p class="text-[11px] font-bold text-slate-500">Alta, modificación y baja controlada de marcas comerciales</p>
             </div>
-            <button onclick="cerrarModalMarcas()" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+            <button onclick="cerrarModalMarcas()" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg" aria-label="Cerrar diálogo">
                 <i data-lucide="x" class="w-5 h-5"></i>
             </button>
         </div>
@@ -1143,7 +1160,7 @@
                 <h3 class="text-base font-black text-slate-800">Ubicaciones de Almacenamiento</h3>
                 <p class="text-[11px] font-bold text-slate-500">Pasillos, estantes, niveles y góndolas del depósito</p>
             </div>
-            <button onclick="cerrarModalUbicaciones()" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+            <button onclick="cerrarModalUbicaciones()" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg" aria-label="Cerrar diálogo">
                 <i data-lucide="x" class="w-5 h-5"></i>
             </button>
         </div>
@@ -1212,7 +1229,7 @@
                 <h3 class="text-base font-black text-slate-800">Unidades de Medida y Equivalencias</h3>
                 <p id="modalUnidadProdTitulo" class="text-xs font-extrabold text-blue-600">Configuración para el producto seleccionado</p>
             </div>
-            <button onclick="cerrarModalUnidades()" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+            <button onclick="cerrarModalUnidades()" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg" aria-label="Cerrar diálogo">
                 <i data-lucide="x" class="w-5 h-5"></i>
             </button>
         </div>
@@ -1291,7 +1308,7 @@
     <div class="clay-modal-content max-w-md p-6 space-y-4" onclick="event.stopPropagation()">
         <div class="flex items-center justify-between pb-3 border-b border-slate-100">
             <h3 class="text-base font-black text-slate-800">Registrar Devolución</h3>
-            <button onclick="cerrarModalDevolucion()" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+            <button onclick="cerrarModalDevolucion()" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg" aria-label="Cerrar diálogo">
                 <i data-lucide="x" class="w-5 h-5"></i>
             </button>
         </div>
@@ -1348,6 +1365,7 @@
 
 @section('scripts')
 <script>
+    const PUEDE_ADMINISTRAR_G3 = @json(auth()->user()?->rol?->value === 'administrativo');
     const API_BASE = '{{ url("/api") }}';
     let productosCache = [];
     let categoriasCache = [];
@@ -1408,9 +1426,9 @@
                 const selectFiltro = document.getElementById('filtroCategoria');
                 const selectModal = document.getElementById('prodCategoria');
                 selectFiltro.innerHTML = '<option value="">Todas las Categorías</option>' + 
-                    categoriasCache.map(c => `<option value="${c.id_categoria}">${c.nombre}</option>`).join('');
+                    categoriasCache.map(c => `<option value="${c.id_categoria}">${window.erpSafeHtml.escape(c.nombre)}</option>`).join('');
                 selectModal.innerHTML = '<option value="">Sin categoría</option>' + 
-                    categoriasCache.map(c => `<option value="${c.id_categoria}">${c.nombre}</option>`).join('');
+                    categoriasCache.map(c => `<option value="${c.id_categoria}">${window.erpSafeHtml.escape(c.nombre)}</option>`).join('');
             }
         } catch (e) { console.error('Error categorias', e); }
     }
@@ -1424,9 +1442,9 @@
                 const selectFiltro = document.getElementById('filtroMarca');
                 const selectModal = document.getElementById('prodMarca');
                 selectFiltro.innerHTML = '<option value="">Todas las Marcas</option>' + 
-                    marcasCache.map(m => `<option value="${m.id_marca}">${m.nombre}</option>`).join('');
+                    marcasCache.map(m => `<option value="${m.id_marca}">${window.erpSafeHtml.escape(m.nombre)}</option>`).join('');
                 selectModal.innerHTML = '<option value="">Sin marca</option>' + 
-                    marcasCache.map(m => `<option value="${m.id_marca}">${m.nombre}</option>`).join('');
+                    marcasCache.map(m => `<option value="${m.id_marca}">${window.erpSafeHtml.escape(m.nombre)}</option>`).join('');
             }
         } catch (e) { console.error('Error marcas', e); }
     }
@@ -1439,7 +1457,7 @@
                 ubicacionesCache = json.data;
                 const select = document.getElementById('prodUbicacion');
                 select.innerHTML = '<option value="">Sin asignar</option>' + 
-                    ubicacionesCache.map(u => `<option value="${u.id_ubicacion}">${u.descripcion}</option>`).join('');
+                    ubicacionesCache.map(u => `<option value="${u.id_ubicacion}">${window.erpSafeHtml.escape(u.descripcion)}</option>`).join('');
             }
         } catch (e) { console.error('Error ubicaciones', e); }
     }
@@ -1453,7 +1471,7 @@
                 const select = document.getElementById('ingresoProveedorSelect');
                 if (select) {
                     select.innerHTML = '<option value="">Seleccione un proveedor activo...</option>' + 
-                        proveedoresCache.map(p => `<option value="${p.id_proveedor}">${p.razon_social} (${p.cuit || p.CUIT || ''})</option>`).join('');
+                        proveedoresCache.map(p => `<option value="${p.id_proveedor}">${window.erpSafeHtml.escape(p.razon_social)} (${window.erpSafeHtml.escape(p.cuit || p.CUIT || '')})</option>`).join('');
                 }
             }
         } catch (e) { console.error('Error proveedores', e); }
@@ -1461,7 +1479,7 @@
 
     async function cargarProductos() {
         try {
-            const res = await fetch(`${API_BASE}/productos?interno=1`);
+            const res = await fetch(`${API_BASE}/productos${PUEDE_ADMINISTRAR_G3 ? '?interno=1' : ''}`);
             const json = await res.json();
             if (json.status === 'success') {
                 productosCache = json.data;
@@ -1498,9 +1516,9 @@
         const texto = obtenerTextoPresentacion(p);
         if (eq > 1) {
             const bultos = (cantStock / eq).toLocaleString('es-AR', { maximumFractionDigits: 1 });
-            return `<div class="font-extrabold text-slate-800 text-xs">${texto}</div><div class="text-[10px] text-indigo-600 font-black tracking-tight">≈ ${bultos} bultos</div>`;
+            return `<div class="font-extrabold text-slate-800 text-xs">${window.erpSafeHtml.escape(texto)}</div><div class="text-[10px] text-indigo-600 font-black tracking-tight">≈ ${bultos} bultos</div>`;
         }
-        return `<span class="text-slate-400 font-bold text-xs">${texto}</span>`;
+        return `<span class="text-slate-400 font-bold text-xs">${window.erpSafeHtml.escape(texto)}</span>`;
     }
 
     function formatoCantidadProducto(cant, p) {
@@ -1581,7 +1599,7 @@
             const numMargen = (p.margen_ganancia !== null && p.margen_ganancia !== undefined && p.margen_ganancia !== '') ? Number(p.margen_ganancia) : null;
             const numPrecio = Number(p.precio_unitario ?? 0);
 
-            if (numCosto !== null && numCosto > 0) {
+            if (PUEDE_ADMINISTRAR_G3 && numCosto !== null && numCosto > 0) {
                 const costoFmt = numCosto.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' });
                 if (numCosto > numPrecio) {
                     precioDetalleHtml = `
@@ -1596,7 +1614,7 @@
                         ${mrgTxt ? `<div class="text-[10px] text-emerald-600 font-bold">${mrgTxt}</div>` : ''}
                     `;
                 }
-            } else {
+            } else if (PUEDE_ADMINISTRAR_G3) {
                 precioDetalleHtml = `<div class="text-[10px] text-amber-500 font-medium mt-0.5" title="Sin costo de reposición asignado">Sin costo</div>`;
             }
 
@@ -1613,30 +1631,30 @@
             }
 
             const ubicacionTexto = p.ubicacion?.descripcion || p.ubicacion_nombre || 'Sin asignar';
-            const imgUrl = p.imagen_url || p.imagen || '';
+            const imgUrl = window.erpSafeHtml.imageUrl(p.imagen_url || p.imagen || '');
             const thumbHtml = imgUrl
-                ? `<img src="${imgUrl}" alt="${p.nombre}" class="w-9 h-9 rounded-lg object-cover border border-slate-200 shrink-0" onerror="this.style.display='none'">`
+                ? `<img src="${window.erpSafeHtml.escape(imgUrl)}" alt="${window.erpSafeHtml.escape(p.nombre)}" class="w-9 h-9 rounded-lg object-cover border border-slate-200 shrink-0" onerror="this.style.display='none'">`
                 : `<div class="w-9 h-9 rounded-lg bg-slate-100 border border-slate-200/80 flex items-center justify-center text-slate-400 shrink-0"><i data-lucide="image" class="w-4 h-4"></i></div>`;
 
             return `
                 <tr>
-                    <td class="font-extrabold text-slate-800">${p.codigo}</td>
+                    <td class="font-extrabold text-slate-800">${window.erpSafeHtml.escape(p.codigo)}</td>
                     <td>
                         <div class="flex items-center gap-2.5">
                             ${thumbHtml}
                             <div>
-                                <div class="font-black text-slate-800 text-sm leading-tight">${p.nombre}</div>
+                                <div class="font-black text-slate-800 text-sm leading-tight">${window.erpSafeHtml.escape(p.nombre)}</div>
                                 <div class="text-[11px] text-slate-400 flex flex-wrap items-center gap-1.5 mt-0.5">
-                                    <span>${p.descripcion || '-'}</span>
+                                    <span>${window.erpSafeHtml.escape(p.descripcion || '-')}</span>
                                     <span class="text-slate-300">•</span>
-                                    <span class="text-slate-500 font-bold flex items-center gap-0.5" title="Ubicación en depósito"><i data-lucide="map-pin" class="w-3 h-3 text-slate-400"></i>${ubicacionTexto}</span>
-                                    ${Number(p.unidades_por_bulto || p.equivalencia_unidad || 1) > 1 ? `<span class="text-slate-300">•</span><span class="text-indigo-600 font-extrabold flex items-center gap-0.5" title="Presentación"><i data-lucide="package" class="w-3 h-3"></i>${obtenerTextoPresentacion(p)}</span>` : ''}
+                                    <span class="text-slate-500 font-bold flex items-center gap-0.5" title="Ubicación en depósito"><i data-lucide="map-pin" class="w-3 h-3 text-slate-400"></i>${window.erpSafeHtml.escape(ubicacionTexto)}</span>
+                                    ${Number(p.unidades_por_bulto || p.equivalencia_unidad || 1) > 1 ? `<span class="text-slate-300">•</span><span class="text-indigo-600 font-extrabold flex items-center gap-0.5" title="Presentación"><i data-lucide="package" class="w-3 h-3"></i>${window.erpSafeHtml.escape(obtenerTextoPresentacion(p))}</span>` : ''}
                                 </div>
                             </div>
                         </div>
                     </td>
-                    <td><span class="text-xs font-bold text-slate-600">${p.categoria?.nombre || p.categoria_nombre || '-'}</span></td>
-                    <td><span class="text-xs font-bold text-slate-600">${p.marca?.nombre || p.marca_nombre || '-'}</span></td>
+                    <td><span class="text-xs font-bold text-slate-600">${window.erpSafeHtml.escape(p.categoria?.nombre || p.categoria_nombre || '-')}</span></td>
+                    <td><span class="text-xs font-bold text-slate-600">${window.erpSafeHtml.escape(p.marca?.nombre || p.marca_nombre || '-')}</span></td>
                     <td class="text-center">
                         <div class="font-black text-slate-800">${precioUnitario}</div>
                         ${precioDetalleHtml}
@@ -1646,7 +1664,7 @@
                         <div class="mt-0.5">${semaforoBadge}</div>
                     </td>
                     <td class="text-center">
-                        <span class="clay-badge ${badgeClase}">${p.estado}</span>
+                        <span class="clay-badge ${badgeClase}">${window.erpSafeHtml.escape(p.estado)}</span>
                     </td>
                     <td class="text-center">
                         <div class="flex items-center justify-center gap-1.5">
@@ -1656,7 +1674,7 @@
                             <button onclick="editarProducto(${p.id_producto})" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg" title="Editar Producto">
                                 <i data-lucide="edit-3" class="w-4 h-4"></i>
                             </button>
-                            <button onclick="cambiarEstadoProducto(${p.id_producto}, '${p.estado}')" class="p-1.5 ${esActivo ? 'text-rose-600 hover:bg-rose-50' : 'text-emerald-600 hover:bg-emerald-50'} rounded-lg" title="${esActivo ? 'Desactivar' : 'Activar'}">
+                            <button onclick="cambiarEstadoProducto(${p.id_producto}, ${window.erpSafeHtml.escape(JSON.stringify(p.estado))})" class="p-1.5 ${esActivo ? 'text-rose-600 hover:bg-rose-50' : 'text-emerald-600 hover:bg-emerald-50'} rounded-lg" title="${esActivo ? 'Desactivar' : 'Activar'}">
                                 <i data-lucide="${esActivo ? 'power' : 'check'}" class="w-4 h-4"></i>
                             </button>
                         </div>
@@ -1743,15 +1761,15 @@
 
             return `
                 <tr>
-                    <td class="font-extrabold text-slate-800">${p.codigo}</td>
+                    <td class="font-extrabold text-slate-800">${window.erpSafeHtml.escape(p.codigo)}</td>
                     <td>
-                        <div class="font-black text-slate-800 text-xs">${p.nombre}</div>
-                        <div class="text-[11px] text-slate-400">${p.categoria?.nombre || p.categoria_nombre || '-'}</div>
+                        <div class="font-black text-slate-800 text-xs">${window.erpSafeHtml.escape(p.nombre)}</div>
+                        <div class="text-[11px] text-slate-400">${window.erpSafeHtml.escape(p.categoria?.nombre || p.categoria_nombre || '-')}</div>
                     </td>
                     <td>
                         <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-bold text-xs" title="Ubicación física">
                             <i data-lucide="map-pin" class="w-3 h-3 text-slate-500"></i>
-                            ${ubicacionTexto}
+                            ${window.erpSafeHtml.escape(ubicacionTexto)}
                         </span>
                     </td>
                     <td class="text-center">${renderColumnaFormatoVenta(p, stockActual)}</td>
@@ -1829,9 +1847,9 @@
                     const semaforoTxt = stockVal === 0 ? 'Agotado (0 u.)' : 'Crítico (≤ Mín)';
                     return `
                     <tr>
-                        <td class="font-extrabold text-slate-800">${p.codigo}</td>
-                        <td class="font-bold text-slate-800">${p.nombre}</td>
-                        <td>${p.categoria?.nombre || p.categoria_nombre || '-'}</td>
+                        <td class="font-extrabold text-slate-800">${window.erpSafeHtml.escape(p.codigo)}</td>
+                        <td class="font-bold text-slate-800">${window.erpSafeHtml.escape(p.nombre)}</td>
+                        <td>${window.erpSafeHtml.escape(p.categoria?.nombre || p.categoria_nombre || '-')}</td>
                         <td class="text-center font-black text-rose-700">${formatoCantidadProducto(stockVal, p)}</td>
                         <td class="text-center font-bold text-slate-600">${formatoCantidadProducto(minVal, p)}</td>
                         <td class="text-center text-xs font-bold text-rose-600">-${formatoCantidadProductoCorta(Math.max(0, minVal - stockVal), p)}</td>
@@ -1854,7 +1872,7 @@
         const selectAjuste = document.getElementById('ajusteProductoSelect');
 
         const options = '<option value="">Seleccione un producto...</option>' + 
-            productosCache.filter(p => p.estado === 'activo').map(p => `<option value="${p.id_producto}">${p.codigo} - ${p.nombre} (Stock: ${formatoCantidadProductoCorta(p.stock ?? p.stock_disponible ?? 0, p)})</option>`).join('');
+            productosCache.filter(p => p.estado === 'activo').map(p => `<option value="${p.id_producto}">${window.erpSafeHtml.escape(p.codigo)} - ${window.erpSafeHtml.escape(p.nombre)} (Stock: ${formatoCantidadProductoCorta(p.stock ?? p.stock_disponible ?? 0, p)})</option>`).join('');
 
         if (selectConteo) selectConteo.innerHTML = options;
         if (selectDev) selectDev.innerHTML = options;
@@ -1922,7 +1940,7 @@
 
         if (selectProd && selectProd.options.length <= 1 && Array.isArray(productosCache)) {
             selectProd.innerHTML = '<option value="">Todos los Productos Modificados</option>' +
-                productosCache.map(p => `<option value="${p.id_producto}">${p.codigo} - ${p.nombre}</option>`).join('');
+                productosCache.map(p => `<option value="${p.id_producto}">${window.erpSafeHtml.escape(p.codigo)} - ${window.erpSafeHtml.escape(p.nombre)}</option>`).join('');
             if (prodId) selectProd.value = prodId;
         }
 
@@ -1945,18 +1963,18 @@
 
                 let detalleHtml = '';
                 if (Array.isArray(log.cambios) && log.cambios.length > 0) {
-                    detalleHtml = log.cambios.map(c => `<div class="text-xs font-bold text-slate-700 py-0.5">• ${c}</div>`).join('');
+                    detalleHtml = log.cambios.map(c => `<div class="text-xs font-bold text-slate-700 py-0.5">• ${window.erpSafeHtml.escape(c)}</div>`).join('');
                 } else {
-                    detalleHtml = `<span class="text-xs text-slate-500 font-bold">${log.cambios_resumen || 'Modificación registrada'}</span>`;
+                    detalleHtml = `<span class="text-xs text-slate-500 font-bold">${window.erpSafeHtml.escape(log.cambios_resumen || 'Modificación registrada')}</span>`;
                 }
 
                 return `
                     <tr>
-                        <td class="font-bold text-slate-600 text-xs">${fecha}</td>
-                        <td class="font-black text-slate-800 text-xs">${log.producto_nombre || ('Producto #' + log.id_producto)}</td>
+                        <td class="font-bold text-slate-600 text-xs">${window.erpSafeHtml.escape(fecha)}</td>
+                        <td class="font-black text-slate-800 text-xs">${window.erpSafeHtml.escape(log.producto_nombre || ('Producto #' + log.id_producto))}</td>
                         <td class="text-center">${accionBadge}</td>
                         <td>${detalleHtml}</td>
-                        <td class="text-xs font-bold text-slate-600">${log.usuario_nombre || 'Sistema'}</td>
+                        <td class="text-xs font-bold text-slate-600">${window.erpSafeHtml.escape(log.usuario_nombre || 'Sistema')}</td>
                     </tr>
                 `;
             }).join('');
@@ -1973,7 +1991,7 @@
 
         if (selectProd && selectProd.options.length <= 1 && Array.isArray(productosCache)) {
             selectProd.innerHTML = '<option value="">Todos los Productos</option>' +
-                productosCache.map(p => `<option value="${p.id_producto}">${p.codigo} - ${p.nombre}</option>`).join('');
+                productosCache.map(p => `<option value="${p.id_producto}">${window.erpSafeHtml.escape(p.codigo)} - ${window.erpSafeHtml.escape(p.nombre)}</option>`).join('');
             if (prodId) selectProd.value = prodId;
         }
 
@@ -1994,15 +2012,15 @@
             }
             tbody.innerHTML = movs.map(m => {
                 const tipoBadge = m.tipo === 'ingreso' ? 'clay-badge-success' : (m.tipo === 'venta' ? 'clay-badge-info' : (m.tipo === 'devolucion' ? 'clay-badge-warning' : 'clay-badge-danger'));
-                const unidadInfo = m.unidad ? ` (${m.unidad})` : '';
+                const unidadInfo = m.unidad ? ` (${window.erpSafeHtml.escape(m.unidad)})` : '';
                 return `
                     <tr>
-                        <td class="font-bold text-slate-600 text-xs">${m.fecha ? m.fecha.substring(0, 16).replace('T', ' ') : '-'}</td>
-                        <td><span class="clay-badge ${tipoBadge} uppercase">${m.tipo}</span></td>
-                        <td class="font-black text-slate-800">${m.producto_nombre || `Producto #${m.id_producto}`}</td>
+                        <td class="font-bold text-slate-600 text-xs">${window.erpSafeHtml.escape(m.fecha ? m.fecha.substring(0, 16).replace('T', ' ') : '-')}</td>
+                        <td><span class="clay-badge ${tipoBadge} uppercase">${window.erpSafeHtml.escape(m.tipo)}</span></td>
+                        <td class="font-black text-slate-800">${window.erpSafeHtml.escape(m.producto_nombre || `Producto #${m.id_producto}`)}</td>
                         <td class="text-center font-black text-slate-700">${m.cantidad} u.${unidadInfo}</td>
-                        <td class="text-xs text-slate-500 font-bold">${m.motivo || '-'}</td>
-                        <td class="text-xs font-bold text-slate-600">${m.usuario_nombre || 'Sistema'}</td>
+                        <td class="text-xs text-slate-500 font-bold">${window.erpSafeHtml.escape(m.motivo || '-')}</td>
+                        <td class="text-xs font-bold text-slate-600">${window.erpSafeHtml.escape(m.usuario_nombre || 'Sistema')}</td>
                     </tr>
                 `;
             }).join('');
@@ -2039,13 +2057,13 @@
 
                 return `
                     <tr>
-                        <td class="font-bold text-slate-600 text-xs">${fecha}</td>
-                        <td class="font-black text-slate-800">${prodNombre}</td>
+                        <td class="font-bold text-slate-600 text-xs">${window.erpSafeHtml.escape(fecha)}</td>
+                        <td class="font-black text-slate-800">${window.erpSafeHtml.escape(prodNombre)}</td>
                         <td class="text-right font-bold text-slate-500">${precioAnt}</td>
                         <td class="text-right font-black text-slate-800">${precioNuevo}</td>
                         <td class="text-center">${pctBadge}</td>
                         <td class="text-center">${origenBadge}</td>
-                        <td class="text-xs font-bold text-slate-600">${usuario}</td>
+                        <td class="text-xs font-bold text-slate-600">${window.erpSafeHtml.escape(usuario)}</td>
                     </tr>
                 `;
             }).join('');
@@ -2333,7 +2351,7 @@
         if (ayuda) {
             if (prod && Number(prod.unidades_por_bulto || prod.equivalencia_unidad || 1) > 1) {
                 const presTexto = obtenerTextoPresentacion(prod);
-                ayuda.innerHTML = `<i data-lucide="package" class="w-3.5 h-3.5"></i> Presentación: ${presTexto} (el ingreso se carga en unidades físicas)`;
+                ayuda.innerHTML = `<i data-lucide="package" class="w-3.5 h-3.5"></i> Presentación: ${window.erpSafeHtml.escape(presTexto)} (el ingreso se carga en unidades físicas)`;
                 ayuda.classList.remove('hidden');
             } else {
                 ayuda.classList.add('hidden');
@@ -2356,7 +2374,7 @@
             const presTexto = obtenerTextoPresentacion(prod);
             const bultos = (cant / eq).toLocaleString('es-AR', { maximumFractionDigits: 1 });
             if (box && texto) {
-                texto.innerHTML = `Presentación: <strong>${presTexto}</strong>. ${cant} unidades equivalen a aprox. <strong>${bultos} bultos</strong>.`;
+                texto.innerHTML = `Presentación: <strong>${window.erpSafeHtml.escape(presTexto)}</strong>. ${cant} unidades equivalen a aprox. <strong>${bultos} bultos</strong>.`;
                 box.classList.remove('hidden');
             }
         } else {
@@ -2434,7 +2452,7 @@
                 const aclaracionEquiv = esUnidadActiva 
                     ? ` (equivalente a ${cantBase} unidades individuales)` 
                     : '';
-                const unidadNom = esUnidadActiva ? ` ${info.nombre}` : ' u.';
+                const unidadNom = esUnidadActiva ? ` ${window.erpSafeHtml.escape(info.nombre)}` : ' u.';
                 alert(`¡Ingreso registrado exitosamente!\nSe ingresaron ${cant}${unidadNom}${aclaracionEquiv} y se registró el movimiento en el historial (Kardex).`);
             } else {
                 alert(data.message || 'Error al registrar ingreso');
@@ -2463,7 +2481,7 @@
         const sel = document.getElementById('ajusteProductoSelect');
         if (sel) {
             sel.innerHTML = '<option value="">Seleccione un producto...</option>' + 
-                productosCache.filter(p => p.estado === 'activo').map(p => `<option value="${p.id_producto}">${p.codigo} - ${p.nombre} (Stock: ${formatoCantidadProductoCorta(p.stock ?? p.stock_disponible ?? 0, p)})</option>`).join('');
+                productosCache.filter(p => p.estado === 'activo').map(p => `<option value="${p.id_producto}">${window.erpSafeHtml.escape(p.codigo)} - ${window.erpSafeHtml.escape(p.nombre)} (Stock: ${formatoCantidadProductoCorta(p.stock ?? p.stock_disponible ?? 0, p)})</option>`).join('');
             if (prodId) {
                 sel.value = String(prodId);
             }
@@ -2488,7 +2506,7 @@
         let options = '<option value="">Unidades Individuales (u.)</option>';
 
         if (info.tieneActiva) {
-            options = `<option value="${info.id_unidad}">${info.nombre} (Activa - Eq: ${info.equivalencia} u.)</option>` + options;
+            options = `<option value="${info.id_unidad}">${window.erpSafeHtml.escape(info.nombre)} (Activa - Eq: ${info.equivalencia} u.)</option>` + options;
         }
 
         selectUnidad.innerHTML = options;
@@ -2515,7 +2533,7 @@
             const cantBase = Math.round(cant * info.equivalencia);
             if (lblCant) lblCant.textContent = tipo === 'fijar' ? `Fijar en (${info.nombre})` : `Cantidad (${info.nombre})`;
             if (box && texto) {
-                texto.innerHTML = `Equivalencia: <strong>${cant} ${info.nombre}</strong> equivalen a <strong>${cantBase} unidades individuales (u.)</strong> para el ajuste.`;
+                texto.innerHTML = `Equivalencia: <strong>${cant} ${window.erpSafeHtml.escape(info.nombre)}</strong> equivalen a <strong>${cantBase} unidades individuales (u.)</strong> para el ajuste.`;
                 box.classList.remove('hidden');
             }
         } else {
@@ -2708,14 +2726,14 @@
 
                 return `
                     <tr>
-                        <td class="font-bold text-slate-600 text-xs">${fecha}</td>
-                        <td class="font-black text-slate-800 text-xs">${m.producto_nombre || ('Producto #' + m.id_producto)}</td>
+                        <td class="font-bold text-slate-600 text-xs">${window.erpSafeHtml.escape(fecha)}</td>
+                        <td class="font-black text-slate-800 text-xs">${window.erpSafeHtml.escape(m.producto_nombre || ('Producto #' + m.id_producto))}</td>
                         <td class="text-center font-bold text-slate-500 text-xs">-</td>
                         <td class="text-center font-black text-slate-700 text-xs">${m.cantidad} u.</td>
                         <td class="text-center font-black ${esSobrante ? 'text-blue-700' : 'text-rose-700'} text-xs">${esSobrante ? '+' : '-'}${m.cantidad} u.</td>
                         <td class="text-center">${badgeResultado}</td>
-                        <td class="text-xs text-slate-600 font-bold">${m.motivo || 'Conciliación de inventario'}</td>
-                        <td class="text-xs font-bold text-slate-600">${m.usuario_nombre || 'Sistema'}</td>
+                        <td class="text-xs text-slate-600 font-bold">${window.erpSafeHtml.escape(m.motivo || 'Conciliación de inventario')}</td>
+                        <td class="text-xs font-bold text-slate-600">${window.erpSafeHtml.escape(m.usuario_nombre || 'Sistema')}</td>
                     </tr>
                 `;
             }).join('');
@@ -2746,7 +2764,7 @@
         let options = '<option value="">Unidades Individuales (u.)</option>';
 
         if (info.tieneActiva) {
-            options = `<option value="${info.id_unidad}">${info.nombre} (Activa - Eq: ${info.equivalencia} u.)</option>` + options;
+            options = `<option value="${info.id_unidad}">${window.erpSafeHtml.escape(info.nombre)} (Activa - Eq: ${info.equivalencia} u.)</option>` + options;
         }
 
         selectUnidad.innerHTML = options;
@@ -2788,7 +2806,7 @@
             if (lblCant) lblCant.textContent = `Cantidad (${info.nombre})`;
             if (box && texto) {
                 const accionTxt = tipoDev === 'proveedor' ? 'descontarán del' : 'repondrán al';
-                texto.innerHTML = `Equivalencia: <strong>${cant} ${info.nombre}</strong> equivalen a <strong>${cantBase} unidades individuales (u.)</strong> que se ${accionTxt} inventario.`;
+                texto.innerHTML = `Equivalencia: <strong>${cant} ${window.erpSafeHtml.escape(info.nombre)}</strong> equivalen a <strong>${cantBase} unidades individuales (u.)</strong> que se ${accionTxt} inventario.`;
                 box.classList.remove('hidden');
             }
         } else {
@@ -2860,10 +2878,12 @@
     // Modal Aumento Masivo
     function abrirModalAumentoMasivo() {
         document.getElementById('modalAumento').classList.remove('hidden');
+        const selProv = document.getElementById('aumentoProveedorSelect');
+        if (selProv) selProv.innerHTML = proveedoresCache.map(p => `<option value="${Number(p.id_proveedor)}">${window.erpSafeHtml.escape(p.razon_social)}</option>`).join('');
         const selCat = document.getElementById('aumentoCategoriaSelect');
         const selMarca = document.getElementById('aumentoMarcaSelect');
-        if (selCat) selCat.innerHTML = categoriasCache.map(c => `<option value="${c.id_categoria}">${c.nombre}</option>`).join('');
-        if (selMarca) selMarca.innerHTML = marcasCache.map(m => `<option value="${m.id_marca}">${m.nombre}</option>`).join('');
+        if (selCat) selCat.innerHTML = categoriasCache.map(c => `<option value="${c.id_categoria}">${window.erpSafeHtml.escape(c.nombre)}</option>`).join('');
+        if (selMarca) selMarca.innerHTML = marcasCache.map(m => `<option value="${m.id_marca}">${window.erpSafeHtml.escape(m.nombre)}</option>`).join('');
         const inputPct = document.getElementById('aumentoPorcentaje');
         if (!inputPct.value) inputPct.value = '10.0';
         actualizarCriterioAumento();
@@ -2877,6 +2897,7 @@
 
     function actualizarCriterioAumento() {
         const crit = document.getElementById('aumentoCriterio').value;
+        document.getElementById('aumentoProveedorGrupo')?.classList.toggle('hidden', crit !== 'proveedor');
         document.getElementById('aumentoCategoriaGrupo').classList.toggle('hidden', crit !== 'categoria');
         document.getElementById('aumentoMarcaGrupo').classList.toggle('hidden', crit !== 'marca');
         actualizarVistaPreviaAumento();
@@ -2884,6 +2905,7 @@
 
     function actualizarVistaPreviaAumento() {
         const crit = document.getElementById('aumentoCriterio')?.value || 'todos';
+        const baseAumento = document.getElementById('aumentoBase')?.value || 'precio';
         const pctInput = document.getElementById('aumentoPorcentaje')?.value;
         const pct = Number(pctInput) || 0;
         const tbody = document.getElementById('aumentoPreviewBody');
@@ -2891,7 +2913,13 @@
         if (!tbody) return;
 
         let prods = (Array.isArray(productosCache) ? productosCache : []).filter(p => p.estado === 'activo');
-        if (crit === 'categoria') {
+        if (crit === 'proveedor') {
+            const provId = Number(document.getElementById('aumentoProveedorSelect')?.value || 0);
+            prods = prods.filter(p =>
+                (Array.isArray(p.proveedores_ids) && p.proveedores_ids.includes(provId)) ||
+                Number(p.id_proveedor_principal) === provId
+            );
+        } else if (crit === 'categoria') {
             const catId = document.getElementById('aumentoCategoriaSelect')?.value;
             prods = prods.filter(p => String(p.id_categoria) === String(catId));
         } else if (crit === 'marca') {
@@ -2908,13 +2936,16 @@
 
         tbody.innerHTML = prods.slice(0, 100).map(p => {
             const actual = Number(p.precio_unitario || 0);
-            const nuevo = pct > 0 ? (Math.round((actual * (1 + pct / 100)) * 100) / 100).toFixed(2) : actual.toFixed(2);
+            const costo = Number(p.costo || 0);
+            const recargo = p.recargo != null ? Number(p.recargo) : (costo > 0 ? (actual / costo - 1) * 100 : 0);
+            const estimado = baseAumento === 'costo' && costo > 0 ? costo * (1 + pct / 100) * (1 + recargo / 100) : actual * (1 + pct / 100);
+            const nuevo = (pct > 0 ? Math.round(estimado * 100) / 100 : actual).toFixed(2);
             return `
                 <tr>
-                    <td class="font-extrabold text-slate-700 text-xs">${p.codigo}</td>
-                    <td class="font-bold text-slate-800 text-xs">${p.nombre}</td>
+                    <td class="font-extrabold text-slate-700 text-xs">${window.erpSafeHtml.escape(p.codigo)}</td>
+                    <td class="font-bold text-slate-800 text-xs">${window.erpSafeHtml.escape(p.nombre)}</td>
                     <td class="text-right font-bold text-slate-500 text-xs">$${actual.toFixed(2)}</td>
-                    <td class="text-right font-black text-emerald-700 text-xs">$${nuevo}</td>
+                    <td class="text-right font-black text-emerald-700 text-xs">$${window.erpSafeHtml.escape(nuevo)}</td>
                 </tr>
             `;
         }).join('');
@@ -2924,6 +2955,7 @@
         e.preventDefault();
         const csrf = document.querySelector('meta[name="csrf-token"]').content;
         const crit = document.getElementById('aumentoCriterio').value;
+        const baseAumento = document.getElementById('aumentoBase')?.value || 'precio';
         const porcentaje = Number(document.getElementById('aumentoPorcentaje').value);
 
         if (!porcentaje || porcentaje <= 0) {
@@ -2933,9 +2965,11 @@
 
         const payload = {
             tipo_criterio: crit,
+            base_aumento: baseAumento,
             porcentaje: porcentaje,
             confirmar: true
         };
+        if (crit === 'proveedor') payload.id_proveedor = document.getElementById('aumentoProveedorSelect').value;
         if (crit === 'categoria') payload.id_categoria = document.getElementById('aumentoCategoriaSelect').value;
         if (crit === 'marca') payload.id_marca = document.getElementById('aumentoMarcaSelect').value;
 
@@ -2974,7 +3008,7 @@
         let html = '<option value="">Todos los productos (Aumentos Masivos y Cambios)</option>';
         html += (Array.isArray(productosCache) ? productosCache : []).map(p => `
             <option value="${p.id_producto}" ${String(p.id_producto) === String(idSeleccionado) ? 'selected' : ''}>
-                ${p.codigo} - ${p.nombre}
+                ${window.erpSafeHtml.escape(p.codigo)} - ${window.erpSafeHtml.escape(p.nombre)}
             </option>
         `).join('');
         selectProd.innerHTML = html;
@@ -3089,18 +3123,18 @@
 
                 let detalleHtml = '';
                 if (Array.isArray(log.cambios) && log.cambios.length > 0) {
-                    detalleHtml = log.cambios.map(c => `<div class="text-xs font-bold text-slate-700 py-0.5">• ${c}</div>`).join('');
+                    detalleHtml = log.cambios.map(c => `<div class="text-xs font-bold text-slate-700 py-0.5">• ${window.erpSafeHtml.escape(c)}</div>`).join('');
                 } else {
-                    detalleHtml = `<span class="text-xs text-slate-500 font-bold">${log.cambios_resumen || 'Modificación registrada'}</span>`;
+                    detalleHtml = `<span class="text-xs text-slate-500 font-bold">${window.erpSafeHtml.escape(log.cambios_resumen || 'Modificación registrada')}</span>`;
                 }
 
                 return `
                     <tr>
-                        <td class="font-bold text-slate-600 text-xs">${fecha}</td>
-                        <td class="font-black text-slate-800 text-xs">${log.producto_nombre || ('Producto #' + log.id_producto)}</td>
+                        <td class="font-bold text-slate-600 text-xs">${window.erpSafeHtml.escape(fecha)}</td>
+                        <td class="font-black text-slate-800 text-xs">${window.erpSafeHtml.escape(log.producto_nombre || ('Producto #' + log.id_producto))}</td>
                         <td class="text-center">${accionBadge}</td>
                         <td>${detalleHtml}</td>
-                        <td class="text-xs font-bold text-slate-600">${log.usuario_nombre || 'Sistema'}</td>
+                        <td class="text-xs font-bold text-slate-600">${window.erpSafeHtml.escape(log.usuario_nombre || 'Sistema')}</td>
                     </tr>
                 `;
             }).join('');
@@ -3145,13 +3179,13 @@
 
                     return `
                         <tr>
-                            <td class="text-xs text-slate-600 font-bold">${fecha}</td>
-                            <td class="font-extrabold text-slate-800 text-xs">${prodNombre}</td>
+                            <td class="text-xs text-slate-600 font-bold">${window.erpSafeHtml.escape(fecha)}</td>
+                            <td class="font-extrabold text-slate-800 text-xs">${window.erpSafeHtml.escape(prodNombre)}</td>
                             <td class="text-right font-bold text-slate-500">${precioAnt}</td>
                             <td class="text-right font-black text-slate-800">${precioNuevo}</td>
                             <td class="text-center">${pctBadge}</td>
                             <td class="text-center">${origenBadge}</td>
-                            <td class="text-xs text-slate-600 font-bold">${usuario}</td>
+                            <td class="text-xs text-slate-600 font-bold">${window.erpSafeHtml.escape(usuario)}</td>
                         </tr>
                     `;
                 }).join('');
@@ -3184,6 +3218,8 @@
     function editarCategoria(id, nombre) {
         document.getElementById('catId').value = id;
         document.getElementById('catNombre').value = nombre;
+        actualizarPadresCategoria(id);
+        document.getElementById('catPadre').value = String(categoriasCache.find(c => Number(c.id_categoria) === Number(id))?.id_categoria_padre || '');
         document.getElementById('btnGuardarCategoria').querySelector('span').textContent = 'Guardar Cambios';
         document.getElementById('btnCancelarEdicionCat').classList.remove('hidden');
         document.getElementById('catNombre').focus();
@@ -3191,10 +3227,19 @@
     function cancelarEdicionCategoria() {
         document.getElementById('catId').value = '';
         document.getElementById('catNombre').value = '';
+        actualizarPadresCategoria();
         document.getElementById('btnGuardarCategoria').querySelector('span').textContent = 'Guardar Categoría';
         document.getElementById('btnCancelarEdicionCat').classList.add('hidden');
     }
+    function actualizarPadresCategoria(exclude = null) {
+        const select = document.getElementById('catPadre'); if (!select) return;
+        select.replaceChildren(new Option('Categoría principal', ''));
+        for (const category of categoriasCache || []) {
+            if (Number(category.id_categoria) !== Number(exclude)) select.append(new Option(category.nombre, String(category.id_categoria)));
+        }
+    }
     function renderListaCategoriasModal() {
+        actualizarPadresCategoria(document.getElementById('catId').value);
         const tbody = document.getElementById('tablaCategoriasBody');
         if (!categoriasCache || categoriasCache.length === 0) {
             tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-slate-400 font-bold">No hay categorías registradas.</td></tr>';
@@ -3203,14 +3248,14 @@
         tbody.innerHTML = categoriasCache.map(c => `
             <tr>
                 <td class="font-bold text-slate-600">${c.id_categoria}</td>
-                <td class="font-black text-slate-800">${c.nombre}</td>
+                <td class="font-black text-slate-800">${window.erpSafeHtml.escape(c.nombre)}</td>
                 <td class="text-center"><span class="clay-badge clay-badge-info">${c.total_productos ?? 0} prod.</span></td>
                 <td class="text-center">
                     <div class="flex items-center justify-center gap-1">
-                        <button type="button" onclick="editarCategoria(${c.id_categoria}, '${c.nombre.replace(/'/g, "\\'")}')" class="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Editar Categoría">
+                        <button type="button" onclick="editarCategoria(${c.id_categoria}, ${window.erpSafeHtml.escape(JSON.stringify(c.nombre))})" class="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Editar Categoría">
                             <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
                         </button>
-                        <button type="button" onclick="eliminarCategoria(${c.id_categoria}, '${c.nombre.replace(/'/g, "\\'")}', ${c.total_productos ?? 0})" class="p-1 text-rose-600 hover:bg-rose-50 rounded" title="Dar de Baja / Eliminar Categoría">
+                        <button type="button" onclick="eliminarCategoria(${c.id_categoria}, ${window.erpSafeHtml.escape(JSON.stringify(c.nombre))}, ${c.total_productos ?? 0})" class="p-1 text-rose-600 hover:bg-rose-50 rounded" title="Dar de Baja / Eliminar Categoría">
                             <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
                         </button>
                     </div>
@@ -3233,7 +3278,7 @@
             const res = await fetch(url, {
                 method,
                 headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf },
-                body: JSON.stringify({ nombre })
+                body: JSON.stringify({ nombre, id_categoria_padre: document.getElementById('catPadre').value || null })
             });
             const data = await res.json();
             if (data.status === 'success') {
@@ -3298,14 +3343,14 @@
         tbody.innerHTML = marcasCache.map(m => `
             <tr>
                 <td class="font-bold text-slate-600">${m.id_marca}</td>
-                <td class="font-black text-slate-800">${m.nombre}</td>
+                <td class="font-black text-slate-800">${window.erpSafeHtml.escape(m.nombre)}</td>
                 <td class="text-center"><span class="clay-badge clay-badge-info">${m.total_productos ?? 0} prod.</span></td>
                 <td class="text-center">
                     <div class="flex items-center justify-center gap-1">
-                        <button type="button" onclick="editarMarca(${m.id_marca}, '${m.nombre.replace(/'/g, "\\'")}')" class="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Editar Marca">
+                        <button type="button" onclick="editarMarca(${m.id_marca}, ${window.erpSafeHtml.escape(JSON.stringify(m.nombre))})" class="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Editar Marca">
                             <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
                         </button>
-                        <button type="button" onclick="eliminarMarca(${m.id_marca}, '${m.nombre.replace(/'/g, "\\'")}', ${m.total_productos ?? 0})" class="p-1 text-rose-600 hover:bg-rose-50 rounded" title="Dar de Baja / Eliminar Marca">
+                        <button type="button" onclick="eliminarMarca(${m.id_marca}, ${window.erpSafeHtml.escape(JSON.stringify(m.nombre))}, ${m.total_productos ?? 0})" class="p-1 text-rose-600 hover:bg-rose-50 rounded" title="Dar de Baja / Eliminar Marca">
                             <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
                         </button>
                     </div>
@@ -3407,19 +3452,19 @@
             return `
                 <tr>
                     <td class="font-bold text-slate-600 text-xs">${u.id_ubicacion}</td>
-                    <td class="font-black text-slate-800 text-xs">${u.descripcion}</td>
+                    <td class="font-black text-slate-800 text-xs">${window.erpSafeHtml.escape(u.descripcion)}</td>
                     <td class="text-center">
                         <span class="clay-badge ${count > 0 ? 'clay-badge-info' : 'clay-badge-warning'} font-bold text-[11px]">${count} prod.</span>
                     </td>
                     <td class="text-center">
                         <div class="flex items-center justify-center gap-1">
-                            <button type="button" onclick="verProductosUbicacion(${u.id_ubicacion}, '${u.descripcion.replace(/'/g, "\\'")}')" class="p-1 text-emerald-600 hover:bg-emerald-50 rounded" title="Ver productos en esta ubicación">
+                            <button type="button" onclick="verProductosUbicacion(${u.id_ubicacion}, ${window.erpSafeHtml.escape(JSON.stringify(u.descripcion))})" class="p-1 text-emerald-600 hover:bg-emerald-50 rounded" title="Ver productos en esta ubicación">
                                 <i data-lucide="eye" class="w-3.5 h-3.5"></i>
                             </button>
-                            <button type="button" onclick="editarUbicacion(${u.id_ubicacion}, '${u.descripcion.replace(/'/g, "\\'")}')" class="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Editar Ubicación">
+                            <button type="button" onclick="editarUbicacion(${u.id_ubicacion}, ${window.erpSafeHtml.escape(JSON.stringify(u.descripcion))})" class="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Editar Ubicación">
                                 <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
                             </button>
-                            <button type="button" onclick="eliminarUbicacion(${u.id_ubicacion}, '${u.descripcion.replace(/'/g, "\\'")}', ${count})" class="p-1 text-rose-600 hover:bg-rose-50 rounded" title="Dar de baja / eliminar ubicación">
+                            <button type="button" onclick="eliminarUbicacion(${u.id_ubicacion}, ${window.erpSafeHtml.escape(JSON.stringify(u.descripcion))}, ${count})" class="p-1 text-rose-600 hover:bg-rose-50 rounded" title="Dar de baja / eliminar ubicación">
                                 <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
                             </button>
                         </div>
@@ -3443,7 +3488,7 @@
         } else {
             lista.innerHTML = prods.map(p => `
                 <li class="py-1 flex items-center justify-between">
-                    <span class="font-black text-slate-800">${p.codigo} - ${p.nombre}</span>
+                    <span class="font-black text-slate-800">${window.erpSafeHtml.escape(p.codigo)} - ${window.erpSafeHtml.escape(p.nombre)}</span>
                     <span class="clay-badge clay-badge-info text-[10px] font-bold">Stock: ${p.stock ?? p.stock_disponible ?? 0} u.</span>
                 </li>
             `).join('');
@@ -3552,16 +3597,16 @@
 
                     return `
                     <tr>
-                        <td class="font-black text-slate-800 text-xs">${u.nombre_unidad}</td>
+                        <td class="font-black text-slate-800 text-xs">${window.erpSafeHtml.escape(u.nombre_unidad)}</td>
                         <td class="text-center font-extrabold text-indigo-700 text-xs">${u.equivalencia_base} u.</td>
                         <td class="text-center">${badgeActivo}</td>
-                        <td class="text-xs text-slate-500 font-bold">${u.descripcion || '-'}</td>
+                        <td class="text-xs text-slate-500 font-bold">${window.erpSafeHtml.escape(u.descripcion || '-')}</td>
                         <td class="text-center">
                             <div class="flex items-center justify-center gap-1">
-                                <button type="button" onclick="editarUnidadMedida(${u.id_unidad}, '${u.nombre_unidad.replace(/'/g, "\\'")}', ${u.equivalencia_base}, '${(u.descripcion || '').replace(/'/g, "\\'")}', ${u.es_base ? 'true' : 'false'})" class="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Editar unidad">
+                                <button type="button" onclick="editarUnidadMedida(${u.id_unidad}, ${window.erpSafeHtml.escape(JSON.stringify(u.nombre_unidad))}, ${u.equivalencia_base}, ${window.erpSafeHtml.escape(JSON.stringify((u.descripcion || '')))}, ${u.es_base ? 'true' : 'false'})" class="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Editar unidad">
                                     <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
                                 </button>
-                                <button type="button" onclick="eliminarUnidadMedida(${u.id_unidad}, '${u.nombre_unidad.replace(/'/g, "\\'")}')" class="p-1 text-rose-600 hover:bg-rose-50 rounded" title="Eliminar unidad">
+                                <button type="button" onclick="eliminarUnidadMedida(${u.id_unidad}, ${window.erpSafeHtml.escape(JSON.stringify(u.nombre_unidad))})" class="p-1 text-rose-600 hover:bg-rose-50 rounded" title="Eliminar unidad">
                                     <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
                                 </button>
                             </div>
@@ -3571,7 +3616,7 @@
                 }).join('');
                 if (window.lucide) window.lucide.createIcons();
             } else {
-                tbody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-rose-500 font-bold">${json.message || 'Error al cargar unidades'}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-rose-500 font-bold">${window.erpSafeHtml.escape(json.message || 'Error al cargar unidades')}</td></tr>`;
             }
         } catch (e) {
             console.error('Error unidades producto:', e);
@@ -3716,7 +3761,7 @@
         const sel = document.getElementById('modalDevProductoSelect');
         if (sel) {
             sel.innerHTML = '<option value="">Seleccione el producto devuelto...</option>' + 
-                productosCache.filter(p => p.estado === 'activo').map(p => `<option value="${p.id_producto}">${p.codigo} - ${p.nombre} (Stock: ${p.stock ?? p.stock_disponible ?? 0})</option>`).join('');
+                productosCache.filter(p => p.estado === 'activo').map(p => `<option value="${p.id_producto}">${window.erpSafeHtml.escape(p.codigo)} - ${window.erpSafeHtml.escape(p.nombre)} (Stock: ${p.stock ?? p.stock_disponible ?? 0})</option>`).join('');
             if (prodId) {
                 sel.value = String(prodId);
             }

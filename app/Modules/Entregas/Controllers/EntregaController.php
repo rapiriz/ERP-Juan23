@@ -1,21 +1,31 @@
 <?php
+
 namespace App\Modules\Entregas\Controllers;
 
-use Exception;
+use App\Modules\Entregas\Services\DeliveryPlanningService;
+use App\Modules\Entregas\Services\EntregaService;
 use App\Modules\Shared\Auth\G2Identity;
-use App\Modules\Shared\Services\UsuarioService;
-use Illuminate\Http\Request;
 use App\Modules\Shared\Http\Controllers\Controller;
 use App\Modules\Shared\Http\Response;
-use App\Modules\Entregas\Services\EntregaService;
+use App\Modules\Shared\Services\UsuarioService;
+use Exception;
+use Illuminate\Http\Request;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 class EntregaController extends Controller
 {
+    public function modificarPedidos(Request $request, int $id, DeliveryPlanningService $planning)
+    {
+        $data = $request->validate(['pedidos_ids' => ['present', 'array', 'max:100'], 'pedidos_ids.*' => ['integer', 'min:1', 'distinct']]);
+
+        return Response::json($planning->update($id, $data['pedidos_ids'], G2Identity::id()));
+    }
+
     private EntregaService $service;
 
     public function __construct(?EntregaService $service = null)
     {
-        $this->service = $service ?? new EntregaService();
+        $this->service = $service ?? new EntregaService;
     }
 
     /**
@@ -25,9 +35,10 @@ class EntregaController extends Controller
     public function pedidosPendientes(Request $request)
     {
         try {
-            $idZona = $request->query('zona_id') ? (int)$request->query('zona_id') : null;
+            $idZona = $request->query('zona_id') ? (int) $request->query('zona_id') : null;
             $pedidos = $this->service->obtenerPedidosPendientes($idZona);
-            return Response::json($pedidos, 200, "Pedidos pendientes obtenidos con éxito");
+
+            return Response::json($pedidos, 200, 'Pedidos pendientes obtenidos con éxito');
         } catch (Exception $e) {
             return Response::error($e->getMessage(), 500);
         }
@@ -49,13 +60,13 @@ class EntregaController extends Controller
         abort_unless((UsuarioService::obtenerUsuario((int) $request->input('repartidor_id'))['rol'] ?? null) === 'repartidor', 422, 'Seleccioná un repartidor activo.');
         try {
             $body = $request->all();
-            if (!$body) {
-                return Response::error("El cuerpo de la petición no contiene datos válidos.", 400);
+            if (! $body) {
+                return Response::error('El cuerpo de la petición no contiene datos válidos.', 400);
             }
 
-            $idRepartidor = (int)($body['repartidor_id'] ?? 0);
-            $pedidosIds = (array)($body['pedidos_ids'] ?? []);
-            $fechaSalida = (string)($body['fecha_salida'] ?? date('Y-m-d'));
+            $idRepartidor = (int) ($body['repartidor_id'] ?? 0);
+            $pedidosIds = (array) ($body['pedidos_ids'] ?? []);
+            $fechaSalida = (string) ($body['fecha_salida'] ?? date('Y-m-d'));
             $observaciones = $body['observaciones'] ?? null;
             $idUsuario = G2Identity::id();
 
@@ -85,6 +96,7 @@ class EntregaController extends Controller
                 $filters['repartidor_id'] = G2Identity::id();
             }
             $entregas = $this->service->listarEntregas($filters);
+
             return Response::json($entregas, 200);
         } catch (Exception $e) {
             return Response::error($e->getMessage(), 500);
@@ -98,8 +110,9 @@ class EntregaController extends Controller
     public function detalle(int|string $id)
     {
         try {
-            $idEntrega = (int)$id;
+            $idEntrega = (int) $id;
             $entrega = $this->service->obtenerEntrega($idEntrega);
+
             return Response::json($entrega, 200);
         } catch (Exception $e) {
             return Response::error($e->getMessage(), 404);
@@ -113,8 +126,9 @@ class EntregaController extends Controller
     public function verRemito(int|string $id)
     {
         try {
-            $idRemito = (int)$id;
+            $idRemito = (int) $id;
             $remito = $this->service->obtenerRemito($idRemito);
+
             return Response::json($remito, 200);
         } catch (Exception $e) {
             return Response::error($e->getMessage(), 404);
@@ -128,6 +142,7 @@ class EntregaController extends Controller
     {
         try {
             $zonas = $this->service->obtenerZonas();
+
             return Response::json($zonas, 200);
         } catch (Exception $e) {
             return Response::error($e->getMessage(), 500);
@@ -141,6 +156,7 @@ class EntregaController extends Controller
     {
         try {
             $repartidores = $this->service->obtenerRepartidores();
+
             return Response::json($repartidores, 200);
         } catch (Exception $e) {
             return Response::error($e->getMessage(), 500);
@@ -156,13 +172,13 @@ class EntregaController extends Controller
     {
         try {
             $body = $request->all();
-            $idEntrega = (int)($id ?? $body['id_entrega'] ?? 0);
-            $idPedido = (int)($idVenta ?? $body['id_venta'] ?? $body['id_pedido'] ?? 0);
+            $idEntrega = (int) ($id ?? $body['id_entrega'] ?? 0);
+            $idPedido = (int) ($idVenta ?? $body['id_venta'] ?? $body['id_pedido'] ?? 0);
             $observaciones = $body['observaciones'] ?? null;
             $idUsuario = G2Identity::id();
 
             if ($idEntrega <= 0 || $idPedido <= 0) {
-                return Response::error("Debe proporcionar id_entrega e id_venta válidos.", 400);
+                return Response::error('Debe proporcionar id_entrega e id_venta válidos.', 400);
             }
 
             $resultado = $this->service->confirmarPedidoEntregado(
@@ -173,6 +189,8 @@ class EntregaController extends Controller
             );
 
             return Response::json($resultado, 200, $resultado['mensaje']);
+        } catch (HttpExceptionInterface $e) {
+            throw $e;
         } catch (Exception $e) {
             return Response::error($e->getMessage(), 400);
         }
@@ -187,9 +205,10 @@ class EntregaController extends Controller
         try {
             $idRepartidor = G2Identity::role() === 'admin' ? ($request->query('id_repartidor') ? (int) $request->query('id_repartidor') : null) : G2Identity::id();
             $entregas = $this->service->obtenerEntregasPendientesRendicion($idRepartidor);
-            return Response::json($entregas, 200, "Entregas listas para rendición obtenidas exitosamente.");
+
+            return Response::json($entregas, 200, 'Entregas listas para rendición obtenidas exitosamente.');
         } catch (Exception $e) {
-            return Response::error("Error al obtener entregas para rendir: " . $e->getMessage(), 500);
+            return Response::error('Error al obtener entregas para rendir: '.$e->getMessage(), 500);
         }
     }
 }

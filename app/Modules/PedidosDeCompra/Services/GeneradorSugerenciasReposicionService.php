@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Modules\PedidosDeCompra\Services;
@@ -10,7 +11,7 @@ use App\Modules\PedidosDeCompra\Repositories\SugerenciaCompraRepository;
 use App\Modules\Productos\Models\Producto;
 use App\Modules\Proveedores\Models\ProductoProveedor;
 use App\Modules\Stock\Models\MovimientoStock;
-use App\Modules\Stock\Models\UnidadMedida;
+use App\Modules\Stock\Services\ProductUnitService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -30,8 +31,7 @@ class GeneradorSugerenciasReposicionService
 {
     public function __construct(
         private SugerenciaCompraRepository $sugerencias
-    ) {
-    }
+    ) {}
 
     public function generarSugerencias(): array
     {
@@ -65,9 +65,9 @@ class GeneradorSugerenciasReposicionService
     /** @return array<int, array<string, mixed>> filas listas para SUGERENCIA_COMPRA */
     private function analizarProducto(Producto $producto): array
     {
-        $stock = $producto->stock_disponible;
-        $minimo = $producto->stock_minimo;
-        $maximo = (int) config('reposicion.stock_maximo_default', 100);
+        $stock = (int) $producto->stock_disponible;
+        $minimo = (int) $producto->stock_minimo;
+        $maximo = max($minimo, 1);
         $velocidad = $this->calcularVelocidadVenta($producto);
 
         // Cada motivo -> [cantidad, observación]
@@ -96,7 +96,7 @@ class GeneradorSugerenciasReposicionService
 
         $filas = [];
         foreach ($motivos as $motivo => [$cantidadFija, $observacion]) {
-            $cantidad = $cantidadFija ?? $this->calcularCantidadOptima($stock, $maximo, $velocidad, $plazo);
+            $cantidad = $cantidadFija ?? $this->calcularCantidadOptima($stock, $minimo);
 
             $filas[] = [
                 'id_producto' => $producto->id_producto,
@@ -118,24 +118,22 @@ class GeneradorSugerenciasReposicionService
         return $filas;
     }
 
-    private function calcularCantidadOptima(int $stock, int $maximo, float $velocidad, int $plazo): int
+    private function calcularCantidadOptima(int $stock, int $minimo): int
     {
-        $reposicion = ($maximo - $stock) + (int) ($velocidad * $plazo);
-
-        return max($reposicion, (int) ceil($maximo * 0.5));
+        return max(1, $minimo - $stock);
     }
 
     private function calcularVelocidadVenta(Producto $producto): float
     {
         $ventana = (int) config('reposicion.ventana_ventas_dias', 30);
 
-// La velocidad se mide en unidades base: PRODUCTO.stock y las cantidades
-            // sugeridas están en base, así que usar 'cantidad' subestimaría la venta
-            // cuando el movimiento se registró en una unidad no base (p.ej. cajas).
-            $vendidas = (int) MovimientoStock::where('id_producto', $producto->id_producto)
-              ->where('tipo', 'venta')
-              ->where('fecha', '>=', Carbon::today()->subDays($ventana)->toDateString())
-              ->sum('cantidad_base');
+        // La velocidad se mide en unidades base: PRODUCTO.stock y las cantidades
+        // sugeridas están en base, así que usar 'cantidad' subestimaría la venta
+        // cuando el movimiento se registró en una unidad no base (p.ej. cajas).
+        $vendidas = (int) MovimientoStock::where('id_producto', $producto->id_producto)
+            ->where('tipo', 'venta')
+            ->where('fecha', '>=', Carbon::today()->subDays($ventana)->toDateString())
+            ->sum('cantidad_base');
 
         return round($vendidas / max($ventana, 1), 2);
     }
@@ -145,6 +143,7 @@ class GeneradorSugerenciasReposicionService
         if ($velocidadDiaria <= 0) {
             return 365;
         }
+
         return (int) ($stock / $velocidadDiaria);
     }
 
@@ -179,7 +178,7 @@ class GeneradorSugerenciasReposicionService
     private function resolver(int $id, string $estado, int $idUsuario, ?string $motivo = null): void
     {
         $sugerencia = $this->sugerencias->obtenerPorId($id);
-        if (!$sugerencia) {
+        if (! $sugerencia) {
             throw new RuntimeException('Sugerencia no encontrada');
         }
         if ($sugerencia->estado !== 'pendiente') {
@@ -214,132 +213,61 @@ class GeneradorSugerenciasReposicionService
      * Todo en una transacción: si falla el marcado de la sugerencia no debe quedar
      * una orden huérfana.
      */
-    public function generarOrdenDesdeSugerencia(int $id, int $idUsuario): array
+    public function generarOrdenDesdeSugerencia(int $id, int $idUsuario, bool $agruparProveedor = false, ?int $cantidadOverride = null): array
     {
-        $sugerencia = $this->sugerencias->obtenerPorId($id);
-        if (!$sugerencia) {
-            throw new RuntimeException('Sugerencia no encontrada');
-        }
-
-        // Candado: resolver() exige 'pendiente', así que repetir el intento falla acá.
-        if ($sugerencia->estado !== 'pendiente') {
-            throw new RuntimeException("La sugerencia ya fue {$sugerencia->estado}.");
-        }
-        if ($sugerencia->id_orden_compra !== null) {
-            throw new RuntimeException('La sugerencia ya generó una orden de compra.');
-        }
-        if ($sugerencia->id_proveedor === null) {
-            throw new RuntimeException('La sugerencia no tiene proveedor asignado, no se puede generar la orden.');
-        }
-
-        $proveedor = $sugerencia->proveedor;
-        if (!$proveedor) {
-            throw new RuntimeException('El proveedor de la sugerencia no existe.');
-        }
-        if ($proveedor->estado !== 'activo') {
-            throw new RuntimeException("No se puede generar la orden: el proveedor {$proveedor->razon_social} está inactivo. (PV04)");
-        }
-
-        $producto = $sugerencia->producto;
-        if (!$producto) {
-            throw new RuntimeException('El producto de la sugerencia no existe.');
-        }
-        if ($producto->estado !== 'activo') {
-            throw new RuntimeException("No se puede generar la orden: el producto {$producto->nombre} está inactivo. (PV05)");
-        }
-
-        $cantidad = (int) $sugerencia->cantidad_sugerida;
-        if ($cantidad <= 0) {
-            throw new RuntimeException('La cantidad sugerida debe ser mayor a cero.');
-        }
-
-        $precio = (float) $sugerencia->precio_unitario;
-        $subtotal = round($cantidad * $precio, 2);
-
-        // La línea nasce en la unidad base del producto, igual que PC01 cuando el
-        // cliente no elige unidad: la sugerencia no transporta id_unidad.
-        $idUnidad = (int) (UnidadMedida::where('id_producto', $producto->id_producto)
-            ->where('es_base', 1)
-            ->value('id_unidad')
-            ?? UnidadMedida::where('es_base', 1)->orderBy('id_unidad')->value('id_unidad'));
-
-        $orden = DB::transaction(function () use ($id, $sugerencia, $proveedor, $producto, $cantidad, $precio, $subtotal, $idUnidad, $idUsuario) {
-            // Segunda validación, ahora bajo bloqueo de fila (SELECT ... FOR UPDATE).
-            //
-            // La de afuera es solo para fallar rápido y dar un mensaje claro; sin
-            // esta, dos peticiones simultáneas podrían validar 'pendiente' a la vez
-            // y generar dos órdenes. Con el lock, la segunda espera a que la
-            // primera confirme, relee el estado ya actualizado y aborta.
-            $bloqueada = $this->sugerencias->obtenerPorIdBloqueado($id);
-            if (!$bloqueada) {
-                throw new RuntimeException('Sugerencia no encontrada');
+        if ($cantidadOverride !== null && $cantidadOverride <= 0) throw new RuntimeException('La cantidad debe ser positiva.');
+        $supplierId = SugerenciaCompra::whereKey($id)->value('id_proveedor');
+        if (! $supplierId) throw new RuntimeException('Sugerencia no encontrada.');
+        return DB::transaction(function () use ($id, $idUsuario, $agruparProveedor, $cantidadOverride, $supplierId) {
+            // Un proveedor serializa la búsqueda/creación de OC agrupadas, incluso sin OC previa.
+            $supplier = \App\Modules\Proveedores\Models\Proveedor::whereKey($supplierId)->lockForUpdate()->firstOrFail();
+            if ($supplier->estado !== 'activo') throw new RuntimeException('El proveedor está inactivo.');
+            $query = SugerenciaCompra::where('id_proveedor', $supplierId)->where('estado', 'pendiente')->whereNull('id_orden_compra');
+            if (! $agruparProveedor) $query->whereKey($id);
+            $suggestions = $query->orderBy('id_sugerencia')->lockForUpdate()->get();
+            $selected = $suggestions->firstWhere('id_sugerencia', $id);
+            if (! $selected) throw new RuntimeException('La sugerencia ya fue procesada o generó una orden.');
+            $order = $agruparProveedor ? OrdenCompra::where('id_proveedor', $supplierId)->where('estado', 'pendiente')
+                ->whereDate('fecha_creacion', today())->doesntHave('compras')
+                ->whereDoesntHave('detalles', fn ($q) => $q->where('origen', '!=', 'sugerencia'))
+                ->orderBy('id_orden')->lockForUpdate()->first() : null;
+            $products = Producto::whereIn('id_producto', $suggestions->pluck('id_producto'))->orderBy('id_producto')->lockForUpdate()->get()->keyBy('id_producto');
+            if (! $order) $order = OrdenCompra::create(['numero_orden' => $this->generarNumero(), 'id_proveedor' => $supplierId,
+                'estado' => 'pendiente', 'fecha_creacion' => today(), 'fecha_entrega_estimada' => $supplier->plazo_entrega_dias ? today()->addDays((int) $supplier->plazo_entrega_dias) : null,
+                'total_estimado' => 0, 'id_usuario' => $idUsuario]);
+            foreach ($suggestions->groupBy('id_producto') as $productId => $group) {
+                $product = $products->get($productId);
+                if (! $product || $product->estado !== 'activo') throw new RuntimeException('Un producto está inactivo o ya no existe.');
+                $association = ProductoProveedor::where('id_producto', $productId)->where('id_proveedor', $supplierId)->where('activo', true)->first();
+                if (! $association) throw new RuntimeException('El proveedor ya no está asociado al producto.');
+                $quantity = (int) $group->max(fn ($item) => (int) $item->id_sugerencia === $id && $cantidadOverride !== null ? $cantidadOverride : (int) $item->cantidad_sugerida);
+                if ($quantity <= 0) throw new RuntimeException('La sugerencia contiene una cantidad inválida.');
+                $unit = ProductUnitService::resolve((int) $productId);
+                $price = (float) ($association->precio_acordado ?? $group->first()->precio_unitario);
+                $detail = $order->detalles()->where('id_producto', $productId)->where('id_unidad', $unit->id_unidad)->lockForUpdate()->first();
+                $quantity = max($quantity, (int) ($detail?->cantidad_solicitada ?? 0));
+                $values = ['cantidad_solicitada' => $quantity, 'cantidad_sugerida' => $quantity, 'precio_estimado' => $price, 'subtotal' => round($quantity * $price, 2)];
+                if ($detail) $detail->update($values);
+                else DetalleOrden::create(['id_orden' => $order->id_orden, 'id_producto' => $productId, 'id_unidad' => $unit->id_unidad, 'origen' => 'sugerencia', ...$values]);
+                foreach ($group as $item) {
+                    if (! $this->sugerencias->resolver((int) $item->id_sugerencia, 'procesada', $idUsuario)) throw new RuntimeException('La sugerencia cambió durante la operación.');
+                    $item->update(['id_orden_compra' => $order->id_orden]);
+                }
             }
-            if ($bloqueada->estado !== 'pendiente') {
-                throw new RuntimeException("La sugerencia ya fue {$bloqueada->estado}.");
-            }
-            if ($bloqueada->id_orden_compra !== null) {
-                throw new RuntimeException('La sugerencia ya generó una orden de compra.');
-            }
-
-            $orden = OrdenCompra::create([
-                'numero_orden' => $this->generarNumero(),
-                'id_proveedor' => $proveedor->id_proveedor,
-                'total_estimado' => $subtotal,
-                'estado' => 'pendiente',
-                'fecha_creacion' => Carbon::now()->toDateString(),
-                'fecha_entrega_estimada' => $bloqueada->plazo_entrega_dias
-                    ? Carbon::now()->addDays((int) $bloqueada->plazo_entrega_dias)->toDateString()
-                    : null,
-                'id_usuario' => $idUsuario,
-            ]);
-
-            DetalleOrden::create([
-                'id_orden' => $orden->id_orden,
-                'id_producto' => $producto->id_producto,
-                'id_unidad' => $idUnidad,
-                'cantidad_solicitada' => $cantidad,
-                'cantidad_sugerida' => $cantidad,
-                'origen' => 'sugerencia',
-                'precio_estimado' => $precio,
-                'subtotal' => $subtotal,
-            ]);
-
-            // La sugerencia queda 'procesada' y apuntando a la orden: así no se
-            // puede volver a generar y se puede navegar de la sugerencia a la orden.
-            // Con la fila bloqueada, el compare-and-set de resolver() no puede fallar;
-            // si fallara, se aborta la transacción en vez de dejar una orden huérfana.
-            if (!$this->sugerencias->resolver($id, 'procesada', $idUsuario)) {
-                throw new RuntimeException('No se pudo vincular la sugerencia con la orden generada.');
-            }
-            SugerenciaCompra::where('id_sugerencia', $id)
-                ->update(['id_orden_compra' => $orden->id_orden]);
-
-            return $orden;
-        });
-
-        return [
-            'exito' => true,
-            'mensaje' => 'Orden de compra generada desde la sugerencia.',
-            'sugerencia_id' => $sugerencia->id_sugerencia,
-            'orden' => [
-                'id' => $orden->id_orden,
-                'numero_orden' => $orden->numero_orden,
-                'id_proveedor' => $orden->id_proveedor,
-                'proveedor' => $proveedor->razon_social,
-                'producto' => $producto->nombre,
-                'cantidad' => $cantidad,
-                'precio_unitario' => $precio,
-                'total_estimado' => (float) $orden->total_estimado,
-                'fecha_entrega_estimada' => $orden->fecha_entrega_estimada,
-            ],
-        ];
+            $order->update(['total_estimado' => round((float) $order->detalles()->sum('subtotal'), 2)]);
+            return ['exito' => true, 'mensaje' => 'Orden generada sin duplicar necesidades del mismo producto.', 'sugerencia_id' => $id,
+                'sugerencias_agrupadas' => $suggestions->count(), 'orden' => ['id' => $order->id_orden, 'numero_orden' => $order->numero_orden,
+                    'id_proveedor' => $supplierId, 'proveedor' => $supplier->razon_social, 'producto' => $products->get($selected->id_producto)->nombre,
+                    'cantidad' => $order->detalles()->where('id_producto', $selected->id_producto)->sum('cantidad_solicitada'),
+                    'precio_unitario' => $selected->precio_unitario, 'total_estimado' => $order->total_estimado, 'fecha_entrega_estimada' => $order->fecha_entrega_estimada]];
+        }, 3);
     }
 
     /** Genera un número único de orden con el formato de PC01: OC-AAAA-nnnnnn. */
     private function generarNumero(): string
     {
         do {
-            $numero = 'OC-' . Carbon::now()->format('Y') . '-' . str_pad((string) random_int(1, 999999), 6, '0', STR_PAD_LEFT);
+            $numero = 'OC-'.Carbon::now()->format('Y').'-'.str_pad((string) random_int(1, 999999), 6, '0', STR_PAD_LEFT);
         } while (OrdenCompra::where('numero_orden', $numero)->exists());
 
         return $numero;
@@ -356,8 +284,8 @@ class GeneradorSugerenciasReposicionService
             'resumen' => [
                 'sugerencias_pendientes' => $r['total_pendientes'],
                 'cantidad_total' => $r['cantidad_total'],
-                'costo_total_sugerido' => '$' . number_format($r['costo_total_sugerido'], 2),
-                'porcentaje_reposicion' => number_format($porcentaje, 2) . '%',
+                'costo_total_sugerido' => '$'.number_format($r['costo_total_sugerido'], 2),
+                'porcentaje_reposicion' => number_format($porcentaje, 2).'%',
             ],
         ];
     }

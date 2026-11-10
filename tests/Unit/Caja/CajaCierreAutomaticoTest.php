@@ -52,11 +52,14 @@ class CajaCierreAutomaticoTest extends TestCase
         $guardada = null;
 
         $repo = Mockery::mock(CajaRepository::class);
+        $repo->shouldReceive('bloquearUsuario')->byDefault()->andReturnNull();
+        $repo->shouldReceive('movimientoProtegido')->byDefault()->andReturnFalse();
         $repo->shouldReceive('listarVencidasDeRepartidores')->once()->andReturn(new Collection([$this->caja()]));
         $repo->shouldReceive('buscarPorId')->with(7)->andReturn($this->caja());
         $repo->shouldReceive('calcularSaldoMovimientos')->with(7)->andReturn(300.0);
         $repo->shouldReceive('guardar')->once()->andReturnUsing(function ($c) use (&$guardada) {
             $guardada = $c;
+
             return $c;
         });
 
@@ -75,6 +78,8 @@ class CajaCierreAutomaticoTest extends TestCase
     public function test_no_cierra_una_caja_que_ya_se_cerro_a_mano(): void
     {
         $repo = Mockery::mock(CajaRepository::class);
+        $repo->shouldReceive('bloquearUsuario')->byDefault()->andReturnNull();
+        $repo->shouldReceive('movimientoProtegido')->byDefault()->andReturnFalse();
         $repo->shouldReceive('listarVencidasDeRepartidores')->andReturn(new Collection([$this->caja()]));
         $repo->shouldReceive('buscarPorId')->with(7)->andReturn($this->caja(['estado' => Caja::ESTADO_CERRADA]));
         $repo->shouldReceive('guardar')->never();
@@ -85,7 +90,9 @@ class CajaCierreAutomaticoTest extends TestCase
     public function test_sin_cajas_vencidas_no_hace_nada(): void
     {
         $repo = Mockery::mock(CajaRepository::class);
-        $repo->shouldReceive('listarVencidasDeRepartidores')->andReturn(new Collection());
+        $repo->shouldReceive('bloquearUsuario')->byDefault()->andReturnNull();
+        $repo->shouldReceive('movimientoProtegido')->byDefault()->andReturnFalse();
+        $repo->shouldReceive('listarVencidasDeRepartidores')->andReturn(new Collection);
         $repo->shouldReceive('guardar')->never();
 
         $this->assertSame(0, (new CajaService($repo))->cerrarCajasVencidas());
@@ -97,6 +104,8 @@ class CajaCierreAutomaticoTest extends TestCase
     {
         // Decisión 6: el repartidor abre otra caja y carga ahí lo pendiente.
         $repo = Mockery::mock(CajaRepository::class);
+        $repo->shouldReceive('bloquearUsuario')->byDefault()->andReturnNull();
+        $repo->shouldReceive('movimientoProtegido')->byDefault()->andReturnFalse();
         $repo->shouldReceive('buscarPorId')->with(7)->andReturn($this->cajaCerradaSola());
         $repo->shouldReceive('guardar')->never();
 
@@ -108,6 +117,8 @@ class CajaCierreAutomaticoTest extends TestCase
     public function test_el_admin_carga_el_conteo_y_se_calcula_la_diferencia(): void
     {
         $repo = Mockery::mock(CajaRepository::class);
+        $repo->shouldReceive('bloquearUsuario')->byDefault()->andReturnNull();
+        $repo->shouldReceive('movimientoProtegido')->byDefault()->andReturnFalse();
         $repo->shouldReceive('buscarPorId')->with(7)->andReturn($this->cajaCerradaSola());
         $repo->shouldReceive('rolDeUsuario')->with(3)->andReturn(Caja::ROL_REPARTIDOR);
         $repo->shouldReceive('guardar')->once()->andReturnUsing(fn ($c) => $c);
@@ -123,6 +134,8 @@ class CajaCierreAutomaticoTest extends TestCase
     public function test_el_admin_carga_el_conteo_de_la_caja_de_un_repartidor(): void
     {
         $repo = Mockery::mock(CajaRepository::class);
+        $repo->shouldReceive('bloquearUsuario')->byDefault()->andReturnNull();
+        $repo->shouldReceive('movimientoProtegido')->byDefault()->andReturnFalse();
         $repo->shouldReceive('buscarPorId')->with(7)->andReturn($this->cajaCerradaSola());
         $repo->shouldReceive('rolDeUsuario')->with(3)->andReturn(Caja::ROL_REPARTIDOR);
         $repo->shouldReceive('guardar')->once()->andReturnUsing(fn ($c) => $c);
@@ -145,6 +158,8 @@ class CajaCierreAutomaticoTest extends TestCase
         ]);
 
         $repo = Mockery::mock(CajaRepository::class);
+        $repo->shouldReceive('bloquearUsuario')->byDefault()->andReturnNull();
+        $repo->shouldReceive('movimientoProtegido')->byDefault()->andReturnFalse();
         $repo->shouldReceive('buscarPorId')->with(7)->andReturn($normal);
         $repo->shouldReceive('guardar')->never();
 
@@ -158,6 +173,8 @@ class CajaCierreAutomaticoTest extends TestCase
         $contada = $this->cajaCerradaSola(['monto_final' => 1250, 'diferencia' => -50]);
 
         $repo = Mockery::mock(CajaRepository::class);
+        $repo->shouldReceive('bloquearUsuario')->byDefault()->andReturnNull();
+        $repo->shouldReceive('movimientoProtegido')->byDefault()->andReturnFalse();
         $repo->shouldReceive('buscarPorId')->with(7)->andReturn($contada);
         $repo->shouldReceive('guardar')->never();
 
@@ -169,6 +186,8 @@ class CajaCierreAutomaticoTest extends TestCase
     public function test_otro_repartidor_no_puede_cargar_el_conteo(): void
     {
         $repo = Mockery::mock(CajaRepository::class);
+        $repo->shouldReceive('bloquearUsuario')->byDefault()->andReturnNull();
+        $repo->shouldReceive('movimientoProtegido')->byDefault()->andReturnFalse();
         $repo->shouldReceive('buscarPorId')->with(7)->andReturn($this->cajaCerradaSola());
         $repo->shouldReceive('rolDeUsuario')->never();
         $repo->shouldReceive('guardar')->never();

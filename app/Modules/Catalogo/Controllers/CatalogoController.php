@@ -40,14 +40,16 @@ final class CatalogoController extends Controller
         try {
             $product = $gateway->find($producto);
             $related = collect();
+            $relatedChecked = false;
             try {
                 $related = $gateway->products()->filter(fn ($p) => $p->id !== $product->id && $p->categoriaId === $product->categoriaId
                     && in_array($p->disponibilidad, ['disponible', 'bajo'], true))->take(3);
+                $relatedChecked = true;
             } catch (HttpExceptionInterface) {
                 // El detalle sigue siendo válido aunque la consulta opcional de alternativas falle.
             }
 
-            return (new Response(view('catalogo.show', ['product' => $product, 'related' => $related,
+            return (new Response(view('catalogo.show', ['product' => $product, 'related' => $related, 'relatedChecked' => $relatedChecked,
                 'checkedAt' => now()->timezone('America/Argentina/Buenos_Aires')])))->header('Cache-Control', 'no-store');
         } catch (HttpExceptionInterface $error) {
             return (new Response(view('catalogo.unavailable', ['notFound' => $error->getStatusCode() === 404]), $error->getStatusCode()))->header('Cache-Control', 'no-store');

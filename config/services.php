@@ -37,11 +37,20 @@ return [
 
     'internal_api' => [
         'token' => env('INTERNAL_API_TOKEN'),
+        'user_id' => env('INTERNAL_API_USER_ID'),
+    ],
+
+    'cash' => [
+        'transport' => env('CASH_TRANSPORT', env('ERP_API_TRANSPORT', 'http')),
+        'url' => env('CASH_SERVICE_URL'),
+        'token' => env('CASH_SERVICE_TOKEN', env('INTERNAL_API_TOKEN')),
+        'path' => '/api/v1/caja/{fecha}',
     ],
 
     'sales' => [
+        'transport' => env('SALES_TRANSPORT', env('ERP_API_TRANSPORT', 'http')),
         'url' => env('SALES_SERVICE_URL'),
-        'token' => env('SALES_SERVICE_TOKEN'),
+        'token' => env('SALES_SERVICE_TOKEN', env('INTERNAL_API_TOKEN')),
         'auth_required' => env('SALES_AUTH_REQUIRED', false),
         'history_path' => env('SALES_HISTORY_PATH', '/api/ventas'),
         // Opcionales: si estan vacios, G1 deriva compradores y ranking de history_path.
@@ -58,22 +67,25 @@ return [
 
     // Consumidor G1 independiente del contrato de pagos confirmados de billing.
     'rendiciones' => [
+        'transport' => env('G1_RENDICIONES_TRANSPORT', env('ERP_API_TRANSPORT', 'http')),
         'url' => env('G1_RENDICIONES_URL'),
-        'token' => env('G1_RENDICIONES_TOKEN'),
+        'token' => env('G1_RENDICIONES_TOKEN', env('INTERNAL_API_TOKEN')),
         'auth_required' => true,
         'path' => env('G1_RENDICIONES_PATH', '/api/v1/rendiciones'),
     ],
 
     'billing' => [
+        'transport' => env('BILLING_TRANSPORT', env('ERP_API_TRANSPORT', 'http')),
         'url' => env('BILLING_SERVICE_URL'),
-        'token' => env('BILLING_SERVICE_TOKEN'),
+        'token' => env('BILLING_SERVICE_TOKEN', env('INTERNAL_API_TOKEN')),
         'payments_path' => env('BILLING_PAYMENTS_PATH', '/api/v1/cobros'),
         'invoices_path' => env('BILLING_INVOICES_PATH', '/api/v1/facturas/pendientes'),
     ],
 
     'balances' => [
+        'transport' => env('BALANCE_TRANSPORT', env('ERP_API_TRANSPORT', 'http')),
         'url' => env('BALANCE_SERVICE_URL'),
-        'token' => env('BALANCE_SERVICE_TOKEN'),
+        'token' => env('BALANCE_SERVICE_TOKEN', env('INTERNAL_API_TOKEN')),
         'client_path' => env('BALANCE_CLIENT_PATH', '/api/v1/clientes/{id}/saldo'),
         'debtors_path' => env('BALANCE_DEBTORS_PATH', '/api/v1/clientes/deudores'),
     ],

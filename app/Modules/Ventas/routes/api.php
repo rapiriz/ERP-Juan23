@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Middleware\IdentidadUsuario;
+use App\Modules\Ventas\Controllers\CommercialController;
 use App\Modules\Ventas\Controllers\VentaApiController;
 use App\Modules\Ventas\Controllers\VentaController;
 use App\Modules\Ventas\Middleware\AutenticarApiVentas;
@@ -18,16 +20,22 @@ use Illuminate\Support\Facades\Route;
 | Bearer válido responden 401 "No autorizado.".
 */
 
-Route::middleware(AutenticarApiVentas::class)->group(function () {
+Route::middleware([AutenticarApiVentas::class, 'api.audience:administrativo,repartidor,contador'])->group(function () {
     // Alta y catálogo simulado (VentaController, de develop-g4)
     Route::get('/ventas/productos-simulados', [VentaController::class, 'obtenerProductosSimulados']); // Lo usa resources/js/promociones.js
-    Route::post('/ventas', [VentaController::class, 'store']);                                         // Alta de venta
+    Route::post('/ventas', [VentaController::class, 'store'])->middleware('api.user:administrativo,repartidor');                                         // Alta de venta
 
     // Consultar, modificar, anular y cambiar estado (VentaApiController)
     // whereNumber('id') hace que {id} solo acepte números: así "/ventas/estados"
     // o "/ventas/productos-simulados" nunca se confunden con el id de una venta.
     Route::prefix('ventas')->controller(VentaApiController::class)->name('api.ventas.')->group(function () {
         Route::get('/', 'index')->name('index');                                              // Lista con filtros y paginación
+        Route::get('/clientes/{id}/credito', [CommercialController::class, 'credit'])->whereNumber('id');
+        Route::put('/clientes/{id}/credito', [CommercialController::class, 'setCredit'])->whereNumber('id')->middleware('api.user:administrativo');
+        Route::get('/devoluciones', [CommercialController::class, 'index']);
+        Route::get('/devoluciones/{id}', [CommercialController::class, 'detail'])->whereNumber('id');
+        Route::post('/{id}/devoluciones', [CommercialController::class, 'store'])->whereNumber('id')->middleware('api.user:administrativo');
+        Route::patch('/{id}/observaciones', [CommercialController::class, 'comment'])->whereNumber('id')->middleware('api.user:administrativo,repartidor');
         Route::get('/estados', 'estados')->name('estados');                                   // Catálogo de estados y sus reglas
         Route::get('/productos', 'productos')->name('productos');                             // Catálogo para "Agregar producto" al modificar
         Route::get('/clientes', 'clientes')->name('clientes');                                // Clientes reales para el selector de Ventas
@@ -35,9 +43,9 @@ Route::middleware(AutenticarApiVentas::class)->group(function () {
         Route::get('/localidades', 'localidades')->name('localidades');                       // Estadísticas: resumen por localidad
         Route::get('/localidad/{nombre}', 'localidad')->name('localidad');                    // Estadísticas de una localidad (por nombre)
         Route::get('/{id}', 'show')->whereNumber('id')->name('show');                         // Una venta con detalle, botones e historial
-        Route::put('/{id}', 'update')->whereNumber('id')->name('update');                     // Botón "Modificar"
-        Route::delete('/{id}', 'destroy')->whereNumber('id')->name('destroy');                // Botón "Eliminar" (anula, no borra)
-        Route::post('/{id}/restaurar', 'restaurar')->whereNumber('id')->name('restaurar');    // Deshace una anulación
-        Route::patch('/{id}/estado', 'cambiarEstado')->whereNumber('id')->name('estado');     // Avanza de fase
+        Route::put('/{id}', 'update')->whereNumber('id')->middleware('api.user:administrativo,repartidor')->name('update');                     // Botón "Modificar"
+        Route::delete('/{id}', 'destroy')->whereNumber('id')->middleware('api.user:administrativo,repartidor')->name('destroy');                // Botón "Eliminar" (anula, no borra)
+        Route::post('/{id}/restaurar', 'restaurar')->whereNumber('id')->middleware('api.user:administrativo,repartidor')->name('restaurar');    // Deshace una anulación
+        Route::patch('/{id}/estado', 'cambiarEstado')->whereNumber('id')->middleware(['api.audience:administrativo,repartidor', IdentidadUsuario::class])->name('estado');     // Avanza de fase
     });
 });

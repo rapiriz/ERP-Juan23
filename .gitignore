@@ -29,3 +29,6 @@ runtime/
 MISSION.md 
 NOTES.md 
 RESOURCES.md
+**/node_modules/
+/tests/Browser/results/
+/public/assets/catalogo/qa-browser-*.webp

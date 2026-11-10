@@ -4,13 +4,32 @@ namespace App\Modules\Caja\Repositories;
 
 use App\Modules\Caja\Models\Caja;
 use App\Modules\Caja\Models\CajaMovimiento;
+use App\Modules\Login\Models\User;
+use App\Modules\Shared\Services\UsuarioService;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class CajaRepository
 {
+    public function bloquearUsuario(int $id): void
+    {
+        DB::table('usuarios')->where('id', $id)->lockForUpdate()->first();
+    }
+
+    public function movimientoProtegido(int $id): bool
+    {
+        $move = CajaMovimiento::find($id);
+
+        return ($move?->id_cobro !== null)
+            || (Schema::hasTable('cuenta_corriente_pagos') && DB::table('cuenta_corriente_pagos')->where('movimiento_caja_id', $id)->exists())
+            || (Schema::hasTable('CONCILIACION_DETALLE') && DB::table('CONCILIACION_DETALLE')->where('id_movimiento_caja', $id)->exists());
+    }
+
     public function buscarPorId(int $idCaja): ?Caja
     {
-        return Caja::with('movimientos')->find($idCaja);
+        return Caja::with('movimientos')->when(DB::transactionLevel() > 0, fn ($q) => $q->lockForUpdate())->find($idCaja);
     }
 
     public function buscarAbiertaDeUsuario(int $idUsuario, string $fecha): ?Caja
@@ -18,6 +37,7 @@ class CajaRepository
         return Caja::where('id_usuario', $idUsuario)
             ->where('fecha', $fecha)
             ->where('estado', Caja::ESTADO_ABIERTA)
+            ->when(DB::transactionLevel() > 0, fn ($q) => $q->lockForUpdate())
             ->first();
     }
 
@@ -30,6 +50,7 @@ class CajaRepository
     {
         return Caja::where('id_usuario', $idUsuario)
             ->where('estado', Caja::ESTADO_ABIERTA)
+            ->when(DB::transactionLevel() > 0, fn ($q) => $q->lockForUpdate())
             ->orderByDesc('fecha')
             ->first();
     }
@@ -90,14 +111,14 @@ class CajaRepository
      * Cajas abiertas, vencidas, cuyo dueño es repartidor. Son las que se
      * cierran solas (la caja del admin no se cierra automáticamente).
      */
-    public function listarVencidasDeRepartidores(\Illuminate\Support\Carbon $ahora): Collection
+    public function listarVencidasDeRepartidores(Carbon $ahora): Collection
     {
         return Caja::where('estado', Caja::ESTADO_ABIERTA)
             ->whereNotNull('fecha_hora_vencimiento')
             ->where('fecha_hora_vencimiento', '<', $ahora)
             ->whereIn(
                 'id_usuario',
-                \App\Modules\Login\Models\User::where('rol', Caja::ROL_REPARTIDOR)->select('id')
+                User::where('rol', Caja::ROL_REPARTIDOR)->select('id')
             )
             ->get();
     }
@@ -108,7 +129,7 @@ class CajaRepository
      */
     public function rolDeUsuario(int $idUsuario): ?string
     {
-        return \App\Modules\Shared\Services\UsuarioService::obtenerUsuario($idUsuario)['rol'] ?? null;
+        return UsuarioService::obtenerUsuario($idUsuario)['rol'] ?? null;
     }
 
     public function crear(array $datos): Caja
@@ -119,6 +140,7 @@ class CajaRepository
     public function guardar(Caja $caja): Caja
     {
         $caja->save();
+
         return $caja;
     }
 
@@ -177,12 +199,13 @@ class CajaRepository
 
     public function buscarMovimientoPorId(int $idMovimiento): ?CajaMovimiento
     {
-        return CajaMovimiento::find($idMovimiento);
+        return CajaMovimiento::when(DB::transactionLevel() > 0, fn ($q) => $q->lockForUpdate())->find($idMovimiento);
     }
 
     public function guardarMovimiento(CajaMovimiento $movimiento): CajaMovimiento
     {
         $movimiento->save();
+
         return $movimiento;
     }
 

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 use Illuminate\Database\Migrations\Migration;
@@ -10,34 +11,34 @@ return new class extends Migration
 {
     public function up(): void
     {
-        if (\Illuminate\Support\Facades\Schema::getConnection()->getDriverName() === 'sqlite') {
+        if (Schema::getConnection()->getDriverName() === 'sqlite') {
             return;
         }
 
-        if (Schema::hasTable('MOVIMIENTO_STOCK')) {
-            Schema::table('MOVIMIENTO_STOCK', function (Blueprint $table) {
-                if (!Schema::hasColumn('MOVIMIENTO_STOCK', 'cantidad_base')) {
+        if (Schema::hasTable('movimiento_stock')) {
+            Schema::table('movimiento_stock', function (Blueprint $table) {
+                if (! Schema::hasColumn('movimiento_stock', 'cantidad_base')) {
                     $table->integer('cantidad_base')->nullable();
                 }
-                if (!Schema::hasColumn('MOVIMIENTO_STOCK', 'id_recepcion')) {
+                if (! Schema::hasColumn('movimiento_stock', 'id_recepcion')) {
                     $table->integer('id_recepcion')->nullable();
                 }
             });
 
-            DB::table('MOVIMIENTO_STOCK')
+            DB::table('movimiento_stock')
                 ->whereNull('cantidad_base')
                 ->orderBy('id_movimiento')
                 ->chunkById(500, function ($movimientos): void {
                     foreach ($movimientos as $movimiento) {
                         $equivalencia = $movimiento->id_unidad
-                            ? DB::table('UNIDAD_MEDIDA')->where('id_unidad', $movimiento->id_unidad)->value('equivalencia_base')
+                            ? DB::table('unidad_medida')->where('id_unidad', $movimiento->id_unidad)->value('equivalencia_base')
                             : null;
 
                         $actualizar = [
                             'cantidad_base' => (int) round((int) $movimiento->cantidad * ($equivalencia !== null ? (float) $equivalencia : 1)),
                         ];
 
-                        DB::table('MOVIMIENTO_STOCK')
+                        DB::table('movimiento_stock')
                             ->where('id_movimiento', $movimiento->id_movimiento)
                             ->update($actualizar);
                     }
@@ -47,14 +48,14 @@ return new class extends Migration
 
     public function down(): void
     {
-        if (Schema::hasTable('MOVIMIENTO_STOCK')) {
+        if (Schema::hasTable('movimiento_stock')) {
             $columnasMovimiento = array_values(array_filter(
                 ['cantidad_base', 'id_recepcion'],
-                fn (string $columna): bool => Schema::hasColumn('MOVIMIENTO_STOCK', $columna)
+                fn (string $columna): bool => Schema::hasColumn('movimiento_stock', $columna)
             ));
 
             if ($columnasMovimiento !== []) {
-                Schema::table('MOVIMIENTO_STOCK', fn (Blueprint $table) => $table->dropColumn($columnasMovimiento));
+                Schema::table('movimiento_stock', fn (Blueprint $table) => $table->dropColumn($columnasMovimiento));
             }
         }
     }

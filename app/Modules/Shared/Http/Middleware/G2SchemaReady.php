@@ -2,6 +2,7 @@
 
 namespace App\Modules\Shared\Http\Middleware;
 
+use App\Modules\ConciliacionBancaria\Repositories\Cobro;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -32,7 +33,9 @@ class G2SchemaReady
         // El origen de cobros falta en la entrega de G2. No sustituirlo por otro
         // modelo financiero sin confirmar la correspondencia de sus claves.
         if ($module === 'conciliacion' && str_ends_with($request->route()->getActionName(), '@conciliarAutomatico')
-            && ! class_exists(\App\Modules\ConciliacionBancaria\Repositories\Cobro::class)) {
+            && (! class_exists(Cobro::class)
+                || ! Schema::hasColumns((new Cobro)->getTable(),
+                    ['id_cobro', 'monto_total', 'fecha']))) {
             $message = 'La conciliación automática necesita que G2 complete la integración de cobros.';
 
             return $request->expectsJson()

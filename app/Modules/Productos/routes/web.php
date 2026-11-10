@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Middleware\IdentidadUsuario;
+use App\Modules\Login\Middleware\AuthenticateApiSessionRequest;
 use App\Modules\Compras\Controllers\CompraController;
 use App\Modules\Compras\Controllers\PagoCompraController;
 use App\Modules\Compras\Controllers\RecepcionController;
@@ -58,7 +59,7 @@ Route::middleware(['auth', 'session.current', IdentidadUsuario::class])->group(f
         Route::redirect('/ordenes', '/compras');
 
         // Submódulos Reposición y Vencimientos (G3)
-        Route::redirect('/vencimientos', '/inventario')->name('vencimientos.index');
+        Route::redirect('/vencimientos', '/inventario/lotes?estado=proximo')->name('vencimientos.index');
         Route::view('/sugerencias-reposicion', 'sugerencias-reposicion')->name('sugerencias-reposicion.index');
         Route::view('/dashboard-reposicion', 'dashboard-reposicion')->name('dashboard-reposicion.index');
         Route::redirect('/reposicion', '/sugerencias-reposicion');
@@ -109,7 +110,8 @@ $registrarRutasInternasG3 = function (): void {
     Route::get('unidades/convertir', [UnidadController::class, 'convertir']);
     Route::post('productos/{id}/unidades/{idUnidad}/seleccionar', [UnidadController::class, 'seleccionar'])
         ->whereNumber('id')->whereNumber('idUnidad');
-    Route::apiResource('productos/{id}/unidades', UnidadController::class);
+    Route::apiResource('productos/{id}/unidades', UnidadController::class)
+        ->parameters(['unidades' => 'idUnidad'])->whereNumber(['id', 'idUnidad']);
 
     Route::get('ubicaciones', [UbicacionController::class, 'index']);
     Route::post('ubicaciones', [UbicacionController::class, 'store']);
@@ -144,11 +146,13 @@ $registrarRutasInternasG3 = function (): void {
     Route::apiResource('proveedores', ProveedorController::class)->except(['destroy']);
 
     // Módulo Compras, Recepciones y Pagos a Proveedores (C01 a C09)
+    Route::patch('compras/{compra}/cerrar-parcial', [CompraController::class, 'cerrarParcial'])->whereNumber('compra');
     Route::patch('compras/{compra}/cancelar', [CompraController::class, 'cancelar'])->whereNumber('compra');
     Route::post('compras/{compra}/recepciones', [RecepcionController::class, 'store'])->whereNumber('compra');
     Route::get('compras/{compra}/estado', [CompraController::class, 'estado'])->whereNumber('compra');
     Route::post('compras/{compra}/pagos', [PagoCompraController::class, 'store'])->whereNumber('compra');
     Route::get('compras/{compra}/pagos', [PagoCompraController::class, 'index'])->whereNumber('compra');
+    Route::delete('compras/{compra}/pagos/{pago}', [PagoCompraController::class, 'destroy'])->whereNumber(['compra', 'pago']);
     Route::get('compras/{compra}/pagos/resumen', [PagoCompraController::class, 'resumen'])->whereNumber('compra');
     Route::get('compras/deudas', [CompraController::class, 'deudas']);
     Route::get('proveedores/deudas', [CompraController::class, 'deudas']);
@@ -179,7 +183,9 @@ $registrarRutasInternasG3 = function (): void {
     });
 };
 
-Route::middleware([IdentidadUsuario::class])
+// El autenticador común valida CSRF para sesión y admite Bearer en las APIs.
+Route::middleware([AuthenticateApiSessionRequest::class, 'api.user:administrativo,repartidor',
+    'api.write.user:administrativo', IdentidadUsuario::class])
     ->withoutMiddleware([ValidateCsrfToken::class])
     ->prefix('api')
     ->group(function () use ($registrarRutasInternasG3): void {

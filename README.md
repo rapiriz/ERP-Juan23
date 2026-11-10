@@ -1,32 +1,42 @@
 # ERP Juan23
 
-## Entorno local integrado (27/10/2026)
+## Entorno integrado (09/11/2026)
 
-Por autorización del usuario se instalaron los esquemas locales de G2, G3 y G4 en `sistema_gestion`, conservando los registros existentes. La base tiene 61 tablas, 11 clientes y cinco productos reales con stock, precios iniciales y movimientos de ingreso. El retiro anterior de G3 queda como antecedente histórico: esta instalación fue autorizada nuevamente.
+Se completó la etapa de bloqueos generales e integración: migraciones que conservan datos, instalación desde cero y actualización, transporte interno entre módulos, fuentes financieras y correcciones de escape de HTML. Los cambios y sus límites están en [el informe de esta etapa](docs/informe-bloqueos-generales-e-integracion-2026-11-09.md).
 
-Para trabajar con las APIs de G1 y el Catálogo, iniciar **MySQL** en XAMPP y ejecutar desde la raíz del proyecto:
+Para trabajar, iniciar **MySQL** desde XAMPP y ejecutar desde la raíz del proyecto:
 
 ```powershell
 C:\xampp\php\php.exe -d extension=gd -d extension=zip artisan serve
 ```
 
-El Catálogo usa `CATALOG_TRANSPORT=internal` en este entorno: consulta la ruta API de Productos dentro de Laravel, sin una llamada HTTP al mismo proceso. Apache es opcional para este circuito. No iniciar Apache y `artisan serve` al mismo tiempo en 8000.
+Abrir `http://127.0.0.1:8000`. El catálogo público está en `/catalogo`; su JSON está en `/api/v1/catalogo` y `/api/v1/catalogo/{id}`. Apache es opcional: los consumidores locales configurados con `internal` llaman las rutas registradas dentro de Laravel, conservando sus middleware y evitando HTTP hacia el mismo servidor de desarrollo.
 
-Abrir `http://127.0.0.1:8000` para entrar al ERP. El Catálogo público está en `/catalogo`; su API JSON de G1 está en `/api/v1/catalogo` y `/api/v1/catalogo/{id}`. En modo interno consumen la API real de Productos registrada en la copia local. Para un proveedor remoto, usar `CATALOG_TRANSPORT=http` y configurar su URL.
+Para detener la web, pulsar **Ctrl+C**. La base existente conserva sus datos. Los informes de octubre y la recuperación de MySQL del 08/11 son antecedentes históricos; la secuencia de instalación vigente es la siguiente.
 
-La pantalla `/inventario` pertenece a G3 y ahora dispone de su esquema local. Los archivos originales de negocio de los otros equipos se conservaron. La instalación de tablas no certifica todos sus circuitos financieros y comerciales.
+## Funcionalidades de G1 completadas (09/11/2026)
 
-Para apagar `artisan serve`, pulsar **Ctrl+C** en su terminal. Si se elige Apache, detenerlo desde XAMPP. En esta última revisión se cerraron los servidores web de prueba; no quedó la web iniciada.
+En **Reportes y Finanzas** se agregaron ventas diarias, caja diaria, stock bajo y vencimientos a 7, 15 y 30 días. Los siete reportes de consulta tienen descarga PDF/Excel; se mantiene la exportación del historial de cada cliente. Los filtros se conservan al exportar y se incluyen todos los resultados consultados, independientemente de la página de pantalla.
 
-Configuración de XAMPP, pruebas y reversión: [informe de puerto único](docs/informe-apache-puerto-unico-g1.md).
+La ficha de cliente distingue pagos aplicados de cobros declarados o rendiciones aprobadas. Un administrativo puede registrar un pago parcial si el cliente tiene deuda y el usuario tiene una caja abierta. El registro vincula caja, cuenta corriente y auditoría en una transacción; una repetición con la misma clave de solicitud no duplica el pago.
 
-APIs verificadas, permisos, pruebas POST/PUT/PATCH y ejemplos manuales: [APIs funcionales de G1](docs/apis-funcionales-g1.md). La adaptación interna cubre Productos para el Catálogo y consumidores de catálogo de G1. Otros consumidores HTTP —por ejemplo Ventas en reportes— siguen necesitando un proveedor que pueda atender la consulta; si apuntan al mismo proceso único de PHP, usar Apache o un proveedor separado para ese circuito.
+En `/transferencias` se pueden registrar avisos con comprobante privado PDF/JPEG/PNG de hasta 5 MiB. Un administrativo los valida o rechaza con una nota. **Validar el aviso no acredita el pago**: después se abre la ficha del cliente y se registra expresamente el pago asociado. El contador puede consultar y descargar comprobantes; no registrar ni validar operaciones.
 
-No ejecutar migraciones globales, `migrate:fresh`, `migrate:refresh`, semillas globales ni rollback general como paso de arranque. Se aplicaron rutas seleccionadas y dependencias ordenadas; la semilla de seis productos de G3 se excluyó para cargar únicamente los cinco solicitados. Fuentes, compatibilidad, pruebas y reversión: [informe de instalación local G2/G3/G4](docs/informe-instalacion-local-g2-g3-g4.md).
+Las nuevas consultas JSON protegidas son `GET /api/v1/reportes/ventas-diarias`, `/caja-diaria`, `/stock-bajo` y `/vencimientos`, bajo el mismo prefijo `/api/v1/reportes`. Los avisos usan `/api/v1/transferencias` y el pago explícito usa `POST /api/v1/finanzas/clientes/{id}/pagos`. Las escrituras requieren un usuario administrativo autenticado; el token técnico de integración no habilita estas escrituras.
 
-El 28/10/2026 se retiraron, por pedido del usuario, las nueve migraciones nuevas de esa instalación local (compatibilidad de stock, siete importadas de G2 y promociones de G4). Se conservaron las migraciones previamente versionadas y la base local existente, sin rollback. Esos archivos locales no se compartirán con el código de G1; esta copia no permite reproducir por sí sola el esquema integrado desde cero. Detalles y respaldo: [APIs funcionales de G1](docs/apis-funcionales-g1.md#qué-cambia-con-commitpush-y-cómo-revertir).
+La actualización aplica dos migraciones modulares nuevas y crea cuatro tablas de pagos, avisos y auditoría. Para instalaciones existentes, ejecutar `C:\xampp\php\php.exe erp-install.php` después del respaldo; no usar `migrate:fresh` sobre datos de trabajo. Cambios, contratos, pruebas, límites y reversión: [informe de funcionalidades de G1](docs/informe-funcionalidades-g1-2026-11-09.md).
 
-Sistema web de gestión comercial en Laravel. Incluye autenticación segura, recuperación de contraseña por email, permisos por rol, clientes, reclamos y reportes. Los cobros y facturas pertenecen a G2; los saldos y ventas, a G4.
+## Finanzas, rendiciones y entregas de G2 (09/11/2026)
+
+Se completó el recorrido integrado de revisión individual de cobros, aplicación a caja/cuenta corriente, anulación compensatoria y rechazo de cheques. Los cobros pendientes y sus operaciones están en `/cobros`, accesible desde Rendiciones. Un administrativo necesita su caja abierta para aplicar o revertir dinero. Los históricos sin un vínculo financiero verificable se bloquean para revisión: no se vuelven a liquidar automáticamente.
+
+`/conciliacion` permite importar XLS/TXT, consultar propuestas, conciliar uno o varios movimientos, registrar gastos bancarios, gestionar disputas, revisar cheques y cerrar períodos. Las conciliaciones validan sumas, signo, disponibilidad y período; el historial permite revertir grupos mientras el período esté abierto. Una conciliación bancaria no vuelve a acreditar un cobro ya aplicado.
+
+En la hoja de ruta de una entrega en preparación aparece **Modificar pedidos**. Se pueden quitar o incorporar pedidos de la misma zona; al quitar, el pedido vuelve a confirmado y se conserva el remito anterior como anulado. Este recorrido atómico usa la integración local `internal`.
+
+La migración modular `2026_11_09_000003_complete_g2_operations` agrega cinco tablas de vínculos, reservas y auditoría, y amplía Rendición Cobro, Entrega y Conciliación Detalle. No elimina datos históricos. Para actualizar otras instalaciones, respaldar su base y ejecutar `C:\xampp\php\php.exe erp-install.php`.
+
+Detalle de errores, archivos, contratos, pruebas reales, restricciones y reversión: [informe de G2](docs/informe-g2-finanzas-rendiciones-entregas-2026-11-09.md).
 
 ## Catálogo público de G1
 
@@ -50,105 +60,61 @@ El proyecto fue verificado con PHP 8.2.12, Laravel 12.69.2 y MariaDB 10.4.32 de 
 
 En XAMPP, habilitar `extension=gd` y `extension=zip` en `C:\xampp\php\php.ini`. Como alternativa, los comandos de este README que generan PDF o Excel incluyen ambas extensiones mediante `-d`.
 
-## Instalación
+## Instalación y actualización
 
-1. Instalar las dependencias:
-
-   ```bash
-   composer install
-   ```
-
-   En este equipo también puede usarse el Composer local ya descargado:
+1. Instalar las dependencias con `composer install`.
+2. En una instalación nueva, copiar `.env.example` a `.env`. En una existente, conservar `.env` y `APP_KEY`.
+3. Crear una base MySQL/MariaDB vacía para una instalación nueva, o respaldar la base existente. Configurar `DB_CONNECTION=mysql`, host, puerto, base, usuario y contraseña en `.env`.
+4. Iniciar MySQL y ejecutar:
 
    ```powershell
-   C:\xampp\php\php.exe -d extension=gd -d extension=zip .tools\composer.phar install
+   composer setup
    ```
 
-2. Crear el archivo de entorno:
+   Si Composer no está en PATH, en este equipo:
 
    ```powershell
-   Copy-Item .env.example .env
+   C:\xampp\php\php.exe C:\ProgramData\ComposerSetup\bin\composer.phar setup
    ```
 
-3. Generar la clave de la aplicación:
+El instalador conserva una `APP_KEY` existente, ejecuta las migraciones pendientes y configura una identidad técnica y los transportes internos. Crea la clave sólo si falta. No ejecuta semillas ni importa SQL históricos. Las migraciones de limpieza de G3 conservarán lotes, identificadores y tablas históricas.
 
-   ```powershell
-   C:\xampp\php\php.exe artisan key:generate
-   ```
+Para crear el primer administrador en una base nueva:
 
-4. Configurar MySQL en `.env`:
-
-   ```dotenv
-   DB_CONNECTION=mysql
-   DB_HOST=127.0.0.1
-   DB_PORT=3306
-   DB_DATABASE=sistema_gestion
-   DB_USERNAME=root
-   DB_PASSWORD=
-   ```
-
-5. Iniciar MySQL desde XAMPP.
-
-## Base de datos
-
-### Instalación nueva
-
-Preparar el esquema aprobado en una base propia, con respaldo y una selección explícita y ordenada de migraciones. No utilizar una migración o semilla global: el proveedor modular descubre también archivos de otros equipos. La instalación local actual de G2/G3/G4 y las dependencias de su secuencia se documentan en [el informe de instalación](docs/informe-instalacion-local-g2-g3-g4.md).
-
-### Base existente del proyecto
-
-La base `sistema_gestion` ya está preparada; no necesita migraciones o semillas como paso de arranque. Cualquier modificación posterior requiere alcance autorizado y una ruta explícita revisada, preservando datos existentes. No volver a importar SQL históricos completos ni reinstalar tablas ya existentes.
-
-La migration de recuperación agrega un email opcional y único a `usuarios`. El administrador puede asignar los emails reales desde **Lista de Usuarios** en su panel, sin utilizar phpMyAdmin.
-
-`database/database.sql` y las antiguas migraciones SQL se conservan como documentación del esquema previo.
-
-## Ejecución
-
-Las pantallas internas usan el menú lateral compartido. El relevamiento de APIs de G1 quedó en el chat. La conexión de G2, sus requisitos pendientes y la reversión se detallan en [informe de integración de G2](docs/informe-integracion-operativa-g2.md).
-
-Para las APIs de G1 y el Catálogo, iniciar MySQL en XAMPP y ejecutar `artisan serve`, según las instrucciones iniciales. También puede usarse Apache, que sirve exclusivamente `ERP-Juan23/public`.
-
-Abrir:
-
-```text
-http://127.0.0.1:8000
+```powershell
+C:\xampp\php\php.exe artisan erp:configure --admin
 ```
 
-Laravel debe servirse desde `public/`. El Catálogo interno ya no depende de concurrencia HTTP. Mantener el modo HTTP contra el mismo proceso de `artisan serve` sí puede bloquear una consulta; esa configuración no se utiliza para el Catálogo local.
+Pide usuario y contraseña de al menos 12 caracteres. No modifica las credenciales de usuarios existentes. La cuenta `servicio.integracion` sirve para las llamadas entre módulos; su contraseña aleatoria no se entrega y su token permanece en `.env`.
 
-### Ventas, Historial y Cuentas corrientes: modo de integración
+Si las dependencias ya están instaladas, `C:\xampp\php\php.exe erp-install.php` realiza la actualización y configuración. El arranque diario requiere solamente MySQL y `artisan serve`.
 
-La configuración de G4 está restaurada en modo de prueba:
+No usar `migrate:fresh`, `migrate:refresh`, rollback general ni semillas sobre una base con datos que deban conservarse. Los SQL históricos no son el instalador vigente. Ante referencias huérfanas de usuarios, la migración se detiene para revisar la identidad original, sin asignar registros a otro usuario.
 
-```dotenv
-VENTAS_INTEGRACION=mock
-```
+## Integración local y remota
 
-Este modo usa los catálogos originales de clientes y productos de G4 y simula la integración de stock. **No convierte las ventas, el historial ni los pagos en operaciones ficticias**: Historial y Cuentas corrientes consultan MySQL y las acciones de guardar conservan las escrituras originales de G4. Para revisar las pantallas, iniciar MySQL desde XAMPP; no confirmar operaciones con datos de prueba sobre una base compartida.
+`erp:configure` establece `VENTAS_INTEGRACION=internal`, `CATALOG_TRANSPORT=internal` y los transportes locales de reportes, facturación, saldos, rendiciones y Entregas/Ventas. Ventas toma clientes reales de G1, productos y movimientos de stock de G3. `mock` requiere una selección explícita; un valor desconocido produce un error de configuración.
 
-Después de cambiar `VENTAS_INTEGRACION`, ejecutar `C:\xampp\php\php.exe artisan config:clear`. El modo `http` queda preparado en el registro de dependencias, pero requiere validar URLs, autenticación y contratos con cada grupo antes de activarlo.
+Las fuentes financieras de Cuenta Corriente de G4 son:
 
-Detalle de la corrección y verificaciones: [informe de integración de G4](docs/informe-correccion-integracion-g4.md).
-
-La instalación de tablas y la administración de datos de G4 corresponden a su equipo; G1 consume sus APIs. Las tablas `venta`, `detalle_venta` y `cuenta_corriente_movimientos` que ya existían en este entorno se conservaron sin cambios durante el retiro de G3. Su instalación previa se mantiene documentada como antecedente en el informe; no se indica repetirla ni revertirla desde G1.
-
-## Usuarios de prueba
-
-Estas credenciales son solo para desarrollo local y se crean con `artisan db:seed`.
-
-| Usuario | Contraseña | Rol |
+| Método | Ruta | Datos |
 | --- | --- | --- |
-| admin | Admin1234 | administrativo |
-| repartidor | Repartidor1234 | repartidor |
-| contador | Contador1234 | contador |
-| inactivo | Inactivo1234 | repartidor inactivo |
+| GET | `/api/v1/finanzas/clientes/{id}/saldo` | Deuda, saldo a favor y saldo contable |
+| GET | `/api/v1/finanzas/clientes/deudores` | Clientes con deuda |
+| GET | `/api/v1/finanzas/facturas/pendientes` | Ventas internas con importe pendiente y vencimiento opcional |
+| GET | `/api/v1/finanzas/cobros?cliente_id={id}` | Pagos efectivamente aplicados al libro |
 
-Los usuarios sembrados usan direcciones `example.com`. Deben reemplazarse por emails reales para probar el envío mediante SMTP.
+Exigen autenticación y permisos. Un cobro declarado en una rendición no se presenta como pago confirmado. El informe especifica signos, estados, asignación de pagos y límites de estos contratos.
+
+Para servicios separados, elegir `http` en el transporte correspondiente y configurar URL, token y rutas del proveedor. No apuntar esos consumidores HTTP al mismo proceso único de `artisan serve`. Los tokens son privados y no deben subirse a Git.
+
+## Datos de demostración
+
+`composer setup` no carga productos, clientes ni contraseñas de prueba. `artisan db:seed` queda como acción explícita de desarrollo y puede agregar datos de demostración; el seeder de usuarios conserva las credenciales de cuentas ya existentes. Revisar las semillas antes de ejecutarlas sobre una base compartida.
 
 ## Permisos
 
-Los reportes Sprint 4 de deudores y ranking estan preparados para consumir JSON de G2/G4. Hasta que esos grupos confirmen y publiquen las APIs, muestran integracion pendiente. Ver [contratos-sprint4-g1.md](docs/contratos-sprint4-g1.md) para rutas, campos y variables `BILLING_SERVICE_*`, `BALANCE_SERVICE_*` y `SALES_SERVICE_*`.
+Los reportes consumen las APIs locales mediante transporte interno. La liquidación completa de cobros y la conciliación bancaria siguen requiriendo las validaciones funcionales detalladas en el informe de esta etapa.
 
 | Funcionalidad | Administrativo | Repartidor | Contador |
 | --- | --- | --- | --- |
@@ -203,11 +169,7 @@ Ejecutar la suite automatizada:
 C:\xampp\php\php.exe -d extension=gd -d extension=zip artisan test
 ```
 
-Comprobar una instalación limpia con SQLite en memoria, sin tocar MySQL:
-
-```powershell
-C:\xampp\php\php.exe artisan migrate:fresh --seed --env=testing --force
-```
+La instalación integrada se valida sobre una base **MySQL/MariaDB separada y vacía**. SQLite en memoria se usa en pruebas unitarias y de contratos; no representa todo el esquema de G3. Algunas pruebas heredadas usan MySQL directamente: revisar `tests/UsesG3Database.php` antes de ejecutar toda la suite. El informe registra las exclusiones y los fallos previos que permanecen.
 
 Revisar rutas y formato:
 
@@ -256,4 +218,44 @@ El detalle completo de la migración está en [MIGRATION.md](MIGRATION.md).
 
 ## Integración entre grupos
 
-La API JSON de G1 y los contratos HTTP esperados de G2, G3 y G4 se documentan en [docs/integracion-microservicios.md](docs/integracion-microservicios.md). No existe un modo de datos locales para ventas o productos externos. El login API es publico; las demas rutas aceptan un token de usuario o, segun sus permisos, `INTERNAL_API_TOKEN`. Ningun token debe incluirse en el repositorio.
+La API JSON de G1 y los contratos HTTP esperados de G2, G3 y G4 se documentan en [docs/integracion-microservicios.md](docs/integracion-microservicios.md). El modo `internal` consume las rutas API registradas de los módulos de esta misma aplicación; `http` permite proveedores separados. El login API es publico; las demas rutas aceptan un token de usuario o, segun sus permisos, `INTERNAL_API_TOKEN`. Ningun token debe incluirse en el repositorio.
+
+
+### Compras, stock y ventas: correcciones del 09/11/2026
+
+- Informe de cambios, pruebas y reversión: [G3/G4 — Compras, stock y ventas](docs/informe-g3-g4-compras-stock-ventas-2026-11-09.md).
+- Después de actualizar el código, respaldar la base y ejecutar `C:\xampp\php\php.exe artisan migrate`. La nueva migración agrega las tablas de seguimiento `g4_stock_operations` y `g3_stock_requests`.
+- Con `VENTAS_INTEGRACION=internal` se mantiene el uso de `artisan serve` y MySQL; no se necesita otro servidor HTTP para Stock.
+- Recuperación de ajustes pendientes: `C:\xampp\php\php.exe artisan ventas:reenviar-stock --limit=100`. Su programación está declarada, pero la tarea local fue retirada por pedido del usuario; actualmente el reenvío se ejecuta manualmente.
+- PDF de saldos y pagos: botón de descarga en Cuentas corrientes (`/saldo`), con los filtros activos y acceso autenticado.
+
+
+### Crédito, devoluciones y compras: cierre funcional del 09/11/2026
+
+- [Informe detallado, APIs, pruebas y reversión](docs/informe-cierre-funcional-g1-g3-g4-2026-11-09.md).
+- La migración `2026_11_09_000007_complete_commercial_workflows.php` agrega límite opcional de crédito y registros de devoluciones/notas internas. Respaldar la base antes de migrar; no borra datos históricos.
+- Devoluciones y comprobantes internos: `/devoluciones`. Las notas no son comprobantes fiscales. Sólo mercadería recibida como apta aumenta el stock disponible.
+- Las entregas seleccionan pedidos confirmados. Confirmación y observaciones están disponibles desde Historial de ventas; la confirmación vuelve a validar el crédito en el servidor.
+- Inactividad máxima de sesión: 30 minutos. No publicar `.env` ni respaldos de la base.
+
+
+### Validación y operación local (09/11/2026)
+
+- [Guía vigente: pruebas aisladas, programador, monitor, respaldo y despliegue](docs/validacion-y-despliegue.md).
+- [Informe de correcciones y revisión del repositorio](docs/informe-validacion-preparacion-y-repaso-2026-11-09.md) e [índice de informes](docs/indice-informes.md).
+- Administrativo: `/operaciones/stock` y `/operaciones/historicas`. Reintentos de stock conservan su clave; la revisión financiera nunca aplica pagos automáticamente.
+- La tarea programada local permanece eliminada; iniciar MySQL y Artisan no instala ni activa un programador. Ver la guía para operación manual.
+- Inventario de APIs: [rutas registradas](docs/api-rutas-registradas.md). Ejemplos en la colección Postman existente.
+- No ejecutar pruebas contra la base habitual: el modo MySQL usa una base exclusiva `erp_qa_*` en 3315. La guía explica cómo habilitar todas las pruebas sin omisiones.
+
+## Ampliación del 09/11/2026
+
+[Catálogo, artículos reales, lotes, proveedores y preparación fiscal](docs/informe-catalogo-lotes-articulos-reales-2026-11-09.md).
+
+### Cierre y revisión del 10/11/2026
+
+- [Correcciones, migraciones aditivas, pruebas y reversión](docs/informe-cierre-pendientes-y-revision-2026-11-10.md).
+- [Revisión de issues, PR y ramas](docs/revision-issues-y-ramas-2026-11-10.md).
+- [Inventario de archivos de esta etapa](docs/inventario-cambios-cierre-2026-11-10.md) y [APIs registradas](docs/api-rutas-registradas.md).
+- Assets locales: `npm ci --prefix tools/frontend` y `npm run build --prefix tools/frontend`.
+- La tarea de Windows permanece retirada. No hay ejecución automática instalada; ver los comandos manuales en la guía vigente.

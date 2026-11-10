@@ -13,7 +13,7 @@ class EnsureCurrentSession
     public function handle(Request $request, Closure $next): Response
     {
         $lastActivity = (int) $request->session()->get('last_activity', now()->timestamp);
-        $timeout = (int) config('session.lifetime', 120) * 60;
+        $timeout = min(30, max(1, (int) config('session.lifetime', 30))) * 60;
 
         if ((now()->timestamp - $lastActivity) > $timeout) {
             return $this->invalidate($request, 'session_expired');

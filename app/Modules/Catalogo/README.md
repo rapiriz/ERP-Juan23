@@ -1,26 +1,18 @@
-# Catálogo público - G1
+# Catálogo público y solicitudes — G1
 
-Consulta pública sin autenticación. Primera etapa de las historias G1 #109 y #110; consume exclusivamente las APIs de Productos de G3 mediante HTTP GET.
+El visitante consulta `/catalogo` y el detalle sin iniciar sesión. El maestro de productos sigue perteneciendo a Productos: G1 proyecta sus datos mediante `CatalogoGateway`, con transporte HTTP o despacho interno autorizado según `services.catalog.transport`. El transporte interno evita que `artisan serve` se bloquee intentando atender una segunda llamada HTTP a sí mismo. No duplica el maestro ni consulta directamente sus tablas desde el catálogo.
 
-## Organización
+Categorías jerárquicas, filtros combinados, fotos, disponibilidad, paginación y alternativas usan la información comercial de G3. La disponibilidad descuenta los lotes controlados vencidos; la ausencia de información no se convierte en cero.
 
-- `Controllers/CatalogoController`: listado, actualización parcial y detalle, sin dependencia de sesión.
-- `Services/CatalogoGateway`: acceso al proveedor y validación del contrato.
-- `Services/CatalogoService`: búsqueda, filtros, categorías/marcas con cantidades, ordenamiento y paginación.
-- `Data/ProductoCatalogo`: proyección pública, precio, presentación y disponibilidad.
+## Solicitudes
 
-Se sigue el patrón de G1: clases en `Modules`, rutas centrales, vistas en `resources/views/catalogo`, assets en `public/assets` y pruebas en `tests`. No se crean carpetas vacías ni modelos de base de datos: G1 no administra ni duplica el maestro de productos de G3.
+- `/catalogo/carrito`: selección guardada en el navegador, sólo identificadores y cantidades.
+- `POST /catalogo/pedidos`: solicitud persistente con contacto, consentimiento, CSRF, límite de frecuencia e idempotencia. Los precios se recalculan en servidor y son de referencia.
+- `/catalogo/pedido/{token}`: constancia mediante enlace privado aleatorio, sin datos de contacto, caché ni indexación.
+- `/pedidos-catalogo`: revisión administrativa. El administrador verifica identidad, elige el cliente y la lista de precios y convierte la solicitud en una venta mediante el flujo existente de Ventas. La selección pública por sí sola no crea deuda ni reserva stock.
 
-## Rutas
+`g1_catalog_orders`, `g1_catalog_order_items` y `g1_catalog_order_events` conservan solicitud, detalle y revisión. La conversión tiene una clave privada distinta de la clave pública para evitar reutilizarla desde el formulario externo.
 
-| Método | URL | Función |
-| --- | --- | --- |
-| GET | `/catalogo` | Listado público y filtros. |
-| GET | `/catalogo/datos` | Fragmento HTML generado por G1 y opciones de filtros para actualización progresiva. |
-| GET | `/catalogo/{producto}` | Detalle y alternativas disponibles de la misma categoría. |
+Las fotos se cargan desde Inventario; `ProductImageStorage` valida y convierte a WebP. El catálogo no administra archivos maestros por su cuenta. El aviso local de datos de prueba depende de `catalogo.testing_notice`; nunca certifica precios ni existencias comerciales reales.
 
-La fuente se configura en `services.catalog`. Las fotografías permitidas y el intervalo de actualización, en `config/catalogo.php`. El formulario y el detalle funcionan también sin JavaScript.
-
-No hay tablas, migraciones, carrito, pedidos confirmados, pagos, reservas de stock ni un modo de demostración publicado. Las fotos son opcionales: la API actual de listado de G3 no las entrega. La ausencia de stock informado se presenta como “Consultar disponibilidad”, sin inferir stock cero.
-
-Ver [informe de implementación, pruebas y reversión](../../../docs/informe-implementacion-catalogo-g1.md).
+Ver [informe vigente y reversión](../../../docs/informe-catalogo-lotes-articulos-reales-2026-11-09.md). Los informes anteriores son históricos.

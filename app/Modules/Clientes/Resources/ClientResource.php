@@ -25,6 +25,7 @@ class ClientResource extends JsonResource
             'condicion_iva' => $this->condicion_iva,
             'tipo_cliente' => $this->tipo_cliente->value,
             'estado' => $this->estado->value,
+            'limite_credito' => $this->limite_credito === null ? null : (float) $this->limite_credito,
         ];
     }
 }

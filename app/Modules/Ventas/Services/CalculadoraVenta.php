@@ -36,6 +36,9 @@ class CalculadoraVenta
      */
     public function calcular(array $items, array $catalogo, string $lista, ?array $descuentoGlobal): array
     {
+        if (! in_array($lista, ['minorista', 'mayorista'], true)) {
+            throw ValidationException::withMessages(['lista' => 'Lista de precios inválida.']);
+        }
         // 1) Qué columna de precio usar según la lista elegida.
         $columnaPrecio = $lista === 'mayorista' ? 'precioMay' : 'precioMin';
 
@@ -54,6 +57,10 @@ class CalculadoraVenta
             $precio = round((float) $producto[$columnaPrecio], 2);
             $descuento = round((float) $item['descuento'], 2);
 
+            if (! is_finite($precio) || ! is_finite($descuento) || $precio < 0 || $descuento < 0
+                || filter_var($item['cantidad'], FILTER_VALIDATE_INT) === false || (int) $item['cantidad'] < 1) {
+                throw ValidationException::withMessages(["items.{$indice}" => 'Precio, descuento o cantidad inválidos.']);
+            }
             // El descuento por unidad no puede ser mayor que el precio.
             if ($descuento > $precio) {
                 throw ValidationException::withMessages([
@@ -78,8 +85,15 @@ class CalculadoraVenta
         $subtotal = round(array_sum(array_column($detalles, 'subtotal')), 2);
 
         // 4) Descuento global (si no vino, es 0).
+        if (collect($items)->contains(fn ($item) => ! empty($item['id_promocion'])) && (float) ($descuentoGlobal['valor'] ?? 0) > 0) {
+            throw ValidationException::withMessages(['descuento_global' => 'No se acumula un descuento global con promociones.']);
+        }
         $modo = $descuentoGlobal['modo'] ?? 'monto';
         $valor = (float) ($descuentoGlobal['valor'] ?? 0);
+
+        if (! in_array($modo, ['porcentaje', 'monto'], true) || ! is_finite($valor) || $valor < 0) {
+            throw ValidationException::withMessages(['descuento_global' => 'Descuento global inválido.']);
+        }
 
         if ($modo === 'porcentaje' && $valor > 100) {
             throw ValidationException::withMessages([
@@ -95,6 +109,9 @@ class CalculadoraVenta
         // 5) Total final.
         $total = round($subtotal - $montoDescuentoGlobal, 2);
 
+        if ($total > 9999999999.99 || collect($detalles)->contains(fn ($d) => $d['subtotal'] > 9999999999.99)) {
+            throw ValidationException::withMessages(['items' => 'El importe excede la capacidad monetaria del sistema.']);
+        }
         if ($total <= 0) {
             throw ValidationException::withMessages([
                 'items' => ['La venta debe tener un total mayor a cero.'],

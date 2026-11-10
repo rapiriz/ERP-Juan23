@@ -6,12 +6,17 @@ use Illuminate\Database\Eloquent\Model;
 
 /**
  * Adaptador / Modelo de Cobro para Conciliación Bancaria.
- * Mapea a la tabla cobros del ERP o rendicion_cobro como fallback.
+ * Mapea exclusivamente a cobro. Los alias JSON no cambian sus claves ni copian registros.
  */
 class Cobro extends Model
 {
-    protected $table = 'cobros';
-    protected $primaryKey = 'id';
+    protected $table = 'cobro';
+
+    protected $primaryKey = 'id_cobro';
+
+    public $timestamps = false;
+
+    protected $appends = ['id', 'cliente_id', 'usuario_id'];
 
     protected $fillable = [
         'cliente_id',
@@ -29,6 +34,21 @@ class Cobro extends Model
         'monto_total' => 'decimal:2',
     ];
 
+    public function getIdAttribute()
+    {
+        return $this->attributes['id_cobro'] ?? null;
+    }
+
+    public function getClienteIdAttribute()
+    {
+        return $this->attributes['id_cliente'] ?? null;
+    }
+
+    public function getUsuarioIdAttribute()
+    {
+        return $this->attributes['id_usuario'] ?? null;
+    }
+
     /**
      * Accesor para compatibilidad con código existente que lee $cobro->monto
      */
@@ -42,7 +62,7 @@ class Cobro extends Model
      */
     public function getIdCobroAttribute()
     {
-        return $this->attributes['id'] ?? null;
+        return $this->attributes['id_cobro'] ?? null;
     }
 
     /**

@@ -5,6 +5,7 @@ namespace App\Services\Gateways;
 use App\Modules\Reportes\Services\SalesAnalytics;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Validator;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 class ExternalFinanceGateway
 {
@@ -13,6 +14,26 @@ class ExternalFinanceGateway
     public function isConfigured(string $service): bool
     {
         return $this->client->isConfigured($service);
+    }
+
+    public function clientSnapshot(int $clientId): array
+    {
+        $result = ['balance_ready' => false, 'payments_ready' => false, 'balance' => null, 'payments' => []];
+        foreach (['balances' => 'balance', 'billing' => 'payments'] as $service => $key) {
+            if (! $this->isConfigured($service)) {
+                continue;
+            }
+            try {
+                $result[$key] = $key === 'balance' ? $this->clientBalance($clientId) : $this->clientPayments($clientId);
+                $result[$key.'_ready'] = true;
+            } catch (HttpExceptionInterface $error) {
+                if (! in_array($error->getStatusCode(), [502, 503], true)) {
+                    throw $error;
+                }
+            }
+        }
+
+        return $result;
     }
 
     public function clientBalance(int $clientId): array
@@ -34,18 +55,21 @@ class ExternalFinanceGateway
 
     public function clientPayments(int $clientId): array
     {
-        $rows = $this->client->get('billing', config('services.billing.payments_path'), ['cliente_id' => $clientId]);
+        $rows = $this->client->getList('billing', config('services.billing.payments_path'), ['cliente_id' => $clientId, 'per_page' => 100]);
         $this->requireList($rows);
         $this->validate($rows, [
             '*' => ['array'],
-            '*.id' => ['required', 'integer'],
+            '*.id' => ['required', 'integer', 'distinct'],
             '*.cliente_id' => ['required', 'integer'],
             '*.fecha' => ['required', 'date'],
-            '*.monto_total' => ['required', 'numeric', 'min:0'],
+            '*.monto_total' => ['required', 'numeric', 'min:0.01'],
             '*.medio_pago' => ['required', 'string'],
             '*.comprobante_nro' => ['nullable', 'string'],
             '*.observaciones' => ['nullable', 'string'],
         ]);
+
+        abort_if(collect($rows)->contains(fn ($row) => ($row['confirmacion_individual'] ?? null) !== true),
+            502, 'El origen no certifica la aplicación individual de los pagos.');
 
         if (collect($rows)->contains(fn ($row) => (int) $row['cliente_id'] !== $clientId)) {
             abort(502, 'El servicio de cobros devolvio otro cliente.');
@@ -56,7 +80,7 @@ class ExternalFinanceGateway
 
     public function debtorBalances(): array
     {
-        $rows = $this->client->get('balances', config('services.balances.debtors_path'));
+        $rows = $this->client->getList('balances', config('services.balances.debtors_path'), ['per_page' => 100]);
         $this->requireList($rows);
         $this->validate($rows, [
             '*' => ['array'],
@@ -69,14 +93,14 @@ class ExternalFinanceGateway
 
     public function pendingInvoices(): array
     {
-        $rows = $this->client->get('billing', config('services.billing.invoices_path'));
+        $rows = $this->client->getList('billing', config('services.billing.invoices_path'), ['per_page' => 100]);
         $this->requireList($rows);
         $this->validate($rows, [
             '*' => ['array'],
             '*.id' => ['required', 'integer'],
             '*.cliente_id' => ['required', 'integer', 'min:1'],
             '*.numero' => ['required', 'string'],
-            '*.vencimiento' => ['required', 'date'],
+            '*.vencimiento' => ['present', 'nullable', 'date'],
             '*.importe_pendiente' => ['required', 'numeric', 'min:0.01'],
         ]);
 
@@ -89,14 +113,14 @@ class ExternalFinanceGateway
         if (blank(config('services.sales.ranking_path'))) {
             return $this->analytics->ranking($from, $to);
         }
-        $rows = $this->client->get('sales', config('services.sales.ranking_path'), array_filter([
+        $rows = $this->client->getList('sales', config('services.sales.ranking_path'), array_filter([
             'desde' => $from,
             'hasta' => $to,
         ], fn ($value) => $value !== null));
         $this->requireList($rows);
         $this->validate($rows, [
             '*' => ['array'],
-            '*.producto_id' => ['required', 'integer', 'min:1'],
+            '*.producto_id' => ['required', 'integer', 'min:1', 'distinct'],
             '*.producto_nombre' => ['required', 'string'],
             '*.cantidad_vendida' => ['required', 'integer', 'min:0'],
             '*.monto_facturado' => ['required', 'numeric', 'min:0'],

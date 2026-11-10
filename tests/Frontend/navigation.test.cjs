@@ -5,7 +5,7 @@ const {test} = require('node:test');
 const assert = require('node:assert/strict');
 const script = readFileSync(path.resolve(__dirname, '../../public/assets/js/navigation.js'), 'utf8');
 
-function setup({saved = new Map(), blocked = false, current = null, navMissing = false} = {}) {
+function setup({saved = new Map(), blocked = false, current = null, navMissing = false, mobile = false} = {}) {
     const classes = new Set(), events = new Map(), navEvents = new Map(), docEvents = new Map();
     const attributes = new Map();
     const inside = {};
@@ -31,7 +31,7 @@ function setup({saved = new Map(), blocked = false, current = null, navMissing =
         getItem(key) { if (blocked) throw new Error('Storage bloqueado'); return saved.get(key) ?? null; },
         setItem(key, value) { if (blocked) throw new Error('Storage bloqueado'); saved.set(key, value); },
     };
-    vm.runInNewContext(script, {document, sessionStorage});
+    vm.runInNewContext(script, {document, sessionStorage, window: {matchMedia: () => ({matches: mobile})}});
     return {document, sidebar, toggle, nav, inside, attributes, saved,
         click: () => events.get('click')(),
         key: event => docEvents.get('keydown')(event),
@@ -113,4 +113,12 @@ test('el control puede cerrar el panel aunque no haya listado de navegación', (
     const ui = setup({navMissing: true});
     assert.doesNotThrow(() => ui.click());
     assert.equal(ui.collapsed(), true);
+});
+
+test('en móvil el menú comienza cerrado cuando no hay preferencia guardada', () => {
+    const ui=setup({mobile:true}); assert.equal(ui.collapsed(),true); assert.equal(ui.attributes.get('aria-expanded'),'false');
+    ui.click();assert.equal(ui.collapsed(),false);
+});
+test('la preferencia explícita del usuario prevalece sobre el tamaño móvil', () => {
+    const ui=setup({mobile:true,saved:new Map([['erp-navigation-collapsed','false']])});assert.equal(ui.collapsed(),false);
 });

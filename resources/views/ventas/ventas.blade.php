@@ -739,6 +739,9 @@
                     <option value="{{ $cliente['id'] }}">{{ $cliente['nombre'] }} — {{ $cliente['cuit'] }}</option>
                 @endforeach
             </select>
+            <p id="creditoCliente" role="status" aria-live="polite">Consultando crédito...</p>
+            <label for="fechaVencimientoVenta">Fecha de vencimiento (opcional)</label>
+            <input class="clay-input" id="fechaVencimientoVenta" type="date">
         </div>
         <p class="venta-feedback" id="ventaFeedback" role="status" aria-live="polite" hidden></p>
     </div>
@@ -824,12 +827,13 @@
             VENTA LISTA
         </button>
     </div>
+    <button type="button" class="clay-btn-secondary" id="btnCerrarCaja">Caja y cierre</button>
     {{-- Modal de descuentos --}}
     <div class="modal-overlay" id="modalDescuento">
         <div class="modal-desc">
             <div class="modal-desc-header">
                 <span id="modalDescTitulo">Descuento sobre el Total</span>
-                <button type="button" class="cerrar" id="cerrarModalDesc">✕</button>
+                <button type="button" class="cerrar" id="cerrarModalDesc" aria-label="Cerrar descuentos">✕</button>
             </div>
 
             <div class="modal-desc-body">
@@ -845,7 +849,7 @@
                     <span class="prefijo" id="descPrefijo" style="display:none;">$</span>
                     <input
                         type="number"
-                        id="descInput"
+                        id="descInput" aria-labelledby="descLabel"
                         min="0"
                         step="0.01"
                         placeholder="Ej: 10"
@@ -870,7 +874,7 @@
         <div class="modal-desc">
             <div class="modal-desc-header">
                 <span>Confirmar venta</span>
-                <button type="button" class="cerrar" id="cerrarModalCobro">✕</button>
+                <button type="button" class="cerrar" id="cerrarModalCobro" aria-label="Cerrar registro de venta">✕</button>
             </div>
 
             <div class="modal-desc-body">
@@ -919,6 +923,8 @@
 
 @push('scripts')
 <script>
+    let creditVersion = 0;
+    let creditSnapshot = null;
     // Datos que vienen del controlador (por ahora hardcodeados en VentaController)
     const PRODUCTOS = @json($productos);
     const CLIENTES = @json($clientes);
@@ -977,7 +983,7 @@
             panelSug.innerHTML = coincidencias.map(p => `
                 <div class="sugerencia-item" data-id="${p.id}"
                      style="padding:.7rem 1rem; cursor:pointer; border-bottom:1px solid #F1F5F9;">
-                    <strong>${p.codigo}</strong> · ${p.nombre}
+                    <strong>${window.erpSafeHtml.escape(p.codigo)}</strong> · ${window.erpSafeHtml.escape(p.nombre)}
                     <span style="float:right;color:#64748B;">
                         $${Number(p.precioMin).toLocaleString('es-AR')}
                     </span>
@@ -1091,6 +1097,7 @@
     return Math.max(0, subtotalNetoLineas - descuentoGlobal.valor);
     }
     function render() {
+        actualizarCreditoVisual();
         const body = $('carritoBody');
         const vacio = $('carritoVacio');
         const btnCobrar = $('btnCobrar');
@@ -1180,7 +1187,7 @@
                     : `<span class="num">$${neto.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2})}</span>`;
                 const cantidadHTML = item.esPromocion
                     ? `<span class="num" aria-label="Cantidad promocional: ${item.cantidad}">${item.cantidad}</span>`
-                    : `<input type="number" min="1" value="${item.cantidad}" data-campo="cantidad" data-line-key="${item.lineKey}">`;
+                    : `<input type="number" min="1" aria-label="Cantidad de ${window.erpSafeHtml.escape(item.nombre)}" value="${item.cantidad}" data-campo="cantidad" data-line-key="${item.lineKey}">`;
                 const descuentoContenidoHTML = item.esPromocion
                     ? `<span class="desc-linea ${desc > 0 ? 'con-desc' : ''}">${descLabel}</span>`
                     : `<button type="button" class="desc-linea ${desc > 0 ? 'con-desc' : ''}"
@@ -1192,8 +1199,8 @@
 
                 return `
                     <div class="carrito-row ${item.esPromocion ? 'es-promocion' : ''}" data-line-key="${item.lineKey}">
-                        <span>${item.codigo}</span>
-                        <span>${item.nombre}${item.esPromocion ? ' <span class="promo-linea-badge">PROMO</span>' : ''}</span>
+                        <span>${window.erpSafeHtml.escape(item.codigo)}</span>
+                        <span>${window.erpSafeHtml.escape(item.nombre)}${item.esPromocion ? ' <span class="promo-linea-badge">PROMO</span>' : ''}</span>
                         ${cantidadHTML}
                         <span class="num">$${Number(item.precioUnit).toLocaleString('es-AR')}</span>
                         ${descuentoHTML}
@@ -1385,6 +1392,20 @@
     $('btnConfirmarCobro').addEventListener('click', async () => {
         if (!carrito.length) return;
 
+        // Conservar la referencia y el cuerpo ante una respuesta perdida o recarga.
+        const scope = 'pos_venta_pendiente_{{ auth()->id() }}';
+        const payload = {cliente_id: Number($('clienteVenta').value), fecha_vencimiento: $('fechaVencimientoVenta').value || null,
+            lista: listaActual, observaciones: cobroObservaciones.value.trim(),
+            descuento_global: {modo: descuentoGlobal.modo, valor: Number(descuentoGlobal.valor) || 0},
+            items: carrito.map(item => ({id: item.id, cantidad: item.cantidad,
+                id_promocion: item.esPromocion ? (Number(item.promocionId) || null) : null,
+                descuento: Number(((item.descuentoMonto || 0) / item.cantidad).toFixed(2))}))};
+        const stored = JSON.parse(localStorage.getItem(scope) || 'null');
+        if (stored && JSON.stringify(stored.payload) !== JSON.stringify(payload)) {
+            if (!confirm('Hay una venta sin confirmar con otros datos. ¿Reintentar el envío original para recuperar su resultado? El carrito actual se limpiará al confirmar.')) return;
+        }
+        const pending = stored || {request_key: crypto.randomUUID(), payload};
+        localStorage.setItem(scope, JSON.stringify(pending));
         const boton = $('btnConfirmarCobro');
         boton.disabled = true;
 
@@ -1396,25 +1417,7 @@
                     'Content-Type': 'application/json',
                     'X-CSRF-TOKEN': CSRF_TOKEN
                 },
-                body: JSON.stringify({
-                    cliente_id: Number($('clienteVenta').value),
-                    lista: listaActual,
-                    observaciones: cobroObservaciones.value.trim(),
-                    descuento_global: {
-                        modo: descuentoGlobal.modo,
-                        valor: Number(descuentoGlobal.valor) || 0
-                    },
-                    items: carrito.map(item => ({
-                        id: item.id,
-                        cantidad: item.cantidad,
-                        id_promocion: item.esPromocion ? (Number(item.promocionId) || null) : null,
-
-                        // Siempre enviamos el descuento como monto fijo ($)
-                        descuento: Number(
-                            ((item.descuentoMonto || 0) / item.cantidad).toFixed(2)
-                        )
-                    }))
-                })
+                body: JSON.stringify({...pending.payload, request_key: pending.request_key})
             });
 
             const resultado = await respuesta.json();
@@ -1424,10 +1427,13 @@
                     || resultado.message
                     || 'No se pudo registrar la venta.';
 
+                if (respuesta.status >= 400 && respuesta.status < 500 && respuesta.status !== 409) localStorage.removeItem(scope);
                 throw new Error(mensaje);
             }
 
+            localStorage.removeItem(scope);
             carrito.length = 0;
+            $('fechaVencimientoVenta').value = '';
             descuentoGlobal = {
                 modo: 'porcentaje',
                 valor: 0
@@ -1438,10 +1444,12 @@
 
             cerrarModalCobro();
             render();
+            actualizarCreditoCliente();
 
             alert(
                 `Venta #${resultado.venta_id} registrada correctamente.\n` +
-                `Total: $ ${Number(resultado.total).toLocaleString('es-AR')}`
+                `Total: $ ${Number(resultado.total).toLocaleString('es-AR')}` +
+                (resultado.stock_estado === 'pendiente' ? '\nEl ajuste de stock está pendiente de confirmación; no repitas la venta.' : '')
             );
 
         } catch (error) {
@@ -1646,7 +1654,7 @@
     });
 
     $('btnCerrarCaja').addEventListener('click', () => {
-        alert('Cierre de caja — a implementar');
+        window.location.assign(@json(route('caja.dia')));
     });
     // Quitar descuento desde el footer
     $('quitarDescuento').addEventListener('click', () => {
@@ -1702,5 +1710,30 @@
 
         render();
     })();
+
+    async function actualizarCreditoCliente() {
+        const version = ++creditVersion, id = Number($('clienteVenta').value);
+        const box = $('creditoCliente');
+        try {
+            const response = await fetch('/api/ventas/clientes/'+id+'/credito', {headers: {'Accept':'application/json'}});
+            const body = await response.json();
+            if (version !== creditVersion) return;
+            if (!response.ok) throw new Error();
+            const c = body.data;
+            creditSnapshot = c;
+            box.textContent = c.limite_credito === null ? 'Sin límite de crédito configurado.' : `Límite: ${fmt(c.limite_credito)} · Crédito disponible: ${fmt(c.credito_disponible)} · Comprometido: ${fmt(c.exposicion)}${c.excedido ? ' — Límite superado: no se podrá confirmar la venta.' : ''}`;
+            box.style.color = c.excedido ? '#b91c1c' : '';
+            actualizarCreditoVisual();
+        } catch { if (version === creditVersion) box.textContent = 'Crédito no disponible. Se verificará en el servidor al confirmar.'; }
+    }
+    $('clienteVenta').addEventListener('change', actualizarCreditoCliente);
+    actualizarCreditoCliente();
+    function actualizarCreditoVisual() {
+        if (!creditSnapshot || Number(creditSnapshot.cliente_id) !== Number($('clienteVenta').value)) return;
+        const c = creditSnapshot, total = calcularTotalConDescuento(getSubtotalConDescLineas());
+        const exceeded = c.excedido || (c.credito_disponible !== null && total > Number(c.credito_disponible));
+        $('creditoCliente').textContent = c.limite_credito === null ? 'Sin límite de crédito configurado.' : `Límite: ${fmt(c.limite_credito)} · Crédito disponible: ${fmt(c.credito_disponible)} · Carrito: ${fmt(total)}${exceeded ? ' — Supera el crédito: el pedido quedará pendiente y no podrá confirmarse hasta regularizarlo.' : ''}`;
+        $('creditoCliente').style.color = exceeded ? '#b91c1c' : '';
+    }
 </script>
 @endpush

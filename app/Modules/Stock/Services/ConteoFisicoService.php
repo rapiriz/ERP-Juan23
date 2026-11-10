@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Modules\Stock\Services;
@@ -17,8 +18,8 @@ class ConteoFisicoService
         private ?ConteoFisicoRepository $repository = null,
         private ?StockService $stockService = null
     ) {
-        $this->repository = $repository ?? new ConteoFisicoRepository();
-        $this->stockService = $stockService ?? new StockService();
+        $this->repository = $repository ?? new ConteoFisicoRepository;
+        $this->stockService = $stockService ?? new StockService;
     }
 
     public function iniciarSesion(array $datos, int $idUsuario): SesionConteo
@@ -39,40 +40,42 @@ class ConteoFisicoService
 
     public function registrarItem(int $idSesion, int $idProducto, int $cantidadFisica, ?string $observaciones = null): DetalleConteo
     {
-        $sesion = SesionConteo::find($idSesion);
+        return DB::transaction(function () use ($idSesion, $idProducto, $cantidadFisica, $observaciones) {
+            $sesion = SesionConteo::lockForUpdate()->find($idSesion);
 
-        if (!$sesion) {
-            throw new RuntimeException('La sesión de conteo no existe.');
-        }
+            if (! $sesion) {
+                throw new RuntimeException('La sesión de conteo no existe.');
+            }
 
-        if ($sesion->estado !== 'en_proceso') {
-            throw new RuntimeException('No se puede modificar una sesión de conteo finalizada.');
-        }
+            if ($sesion->estado !== 'en_proceso') {
+                throw new RuntimeException('No se puede modificar una sesión de conteo finalizada.');
+            }
 
-        $producto = Producto::find($idProducto);
-        if (!$producto || $producto->estado !== 'activo') {
-            throw new RuntimeException('El producto seleccionado no existe o no está activo.');
-        }
+            $producto = Producto::lockForUpdate()->find($idProducto);
+            if (! $producto || $producto->estado !== 'activo') {
+                throw new RuntimeException('El producto seleccionado no existe o no está activo.');
+            }
 
-        $stockSistema = (int) $producto->stock_disponible;
-        $diferencia = $cantidadFisica - $stockSistema;
+            $stockSistema = (int) $producto->stock_disponible;
+            $diferencia = $cantidadFisica - $stockSistema;
 
-        $detalle = DetalleConteo::updateOrCreate(
-            [
-                'id_sesion' => $idSesion,
-                'id_producto' => $idProducto,
-            ],
-            [
-                'cantidad_fisica' => $cantidadFisica,
-                'stock_sistema' => $stockSistema,
-                'diferencia' => $diferencia,
-                'observaciones' => $observaciones,
-            ]
-        );
+            $detalle = DetalleConteo::updateOrCreate(
+                [
+                    'id_sesion' => $idSesion,
+                    'id_producto' => $idProducto,
+                ],
+                [
+                    'cantidad_fisica' => $cantidadFisica,
+                    'stock_sistema' => $stockSistema,
+                    'diferencia' => $diferencia,
+                    'observaciones' => $observaciones,
+                ]
+            );
 
-        $this->actualizarTotalesSesion($idSesion);
+            $this->actualizarTotalesSesion($idSesion);
 
-        return $detalle->fresh(['producto']);
+            return $detalle->fresh(['producto']);
+        });
     }
 
     public function obtenerResumen(int $idSesion): array
@@ -83,7 +86,8 @@ class ConteoFisicoService
     public function finalizarSesion(int $idSesion, bool $aplicarAjustes, int $idUsuario): SesionConteo
     {
         return DB::transaction(function () use ($idSesion, $aplicarAjustes, $idUsuario) {
-            $sesion = SesionConteo::with('detalles')->findOrFail($idSesion);
+            $sesion = SesionConteo::lockForUpdate()->findOrFail($idSesion);
+            $sesion->setRelation('detalles', $sesion->detalles()->orderBy('id_producto')->lockForUpdate()->get());
             if ($sesion->estado === 'finalizado') {
                 return $sesion;
             }
@@ -94,15 +98,18 @@ class ConteoFisicoService
                         continue;
                     }
 
-                    $producto = Producto::find($detalle->id_producto);
-                    if (!$producto || $producto->estado !== 'activo') {
-                        continue;
+                    $producto = Producto::lockForUpdate()->find($detalle->id_producto);
+                    if ($producto && (int) $producto->stock !== (int) $detalle->stock_sistema) {
+                        throw new RuntimeException('El stock cambió desde el conteo. Actualizá las cantidades antes de aplicar.');
+                    }
+                    if (! $producto || $producto->estado !== 'activo') {
+                        throw new RuntimeException('No se puede ajustar un producto inactivo o inexistente.');
                     }
 
                     $motivo = sprintf(
                         'Regularización por Conteo Físico #%d: dif %s u.',
                         $idSesion,
-                        $detalle->diferencia > 0 ? '+' . $detalle->diferencia : (string) $detalle->diferencia
+                        $detalle->diferencia > 0 ? '+'.$detalle->diferencia : (string) $detalle->diferencia
                     );
 
                     $this->stockService->registrarMovimiento(
@@ -116,7 +123,6 @@ class ConteoFisicoService
                         null,
                         Carbon::now(),
                         (int) $detalle->diferencia > 0,
-                        null,
                         $idSesion
                     );
                 }
@@ -131,14 +137,20 @@ class ConteoFisicoService
 
     public function eliminarItem(int $idSesion, int $idProducto): void
     {
-        $detalle = DetalleConteo::where('id_sesion', $idSesion)->where('id_producto', $idProducto)->first();
+        DB::transaction(function () use ($idSesion, $idProducto) {
+            $session = SesionConteo::lockForUpdate()->findOrFail($idSesion);
+            if ($session->estado !== 'en_proceso') {
+                throw new RuntimeException('El conteo ya está finalizado.');
+            }
+            $detalle = DetalleConteo::where('id_sesion', $idSesion)->where('id_producto', $idProducto)->first();
 
-        if (!$detalle) {
-            throw new RuntimeException('El ítem no está registrado en la sesión de conteo.');
-        }
+            if (! $detalle) {
+                throw new RuntimeException('El ítem no está registrado en la sesión de conteo.');
+            }
 
-        $detalle->delete();
-        $this->actualizarTotalesSesion($idSesion);
+            $detalle->delete();
+            $this->actualizarTotalesSesion($idSesion);
+        });
     }
 
     private function actualizarTotalesSesion(int $idSesion): void

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Modules\Stock\Requests;
@@ -14,7 +15,7 @@ class RegistrarItemConteoRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        if (!$this->has('cantidad_fisica') && $this->has('stock_fisico')) {
+        if (! $this->has('cantidad_fisica') && $this->has('stock_fisico')) {
             $this->merge([
                 'cantidad_fisica' => $this->input('stock_fisico'),
             ]);
@@ -24,7 +25,7 @@ class RegistrarItemConteoRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'id_producto' => ['required', 'integer', 'exists:PRODUCTO,id_producto'],
+            'id_producto' => ['required', 'integer', 'exists:producto,id_producto'],
             'cantidad_fisica' => ['required', 'integer', 'min:0'],
             'observaciones' => ['nullable', 'string', 'max:255'],
         ];

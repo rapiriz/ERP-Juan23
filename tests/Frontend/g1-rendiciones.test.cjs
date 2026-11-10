@@ -32,6 +32,7 @@ function setup() {
         setTimeout() {}, g2Fetch: async url => { calls.push(url); return handler(url); },
     });
     context.window = context;
+    vm.runInContext(readFileSync(path.join(root, 'public/assets/js/safe-html.js'), 'utf8'), context);
     vm.runInContext(readFileSync(path.join(root, 'public/js/g2-rendiciones.js'), 'utf8'), context);
     vm.runInContext(readFileSync(path.join(root, 'public/assets/js/g1-rendiciones.js'), 'utf8'), context);
     return { context, get, calls, labels,
@@ -103,7 +104,7 @@ test('una respuesta inválida o con IDs repetidos no habilita operaciones', asyn
         assert.equal(ui.get('kpiTotalDinero').textContent, '—');
     }
 });
-test('los textos externos se escapan antes de llegar al renderizador HTML de G2', async () => {
+test('el renderizador de G2 escapa los textos externos una sola vez', async () => {
     const ui = setup();
     ui.setHandler(async () => response([{...row(), repartidor: {nombre: '<img onerror="evil()">'}, observaciones: '\"><script>evil()</script>'}]));
     await ui.start();

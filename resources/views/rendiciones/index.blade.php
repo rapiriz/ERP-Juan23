@@ -5,6 +5,7 @@
 <link rel="stylesheet" href="{{ asset('css/pigue-claymorphism.css') }}">
 @endpush
 @section('content')
+@if(auth()->user()->rol->value === 'administrativo')<p><a class="button button-primary" href="{{ route('cobros.index') }}">Cobros pendientes y anulaciones</a></p>@endif
 <div class="g2-page" data-g2-role="{{ \App\Modules\Shared\Auth\G2Identity::role() }}">
 <div class="g2-content">
 

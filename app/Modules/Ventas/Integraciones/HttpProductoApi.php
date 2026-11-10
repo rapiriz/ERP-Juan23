@@ -4,6 +4,7 @@ namespace App\Modules\Ventas\Integraciones;
 
 use App\Modules\Ventas\Contracts\ProductoGateway;
 use App\Modules\Ventas\Exceptions\IntegracionNoDisponibleException;
+use App\Services\Integrations\InternalApiClient;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 use Throwable;
@@ -91,8 +92,12 @@ class HttpProductoApi implements ProductoGateway
     /**
      * Cliente HTTP ya configurado: URL base, espera máxima y que pida JSON.
      */
-    private function cliente(): PendingRequest
+    private function cliente(): PendingRequest|InternalApiClient
     {
+        if (config('ventas.integracion') === 'internal') {
+            return new InternalApiClient(config('services.internal_api.token'));
+        }
+
         $cliente = Http::baseUrl(rtrim((string) config('ventas.servicios.productos.url'), '/'))
             ->timeout((int) config('ventas.timeout'))
             ->acceptJson();

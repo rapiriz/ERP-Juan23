@@ -1,6 +1,6 @@
 # Contrato HTTP/JSON de G1
 
-Este documento describe las rutas implementadas en `routes/api.php` bajo `/api/v1`. Los valores de los ejemplos son ilustrativos; IDs, fechas, tokens y datos dependen de la base. Las rutas de reportes `/reportes`, `/ventas` y `/stock` son pantallas web, no forman parte de esta API. G1 consume ventas y saldos de G4, cobros y facturas de G2; no consume alertas de stock. Los contratos de Sprint 4 aun requieren acuerdo con esos grupos.
+Este documento describe las rutas G1 bajo `/api/v1`. Los ejemplos son ilustrativos, no datos ni credenciales reales. El inventario vigente es [api-rutas-registradas.md](api-rutas-registradas.md); la guía de ejecución y despliegue es [validacion-y-despliegue.md](validacion-y-despliegue.md). Los contratos financieros actuales leen el libro compartido y G1 consume Ventas, Caja y Productos mediante APIs autenticadas. El transporte `internal` no requiere otro servidor HTTP. Los informes anteriores conservan el estado de su fecha y no reemplazan esta guía.
 
 ## Convenciones
 
@@ -28,7 +28,7 @@ Este documento describe las rutas implementadas en `routes/api.php` bajo `/api/v
 | `429 Too Many Requests` | Limite de peticiones excedido: login 5/minuto por origen, demas rutas 60/minuto | Error JSON de Laravel; volver a intentar despues del limite |
 | `500 Internal Server Error` | Fallo no controlado, por ejemplo una base de datos indisponible | Laravel lo genera, pero G1 **no define hoy un cuerpo 500 propio ni estable**. Con `APP_DEBUG=true` puede exponer detalles tecnicos; en produccion debe usarse `APP_DEBUG=false`. |
 
-`400`, `409`, `502` y `503` no tienen manejadores/contratos especificos en estas rutas de G1. Un metodo HTTP no permitido puede producir `405` por Laravel. Los `502`/`503` mencionados en la integracion de Ventas pertenecen al consumo remoto en el historial de clientes, no son respuestas definidas para estos 16 endpoints. No se debe interpretar un `500` como una validacion de negocio.
+Los errores de negocio se documentan por recurso: no interpretar `500` como validación. Las solicitudes del catálogo pueden responder `409` ante una clave repetida con contenido diferente. Un metodo HTTP no permitido puede producir `405` por Laravel. Los `502`/`503` mencionados en la integracion de Ventas pertenecen al consumo remoto en el historial de clientes, no son respuestas definidas para los endpoints de esta sección. No se debe interpretar un `500` como una validacion de negocio.
 
 Ejemplos de errores:
 
@@ -279,3 +279,20 @@ La respuesta proviene de G4, no de `clientes.saldo` local. Sin integracion confi
 ```
 
 - Errores aplicables: `401`, `403`, `404`, `429`, `500`.
+
+
+## Actualización del 09/11/2026: crédito y operaciones comerciales
+
+El recurso de clientes agrega `limite_credito`: decimal opcional, `null` sin límite y `0` sin crédito nuevo. No se renombraron sus IDs ni los campos existentes. La modificación del límite requiere administrativo.
+
+Las rutas `/api/ventas/clientes/{id}/credito`, `/api/ventas/devoluciones`, `/api/ventas/{id}/devoluciones` y `/api/ventas/{id}/observaciones` pertenecen a Ventas, fuera del prefijo v1 de G1. Ver cuerpos, permisos y respuestas en [el informe comercial](informe-cierre-funcional-g1-g3-g4-2026-11-09.md). La colección Postman añade ejemplos reales de estas rutas.
+
+No hay un único tipo de importe JSON en todos los grupos: las consultas nuevas de crédito producen números y algunos contratos históricos usan cadenas decimales. Respetar el contrato de cada productor y conservar precisión de centavos; no extrapolar una convención antigua a todas las APIs.
+
+Las pantallas `/operaciones/stock` y `/operaciones/historicas` son web privadas para administrativo. El reintento POST usa sesión/CSRF; no son APIs públicas ni habilitan modificar pagos históricos.
+
+En Thunder Client/Postman: hacer **POST** `/api/v1/auth/login` con credenciales propias; tomar el token y enviarlo como Bearer junto con `Accept: application/json`. No guardar tokens fijos en Git. Usar `Content-Type: application/json` en escrituras. Antes de enviar, reemplazar IDs y generar un UUID por devolución nueva; conservar el UUID y el mismo contenido si se reintenta esa devolución.
+
+## Ampliaciones vigentes
+
+El catálogo público incluye imágenes, categorías jerárquicas y selección sin sesión. La solicitud `POST /catalogo/pedidos` es web con CSRF, no una creación de venta anónima. Un administrativo revisa identidad/cliente y convierte mediante Ventas. Ver [contrato del módulo](../app/Modules/Catalogo/README.md) y [el informe de cierre](informe-cierre-pendientes-y-revision-2026-11-10.md). Las notas de crédito sin documento canónico permanecen en el historial, pero no liberan límite de crédito ni acreditan una venta como pagada.

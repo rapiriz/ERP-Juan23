@@ -4,16 +4,12 @@ declare(strict_types=1);
 
 namespace Database\Seeders;
 
-use App\Modules\Login\Models\User;
 use App\Modules\Productos\Models\Categoria;
 use App\Modules\Productos\Models\HistorialPrecio;
 use App\Modules\Productos\Models\Marca;
 use App\Modules\Productos\Models\Producto;
-use App\Modules\Proveedores\Models\HistorialPrecioProveedor;
 use App\Modules\Proveedores\Models\ProductoProveedor;
 use App\Modules\Proveedores\Models\Proveedor;
-use App\Modules\Stock\Models\MovimientoStock;
-use App\Modules\Stock\Models\Ubicacion;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
@@ -139,7 +135,7 @@ class ProductoSeeder extends Seeder
             ];
             foreach ($ubicacionesDefault as $cat => $desc) {
                 $ubic = DB::table('ubicacion')->where('descripcion', $desc)->first();
-                if (!$ubic) {
+                if (! $ubic) {
                     $idU = DB::table('ubicacion')->insertGetId([
                         'descripcion' => $desc,
                         'estado' => 'activo',
@@ -401,10 +397,10 @@ class ProductoSeeder extends Seeder
             if (isset($p['ubicacion_id'])) {
                 unset($p['ubicacion_id']);
             }
-            if (!$hasCostoCol) {
+            if (! $hasCostoCol) {
                 unset($p['costo']);
             }
-            if (!$hasRecargoCol) {
+            if (! $hasRecargoCol) {
                 unset($p['recargo']);
             }
 

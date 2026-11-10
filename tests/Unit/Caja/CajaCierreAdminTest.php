@@ -30,6 +30,8 @@ class CajaCierreAdminTest extends TestCase
     public function test_admin_puede_cerrar_la_caja_de_un_repartidor(): void
     {
         $repo = Mockery::mock(CajaRepository::class);
+        $repo->shouldReceive('bloquearUsuario')->byDefault()->andReturnNull();
+        $repo->shouldReceive('movimientoProtegido')->byDefault()->andReturnFalse();
         $repo->shouldReceive('buscarPorId')->with(7)->andReturn($this->caja(3));
         $repo->shouldReceive('rolDeUsuario')->with(3)->andReturn(Caja::ROL_REPARTIDOR);
         $repo->shouldReceive('calcularSaldoMovimientos')->with(7)->andReturn(0.0);
@@ -46,6 +48,8 @@ class CajaCierreAdminTest extends TestCase
     public function test_admin_no_puede_cerrar_la_caja_de_otro_admin(): void
     {
         $repo = Mockery::mock(CajaRepository::class);
+        $repo->shouldReceive('bloquearUsuario')->byDefault()->andReturnNull();
+        $repo->shouldReceive('movimientoProtegido')->byDefault()->andReturnFalse();
         $repo->shouldReceive('buscarPorId')->with(7)->andReturn($this->caja(2));
         $repo->shouldReceive('rolDeUsuario')->with(2)->andReturn(Caja::ROL_ADMIN);
         $repo->shouldReceive('guardar')->never();
@@ -58,6 +62,8 @@ class CajaCierreAdminTest extends TestCase
     public function test_repartidor_no_puede_cerrar_la_caja_de_otro_repartidor(): void
     {
         $repo = Mockery::mock(CajaRepository::class);
+        $repo->shouldReceive('bloquearUsuario')->byDefault()->andReturnNull();
+        $repo->shouldReceive('movimientoProtegido')->byDefault()->andReturnFalse();
         $repo->shouldReceive('buscarPorId')->with(7)->andReturn($this->caja(3));
         $repo->shouldReceive('rolDeUsuario')->never();
         $repo->shouldReceive('guardar')->never();

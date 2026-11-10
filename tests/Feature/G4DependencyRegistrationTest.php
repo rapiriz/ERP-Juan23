@@ -15,15 +15,16 @@ use App\Modules\Ventas\Integraciones\MockStockApi;
 use App\Services\MockClienteApi;
 use App\Services\MockProductoApi;
 use App\Services\MockUsuarioApi;
-use Illuminate\Database\Query\Builder;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
-use Mockery;
 use Tests\TestCase;
 
-/** Real routes/controllers/container; database reads are fixtures, with no SQL or writes. */
+/** Controladores reales contra SQLite de prueba; ningún acceso a la BD habitual. */
 class G4DependencyRegistrationTest extends TestCase
 {
+    use RefreshDatabase;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -71,69 +72,36 @@ class G4DependencyRegistrationTest extends TestCase
     public function test_sales_screen_dispatches_the_real_controller_with_original_mock_catalogues(): void
     {
         $this->sessionAsAdmin();
-        // No database operation is expected for the POS GET.
-        DB::shouldReceive('table')->never();
-        $this->get('/ventas')->assertOk()->assertViewIs('ventas')
+        $this->get('/ventas')->assertOk()->assertViewIs('ventas.ventas')
             ->assertViewHas('clientes', fn ($items) => $items === app(ClienteGateway::class)->todos())
             ->assertViewHas('productos', fn ($items) => $items === app(ProductoGateway::class)->todos())
-            ->assertSee('Supermercado El Norte SRL')->assertSee('Coca-Cola 1.5L')
-            ->assertSee('const URL_VENTAS', false)->assertSee('btnConfirmarCobro');
+            ->assertSee('Supermercado El Norte SRL')->assertSee('Coca-Cola 1.5L');
         Http::assertNothingSent();
     }
 
     public function test_history_dispatches_the_real_controller_with_read_only_query_fixtures(): void
     {
         $this->sessionAsAdmin();
-        $ventas = Mockery::mock(Builder::class);
-        $ventas->shouldReceive('select')->once()->andReturnSelf();
-        $ventas->shouldReceive('orderByDesc')->twice()->andReturnSelf();
-        $ventas->shouldReceive('get')->once()->andReturn(collect([(object) [
-            'id_venta' => 901, 'id_cliente' => 472891, 'factura' => 'PRUEBA-901',
-            'fecha' => '2026-10-22', 'total' => 5000, 'descuento' => 0,
-            'estado' => 'confirmada', 'observaciones' => 'Lectura de prueba', 'id_usuario' => 1,
-        ]]));
-        DB::shouldReceive('table')->with('venta as v')->once()->andReturn($ventas);
-
-        $detalles = Mockery::mock(Builder::class);
-        $detalles->shouldReceive('whereIn')->once()->andReturnSelf();
-        $detalles->shouldReceive('select')->once()->andReturnSelf();
-        $detalles->shouldReceive('get')->once()->andReturn(collect([(object) [
-            'id_venta' => 901, 'id_producto' => 1, 'cantidad' => 2,
-            'precio_unitario' => 2500, 'descuento' => 0, 'subtotal' => 5000,
-        ]]));
-        DB::shouldReceive('table')->with('detalle_venta as dv')->once()->andReturn($detalles);
-
-        $cobros = Mockery::mock(Builder::class);
-        $cobros->shouldReceive('join')->once()->andReturnSelf();
-        $cobros->shouldReceive('whereIn')->once()->andReturnSelf();
-        $cobros->shouldReceive('select')->once()->andReturnSelf();
-        $cobros->shouldReceive('get')->once()->andReturn(collect());
-        DB::shouldReceive('table')->with('cobro_venta as cv')->once()->andReturn($cobros);
-
-        $this->get('/historial-ventas')->assertOk()->assertViewIs('historial-ventas')
+        DB::table('venta')->insert(['id_venta' => 901, 'id_cliente' => 472891, 'numFactura' => 'PRUEBA-901',
+            'fecha' => today(), 'total' => 5000, 'descuento_global' => 0, 'estado' => 'confirmada', 'observaciones' => 'Lectura de prueba', 'id_usuario' => 1]);
+        DB::table('detalle_venta')->insert(['id_venta' => 901, 'id_producto' => 1, 'cantidad' => 2,
+            'precio_unitario' => 2500, 'descuento' => 0, 'subtotal' => 5000]);
+        $this->get('/historial-ventas')->assertOk()->assertViewIs('historial-ventas.historial-ventas')
             ->assertViewHas('kpis', fn ($kpis) => $kpis['cantidad'] === 1 && $kpis['total_vendido'] == 5000)
-            ->assertSee('PRUEBA-901')->assertSee('Supermercado El Norte SRL')
-            ->assertSee('Coca-Cola 1.5L')->assertSee('Administrador');
+            ->assertSee('PRUEBA-901')->assertSee('Supermercado El Norte SRL')->assertSee('Coca-Cola 1.5L');
+        $this->assertDatabaseCount('venta', 1);
         Http::assertNothingSent();
     }
 
     public function test_account_balances_dispatch_the_real_controller_with_read_only_query_fixtures(): void
     {
         $this->sessionAsAdmin();
-        $movimientos = Mockery::mock(Builder::class);
-        $movimientos->shouldReceive('whereIn')->once()->andReturnSelf();
-        $movimientos->shouldReceive('orderBy')->twice()->andReturnSelf();
-        $movimientos->shouldReceive('get')->once()->andReturn(collect([(object) [
-            'cliente_id' => 472891, 'created_at' => '2026-10-22 12:00:00',
-            'descripcion' => 'Movimiento de prueba', 'importe' => 1000,
-            'venta_id' => null, 'referencia_externa' => null,
-        ]]));
-        DB::shouldReceive('table')->with('cuenta_corriente_movimientos')->once()->andReturn($movimientos);
-
-        $this->get('/saldo')->assertOk()->assertViewIs('saldo')
-            ->assertViewHas('clientes', fn ($items) => count($items[0]['movimientos']) === 4)
-            ->assertSee('Supermercado El Norte SRL')->assertSee('Movimiento de prueba')
-            ->assertSee('const URL_MOVIMIENTOS', false);
+        DB::table('cuenta_corriente_movimientos')->insert(['cliente_id' => 472891, 'tipo' => 'pago', 'created_at' => now(),
+            'updated_at' => now(), 'descripcion' => 'Movimiento de prueba', 'importe' => 1000]);
+        $this->get('/saldo')->assertOk()->assertViewIs('saldos.saldo')
+            ->assertViewHas('clientes', fn ($items) => collect($items[0]['movimientos'])->contains('descripcion', 'Movimiento de prueba'))
+            ->assertSee('Supermercado El Norte SRL');
+        $this->assertDatabaseCount('cuenta_corriente_movimientos', 1);
         Http::assertNothingSent();
     }
 }

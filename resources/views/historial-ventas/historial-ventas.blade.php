@@ -505,6 +505,12 @@
 
                         {{-- Las acciones se muestran según los flags que manda VentaController@historial. --}}
                         <div class="hv-detalle-acciones">
+                            @if($v['estado'] === 'pendiente')<button type="button" class="btn-action btn-cart" data-confirm-sale="{{ $v['id'] }}">Confirmar pedido</button>@endif
+                            <button type="button" class="btn-action btn-edit" data-comment-sale="{{ $v['id'] }}">Editar observación</button>
+                            @if(auth()->user()->rol->value === 'administrativo' && !in_array($v['estado'], ['pendiente','cancelada','anulada']))
+                            <a class="btn-action btn-cart" href="{{ route('devoluciones.index', ['venta_id' => $v['id']]) }}">Registrar devolución</a>
+                            @endif
+
                             <div class="actions-group">
                                 @if ($v['puede_modificar'])
                                     <button type="button" class="btn-action btn-edit" data-accion="modificar" data-id="{{ $v['id'] }}">
@@ -827,4 +833,38 @@
 </script>
 <script type="application/json" id="ventasHistorialData">@json($ventas, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT)</script>
 <script src="{{ asset('js/historial-ventas.js') }}" defer></script>
+@endpush
+
+@push('scripts')
+<script>
+document.querySelectorAll('[data-confirm-sale]').forEach(button => button.addEventListener('click', async () => {
+    const id = Number(button.dataset.confirmSale); button.disabled = true;
+    try {
+        const current = await fetch('/api/ventas/clientes/'+(await (await fetch('/api/ventas/'+id, {headers:{'Accept':'application/json'}})).json()).data.cliente.id+'/credito', {headers:{'Accept':'application/json'}});
+        const credit = await current.json();
+        if (!current.ok) throw new Error(credit.message || 'No se pudo comprobar el crédito.');
+        if (credit.data.excedido) throw new Error('Límite de crédito superado. Registrá un pago acreditado o revisá el límite antes de confirmar.');
+        if (!confirm('¿Confirmar este pedido para su preparación?')) return;
+        const response = await fetch('/api/ventas/'+id+'/estado', {method:'PATCH', headers:{'Accept':'application/json','Content-Type':'application/json','X-CSRF-TOKEN':document.querySelector('meta[name="csrf-token"]').content},body:JSON.stringify({estado:'confirmada'})});
+        const data = await response.json();
+        if (!response.ok) throw new Error(Object.values(data.errors || {})[0]?.[0] || data.message || 'No se pudo confirmar.');
+        location.reload();
+    } catch (error) { alert(error.message); } finally { button.disabled = false; }
+}));
+document.querySelectorAll('[data-comment-sale]').forEach(button => button.addEventListener('click', async () => {
+    const id = Number(button.dataset.commentSale);
+    button.disabled = true;
+    try {
+        const current = await fetch('/api/ventas/'+id, {headers: {'Accept':'application/json'}});
+        const data = await current.json();
+        if (!current.ok) throw new Error(data.message || 'No se pudo consultar la venta.');
+        const comment = prompt('Observación de la venta (vacío para eliminar, máximo 150 caracteres):', data.data.observaciones || '');
+        if (comment === null) return;
+        const response = await fetch('/api/ventas/'+id+'/observaciones', {method:'PATCH', headers: {'Accept':'application/json','Content-Type':'application/json','X-CSRF-TOKEN':document.querySelector('meta[name="csrf-token"]').content}, body:JSON.stringify({observaciones:comment})});
+        const result = await response.json();
+        if (!response.ok) throw new Error(Object.values(result.errors || {})[0]?.[0] || result.message || 'No se pudo guardar.');
+        location.reload();
+    } catch (error) { alert(error.message); } finally { button.disabled = false; }
+}));
+</script>
 @endpush

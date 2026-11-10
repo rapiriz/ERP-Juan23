@@ -1,3 +1,4 @@
+const escapeDeliveryHtml = value => window.erpSafeHtml.escape(value);
 const g2Admin = document.querySelector('[data-g2-role]')?.dataset.g2Role === 'admin';
 /**
  * LÓGICA FRONTEND: MÓDULO ENTREGAS (HU #1 y HU #2)
@@ -85,7 +86,7 @@ async function cargarPedidosPendientes() {
         const json = await res.json();
 
         if (json.error) {
-            tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--danger); padding: 2rem;">${json.mensaje}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--danger); padding: 2rem;">${escapeDeliveryHtml(json.mensaje)}</td></tr>`;
             return;
         }
 
@@ -117,18 +118,18 @@ async function cargarPedidosPendientes() {
 
             tr.innerHTML = `
                 <td style="text-align: center;">
-                    <input type="checkbox" class="custom-checkbox pedido-checkbox" value="${p.id_venta}" data-bultos="${bultos}" data-sueltos="${sueltos}" onchange="togglePedido(this)">
+                    <input type="checkbox" class="custom-checkbox pedido-checkbox" aria-label="Seleccionar pedido ${Number(p.id_venta)}" value="${Number(p.id_venta)}" data-bultos="${bultos}" data-sueltos="${sueltos}" onchange="togglePedido(this)">
                 </td>
-                <td><strong>#PED-${p.id_venta.toString().padStart(4, '0')}</strong></td>
+                <td><strong>#PED-${Number(p.id_venta).toString().padStart(4, '0')}</strong></td>
                 <td>
-                    <strong>${p.cliente_nombre}</strong><br>
-                    <small style="color: var(--text-muted);">${p.razon_social || ''}</small>
+                    <strong>${escapeDeliveryHtml(p.cliente_nombre)}</strong><br>
+                    <small style="color: var(--text-muted);">${escapeDeliveryHtml(p.razon_social || '')}</small>
                 </td>
-                <td><span class="badge-zona">${p.zona_nombre}</span></td>
-                <td>${p.direccion}, ${p.localidad}</td>
+                <td><span class="badge-zona">${escapeDeliveryHtml(p.zona_nombre)}</span></td>
+                <td>${escapeDeliveryHtml(p.direccion)}, ${escapeDeliveryHtml(p.localidad)}</td>
                 <td style="text-align: center;">${cargaHtml}</td>
                 <td style="text-align: center;">
-                    <button class="clay-btn clay-btn-secondary" style="min-height: 36px; padding: 0.35rem 0.85rem; font-size: 0.92rem;" onclick="abrirModalArticulos(${p.id_venta})">
+                    <button class="clay-btn clay-btn-secondary" style="min-height: 36px; padding: 0.35rem 0.85rem; font-size: 0.92rem;" onclick="abrirModalArticulos(${Number(p.id_venta)})">
                         Ver Items (${itemsCount})
                     </button>
                 </td>
@@ -136,7 +137,7 @@ async function cargarPedidosPendientes() {
                     $${Number(p.total).toLocaleString('es-AR', {minimumFractionDigits: 2})}
                 </td>
                 <td>
-                    <small style="color: var(--text-muted);">${p.observaciones || 'Sin observaciones'}</small>
+                    <small style="color: var(--text-muted);">${escapeDeliveryHtml(p.observaciones || 'Sin observaciones')}</small>
                 </td>
             `;
             tbody.appendChild(tr);
@@ -170,10 +171,10 @@ function abrirModalArticulos(idVenta) {
         const sueltos = parseInt(item.unidades_sueltas || 0);
 
         tr.innerHTML = `
-            <td style="font-weight: 700;">${item.codigo || '-'}</td>
+            <td style="font-weight: 700;">${escapeDeliveryHtml(item.codigo || '-')}</td>
             <td>
-                <strong>${item.producto_nombre}</strong><br>
-                <small style="color: var(--text-muted);">${item.producto_descripcion || ''}</small>
+                <strong>${escapeDeliveryHtml(item.producto_nombre)}</strong><br>
+                <small style="color: var(--text-muted);">${escapeDeliveryHtml(item.producto_descripcion || '')}</small>
             </td>
             <td style="text-align: center;">
                 ${bultos > 0 ? `<span class="badge-bultos">${bultos} bulto(s)</span>` : '<span style="color: var(--text-muted);">-</span>'}
@@ -330,18 +331,18 @@ async function cargarEntregas() {
             json.data.forEach(e => {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td><strong>#ENT-${e.id_entrega.toString().padStart(4, '0')}</strong></td>
-                    <td>${e.fecha_salida || e.fecha_creacion}</td>
-                    <td><strong>${e.repartidor_nombre}</strong></td>
-                    <td>${e.cantidad_pedidos} pedidos</td>
-                    <td><span class="badge-bultos">${e.total_bultos} bultos</span></td>
-                    <td><span class="badge badge-${e.estado}">${e.estado.replace('_', ' ').toUpperCase()}</span></td>
+                    <td><strong>#ENT-${Number(e.id_entrega).toString().padStart(4, '0')}</strong></td>
+                    <td>${escapeDeliveryHtml(e.fecha_salida || e.fecha_creacion)}</td>
+                    <td><strong>${escapeDeliveryHtml(e.repartidor_nombre)}</strong></td>
+                    <td>${Number(e.cantidad_pedidos)} pedidos</td>
+                    <td><span class="badge-bultos">${Number(e.total_bultos)} bultos</span></td>
+                    <td><span class="badge badge-${escapeDeliveryHtml(e.estado)}">${escapeDeliveryHtml(e.estado.replace('_', ' ').toUpperCase())}</span></td>
                     <td>
                         <div style="display: flex; gap: 0.4rem; justify-content: center; flex-wrap: wrap;">
-                            <button class="clay-btn clay-btn-primary" style="min-height: 36px; padding: 0.35rem 0.85rem; font-size: 0.92rem;" onclick="abrirModalHojaRuta(${e.id_entrega})" title="Ver hoja de ruta y confirmar entregas">
+                            <button class="clay-btn clay-btn-primary" style="min-height: 36px; padding: 0.35rem 0.85rem; font-size: 0.92rem;" onclick="abrirModalHojaRuta(${Number(e.id_entrega)})" title="Ver hoja de ruta y confirmar entregas">
                                 Hoja de Ruta
                             </button>
-                            <button class="clay-btn clay-btn-secondary" style="min-height: 36px; padding: 0.35rem 0.85rem; font-size: 0.92rem;" onclick="verDetalleEntrega(${e.id_entrega})" title="Ver comprobante de remito">
+                            <button class="clay-btn clay-btn-secondary" style="min-height: 36px; padding: 0.35rem 0.85rem; font-size: 0.92rem;" onclick="verDetalleEntrega(${Number(e.id_entrega)})" title="Ver comprobante de remito">
                                 Ver Remito
                             </button>
                         </div>
@@ -369,7 +370,7 @@ async function abrirModalHojaRuta(idEntrega) {
         }
 
         const e = json.data;
-        document.getElementById('hrEntregaNumero').textContent = `#ENT-${e.id_entrega.toString().padStart(4, '0')}`;
+        document.getElementById('hrEntregaNumero').textContent = `#ENT-${Number(e.id_entrega).toString().padStart(4, '0')}`;
         document.getElementById('hrChofer').textContent = e.repartidor_nombre;
         document.getElementById('hrFechaSalida').textContent = e.fecha_salida || e.fecha_creacion;
 
@@ -377,6 +378,7 @@ async function abrirModalHojaRuta(idEntrega) {
         hrEstado.className = `badge badge-${e.estado}`;
         hrEstado.textContent = e.estado.replace('_', ' ').toUpperCase();
 
+        window.dispatchEvent(new CustomEvent('g2:delivery', { detail: e }));
         const pedidos = e.pedidos || [];
         document.getElementById('hrTotalPedidos').textContent = `${pedidos.length} pedido(s)`;
 
@@ -399,21 +401,21 @@ async function abrirModalHojaRuta(idEntrega) {
 
                 const btnConfirmar = esEntregado
                     ? `<span style="color: var(--success); font-weight: 700; font-size: 0.88rem;">Completado</span>`
-                    : `<button class="clay-btn clay-btn-success" style="min-height: 32px; padding: 0.3rem 0.75rem; font-size: 0.88rem;" onclick="confirmarEntregaPedido(${e.id_entrega}, ${p.id_venta})" title="Confirmar entrega física realizada">
+                    : `<button class="clay-btn clay-btn-success" style="min-height: 32px; padding: 0.3rem 0.75rem; font-size: 0.88rem;" onclick="confirmarEntregaPedido(${Number(e.id_entrega)}, ${Number(p.id_venta)})" title="Confirmar entrega física realizada">
                         Confirmar Entrega
                        </button>`;
 
                 const btnRemito = p.id_remito
-                    ? `<button class="clay-btn clay-btn-secondary" style="min-height: 32px; padding: 0.3rem 0.75rem; font-size: 0.88rem;" onclick="verRemito(${p.id_remito})" title="Ver remito oficial">
+                    ? `<button class="clay-btn clay-btn-secondary" style="min-height: 32px; padding: 0.3rem 0.75rem; font-size: 0.88rem;" onclick="verRemito(${Number(p.id_remito)})" title="Ver remito oficial">
                         Remito
                        </button>`
                     : '';
 
                 tr.innerHTML = `
-                    <td><strong style="color: var(--primary);">#PED-${p.id_venta.toString().padStart(4, '0')}</strong></td>
-                    <td><strong>${p.cliente_nombre}</strong></td>
-                    <td>${p.direccion}, ${p.localidad} <span class="badge-zona">${p.zona_nombre}</span></td>
-                    <td style="text-align: center;"><span class="badge-bultos">${p.total_bultos} b</span></td>
+                    <td><strong style="color: var(--primary);">#PED-${Number(p.id_venta).toString().padStart(4, '0')}</strong></td>
+                    <td><strong>${escapeDeliveryHtml(p.cliente_nombre)}</strong></td>
+                    <td>${escapeDeliveryHtml(p.direccion)}, ${escapeDeliveryHtml(p.localidad)} <span class="badge-zona">${escapeDeliveryHtml(p.zona_nombre)}</span></td>
+                    <td style="text-align: center;"><span class="badge-bultos">${Number(p.total_bultos)} b</span></td>
                     <td style="text-align: right; font-weight: 700; color: #1E3A8A;">$${Number(p.total).toLocaleString('es-AR', {minimumFractionDigits: 2})}</td>
                     <td style="text-align: center;">${badgeEstado}</td>
                     <td style="text-align: center;">
@@ -561,10 +563,10 @@ async function verRemito(idRemito) {
             const tr = document.createElement('tr');
             tr.style.borderBottom = '1px solid #E2E8F0';
             tr.innerHTML = `
-                <td style="padding: 0.6rem; font-weight: 700;">${item.codigo || '-'}</td>
-                <td style="padding: 0.6rem;">${item.descripcion}</td>
-                <td style="padding: 0.6rem; text-align: center; font-weight: 700;">${item.cantidad}</td>
-                <td style="padding: 0.6rem; text-align: center;">${item.bultos} bulto(s)</td>
+                <td style="padding: 0.6rem; font-weight: 700;">${escapeDeliveryHtml(item.codigo || '-')}</td>
+                <td style="padding: 0.6rem;">${escapeDeliveryHtml(item.descripcion)}</td>
+                <td style="padding: 0.6rem; text-align: center; font-weight: 700;">${Number(item.cantidad)}</td>
+                <td style="padding: 0.6rem; text-align: center;">${Number(item.bultos)} bulto(s)</td>
             `;
             tbody.appendChild(tr);
         });
@@ -576,7 +578,7 @@ async function verRemito(idRemito) {
                 contAccion.innerHTML = `<span class="badge badge-entregada" style="padding: 0.5rem 1rem; font-size: 0.95rem;">Mercadería Entregada Conforme</span>`;
             } else {
                 contAccion.innerHTML = `
-                    <button class="clay-btn clay-btn-success" onclick="confirmarEntregaPedido(${r.id_entrega}, ${r.id_venta}); cerrarModalRemito();">
+                    <button class="clay-btn clay-btn-success" onclick="confirmarEntregaPedido(${Number(r.id_entrega)}, ${Number(r.id_venta)}); cerrarModalRemito();">
                         Confirmar Pedido como Entregado
                     </button>
                 `;
@@ -612,7 +614,7 @@ function showToast(mensaje, tipo = 'info') {
     };
     const toast = document.createElement('div');
     toast.className = `toast toast-${tipo}`;
-    toast.innerHTML = `<span style="display:inline-flex;align-items:center;">${icons[tipo] || ''}</span><span>${mensaje}</span>`;
+    toast.innerHTML = `<span style="display:inline-flex;align-items:center;">${icons[tipo] || ''}</span><span>${escapeDeliveryHtml(mensaje)}</span>`;
     container.appendChild(toast);
     setTimeout(() => {
         toast.classList.add('hiding');

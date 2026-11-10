@@ -16,6 +16,7 @@ Route::middleware(['auth', 'session.current', G2Access::class.':admin,repartidor
         Route::post('/entregas', [EntregaController::class, 'crearEntrega'])->middleware(G2Access::class.':admin');
         Route::get('/entregas', [EntregaController::class, 'listar']);
         Route::get('/entregas/{id}', [EntregaController::class, 'detalle'])->whereNumber('id')->middleware(G2OwnsRecord::class.':entrega');
+        Route::put('/entregas/{id}/pedidos', [EntregaController::class, 'modificarPedidos'])->whereNumber('id')->middleware(G2OwnsRecord::class.':entrega');
         Route::patch('/entregas/{id}/pedidos/{idVenta}/entregado', [EntregaController::class, 'confirmarPedidoEntregado'])
             ->whereNumber(['id', 'idVenta'])->middleware(G2OwnsRecord::class.':entrega');
         Route::post('/entregas/confirmar-pedido-entregado', [EntregaController::class, 'confirmarPedidoEntregado'])->middleware(G2OwnsRecord::class.':entrega');
@@ -27,7 +28,7 @@ Route::middleware(['auth', 'session.current', G2Access::class.':admin,repartidor
                 $ventas = $client->obtenerVentasPendientesDespacho();
 
                 return Response::json(['ventas' => $ventas, 'cantidad' => count($ventas), 'modo' => 'remoto_g4']);
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 report($e);
 
                 return Response::error('La conexión con Ventas no está disponible. Contactá al administrador.', 503);

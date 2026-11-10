@@ -3,6 +3,7 @@
 namespace App\Services\Gateways;
 
 use App\Modules\Catalogo\Services\InternalCatalogApi;
+use App\Services\Integrations\InternalApiClient;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
@@ -12,7 +13,8 @@ class ExternalJsonClient
 {
     public function isConfigured(string $service): bool
     {
-        if ($service === 'catalog' && config('catalogo.transport') === 'internal') {
+        if (($service === 'catalog' && config('catalogo.transport') === 'internal')
+            || config("services.{$service}.transport") === 'internal') {
             return true;
         }
 
@@ -80,6 +82,10 @@ class ExternalJsonClient
 
         if ($service === 'catalog' && config('catalogo.transport') === 'internal') {
             return app(InternalCatalogApi::class)->get($path, $query);
+        }
+
+        if (config("services.{$service}.transport") === 'internal') {
+            return app(InternalApiClient::class)->get($path, $query, $token ?: config('services.internal_api.token'));
         }
 
         try {

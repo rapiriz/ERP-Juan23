@@ -4,6 +4,7 @@
 
 @section('content')
     @include('reports.partials.navigation')
+    @include('reports.partials.exports', ['report' => 'debtors', 'ready' => $ready])
     <section class="page-heading">
         <p class="eyebrow">Reportes</p>
         <h1>Clientes deudores</h1>
@@ -38,7 +39,7 @@
                             <td><strong>${{ number_format((float) $debtor['saldo'], 2, ',', '.') }}</strong></td>
                             <td>
                                 @forelse ($debtor['facturas'] as $factura)
-                                    <div>{{ $factura['numero'] }} · {{ \Illuminate\Support\Carbon::parse($factura['vencimiento'])->format('d/m/Y') }} · ${{ number_format((float) $factura['importe_pendiente'], 2, ',', '.') }}</div>
+                                    <div>{{ $factura['numero'] }} · {{ $factura['vencimiento'] ? \Illuminate\Support\Carbon::parse($factura['vencimiento'])->format('d/m/Y') : 'Vencimiento sin informar' }} · ${{ number_format((float) $factura['importe_pendiente'], 2, ',', '.') }}</div>
                                 @empty
                                     <span>Sin detalle de facturas pendientes</span>
                                 @endforelse

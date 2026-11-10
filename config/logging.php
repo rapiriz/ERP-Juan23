@@ -51,6 +51,13 @@ return [
     */
 
     'channels' => [
+        'ventas' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/ventas/ventas.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+            'days' => 14,
+            'replace_placeholders' => true,
+        ],
 
         'stack' => [
             'driver' => 'stack',

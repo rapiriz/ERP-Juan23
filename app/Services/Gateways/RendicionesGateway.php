@@ -17,7 +17,7 @@ class RendicionesGateway
 
     public function clientCollections(int $clientId): array
     {
-        $rows = $this->http->getList('rendiciones', config('services.rendiciones.path'));
+        $rows = $this->http->getList('rendiciones', config('services.rendiciones.path'), ['per_page' => 100]);
         $parents = $children = $collections = [];
         foreach ($rows as $row) {
             abort_unless(is_array($row) && ! Validator::make($row, [
@@ -55,7 +55,8 @@ class RendicionesGateway
                     'medio_pago' => $collection['medio_pago'],
                     'estado_rendicion' => $row['estado'],
                     // El estado de la rendición no confirma cada cobro individual.
-                    'confirmacion_individual' => null,
+                    'confirmacion_individual' => ($collection['estado_revision'] ?? null) === 'aplicado' ? true : null,
+                    'estado_revision' => $collection['estado_revision'] ?? null,
                 ];
             }
         }

@@ -1,5 +1,21 @@
 # Contrato HTTP/JSON de APIs de Integración — Grupo 3 (Productos y Stock)
 
+> Actualización integrada del 10/11/2026. El [inventario de rutas registradas](api-rutas-registradas.md) y esta adenda prevalecen sobre anuncios históricos de issues. El transporte interno conserva autenticación y permisos; no se eliminan por usar un único servidor Artisan.
+
+## Adenda de integración vigente
+
+- `GET /api/stock/disponibilidad` y su alias `/api/v1/stock/disponibilidad` consultan el mismo listado que `/api/stock`, con filtro opcional `id_producto`. `stock` es físico; `stock_disponible`, `disponible` y equivalencias disponibles excluyen lotes controlados vencidos. No se crean existencias al consultar.
+- `GET /api/productos/{id}/unidades/{idUnidad}` y el alias `/api/v1/...` ahora tienen controlador de detalle. Unidad ajena, inexistente o identificador no numérico: 404, sin revelar datos de otro producto.
+- `GET /api/v1/lotes`, `/api/vencimientos/proximos` y `/api/v1/reportes/proveedores-cumplimiento` están implementadas con autenticación de lectura. Registrar lotes exige identidad administrativa de escritura.
+- Las imágenes se entregan en `imagen`/`imagen_url`. Alta/edición de Productos admite archivo `imagen_archivo` (o alias de archivo `imagen`), JPEG/PNG/WebP hasta 4 MB y 4096 × 4096; se normaliza a WebP local. Usar multipart y el mecanismo de autenticación/CSRF que corresponda. Los costos no forman parte de la proyección pública `/api/v1/catalogo` de G1.
+- Compras distingue `saldo_pendiente` (valor de mercadería no recibida), `total_pagado`, `saldo_a_pagar` y `estado_pago`. Recibir completamente no paga al proveedor. `recibir_ahora` permite recepción inicial por detalle/presentación; la operación completa es transaccional. Se puede registrar una compra de una orden pendiente: sólo al guardarse correctamente queda enviada y auditada.
+- `PATCH /api/compras/{id}/cerrar-parcial` requiere recepción comprobada y pagos no superiores a lo recibido. Conserva documentos, ajusta cantidades pendientes y no inventa créditos. La anulación revierte stock verificable y conserva recepciones/comprobantes anulados; no los borra.
+- Conflicto de estado/proveedor: 409. Validación financiera o de cantidades: 422. Se actualizaron las pruebas recuperadas de develop que esperaban un 400 genérico o borrar el historial.
+- Para precargar una compra de una OC con distintas presentaciones, el detalle informa `cantidad_pendiente_base`, `id_unidad_compra` y `precio_estimado_base`; los importes/unidades originales siguen disponibles. No sumar cajas y unidades como si fueran equivalentes.
+- El comentario histórico que solicita `/api/ventas/demanda` no define una ruta implementada en esta versión. Reposición actualmente usa los movimientos de salida de G3; no depende de llamar a esa URL inexistente. Si otro consumidor necesita un reporte de demanda de G4 debe acordar su período, estados y contrato antes de agregarlo.
+- Entregas conserva selección de ventas **confirmadas**, para respetar control comercial y de crédito. No se adopta la regresión remota que seleccionaba pendientes; el contrato integrado y sus pruebas documentan esta decisión.
+
+
 Este documento constituye la referencia técnica oficial de las **APIs de integración entre grupos** publicadas por el **Grupo 3 (G3)** en [`app/Modules/Productos/routes/api.php`](../app/Modules/Productos/routes/api.php).
 
 Siguiendo el criterio arquitectónico del proyecto:
@@ -38,10 +54,12 @@ Todas las rutas de G3 están registradas simultáneamente bajo **dos prefijos**:
 
 Esto garantiza compatibilidad inmediata tanto con **Grupo 1** (que utiliza `/api/v1/productos` por convención en `config/services.php`) como con **Grupo 4** (que utiliza `/api/productos` y `/api/stock/...` en `HttpProductoApi` y `HttpStockApi`).
 
-### 1.2. Cabeceras HTTP recomendadas
-- **`Accept: application/json`** (obligatoria para recibir respuestas de error en formato JSON).
-- **`Content-Type: application/json`** (en peticiones `POST`, `PUT`, `PATCH` con cuerpo JSON).
-- **`X-User-Id: <id_usuario>`** *(opcional)*: Si el módulo invocador envía el ID del usuario que ejecuta la acción (o si existe sesión activa), G3 lo registra automáticamente en el Kardex (`movimiento_stock.id_usuario`) y en el log de auditoría (`log_auditoria.id_usuario`). Si se omite en llamadas servidor a servidor, G3 utiliza un usuario de sistema por defecto sin bloquear la operación.
+### 1.2. Autenticación y cabeceras
+- `Accept: application/json`; `Content-Type: application/json` en escrituras JSON.
+- Para Thunder Client: obtener un token con **POST** `/api/v1/auth/login` usando credenciales propias y enviar `Authorization: Bearer <token>`. Un GET de navegador no obtiene un token.
+- Las consultas privadas admiten los mecanismos de lectura autorizados por su middleware; las operaciones internas de G3 requieren usuario administrativo activo. Por sesión web se exige CSRF; no usar un token de servicio de lectura para operar compras.
+- `X-User-Id` no autentica ni permite suplantar al actor. La identidad de Kardex/auditoría se obtiene del usuario autenticado y se valida. No se promete un usuario de sistema implícito para eludir permisos.
+- Para movimientos de stock usar una `Idempotency-Key` UUID por operación nueva, conservándola y conservando el cuerpo al reintentar. Una clave con otro contenido o actor genera conflicto.
 
 ### 1.3. Estructura estándar de respuesta y Códigos HTTP
 Las respuestas exitosas de G3 siguen la envoltura estándar:
@@ -58,9 +76,11 @@ Las respuestas exitosas de G3 siguen la envoltura estándar:
 | :--- | :--- | :--- |
 | `200 OK` | Consulta exitosa, actualización o procesamiento de lote de movimientos | `{"status": "success", "data": ...}` |
 | `201 Created` | Creación exitosa de un recurso (producto, movimiento individual, compra, orden, etc.) | `{"status": "success", "message": "...", "data": ...}` |
-| `400 Bad Request` | Error de validación de datos o regla de negocio (ej. stock insuficiente, producto inactivo) | `{"status": "error", "message": "Detalle legible del error"}` |
+| `400 Bad Request` | Algunas rutas heredadas conservan este código; no usarlo como regla general de validación | `{"status": "error", "message": "Detalle legible del error"}` |
 | `404 Not Found` | El producto, compra, orden o proveedor solicitado no existe | `{"status": "error", "message": "Producto no encontrado."}` |
 | `500 Internal Server Error` | Error inesperado de infraestructura o base de datos | `{"status": "error", "message": "..."}` |
+
+Validaciones de compras usan **422**; conflictos de estado, proveedor o solicitud repetida incompatible usan **409**. Sin autenticar: **401**; rol insuficiente: **403**. No se convierte una validación esperable en 500.
 
 ### 1.4. Tratamiento de Precios e IVA (Precios Netos)
 - **Todos los precios expuestos por G3 son netos, sin IVA** (`precio_unitario`, `precio_mayorista`, `precio_minorista`, `precioMay`, `precioMin`).
@@ -465,7 +485,7 @@ Toda la lista `items` se ejecuta dentro de una **única transacción atómica (`
    - En modo HTTP (`CATALOG_TRANSPORT=http`), G1 consulta `CATALOG_SERVICE_URL` + `CATALOG_PRODUCTS_PATH` (`/api/v1/productos`).
 2. **Validación de imágenes (`imagen` / `imagen_url`):**
    - `ProductoCatalogo::fromApi()` de G1 exige que las imágenes locales comiencen con `/assets/catalogo/` o `/storage/` y terminen en `.png`, `.jpg`, `.jpeg` o `.webp`.
-   - `ProductoController` guarda todos los archivos subidos desde el formulario de Inventario en `public/assets/catalogo/<codigo>-<timestamp>.<ext>` y expone la ruta `/assets/catalogo/...` en `imagen` e `imagen_url`, cumpliendo 100% con el validador de G1.
+   - `ProductoController` guarda todos los archivos subidos desde el formulario de Inventario en `public/assets/catalogo/producto-<UUID>.webp` y expone la ruta `/assets/catalogo/...` en `imagen` e `imagen_url`, con validación de formato, tamaño y decodificación; el catálogo valida la ruta recibida.
 
 ### 4.2. Integración con Grupo 4 (Ventas, Promociones y Cuenta Corriente)
 1. **Activación por configuración (`.env`):**
@@ -494,49 +514,17 @@ Toda la lista `items` se ejecuta dentro de una **única transacción atómica (`
 
 ---
 
-## 5. Ejemplos Prácticos de Prueba (PowerShell y cURL)
+## 5. Ejemplos de consulta y anulación
 
-Podés ejecutar cualquiera de estos comandos en PowerShell teniendo el servidor levantado (`C:\xampp\php\php.exe artisan serve`):
+Primero obtener el Bearer con el POST de login descrito en el [contrato G1](contrato-api-g1.md). En PowerShell asignar `$token` localmente sin publicarlo y reemplazar IDs:
 
-### 6.1. Listar todos los productos activos (como lo pide G1 o G4)
 ```powershell
-Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/productos?estado=activo" -Method GET -Headers @{ Accept = "application/json" } | ConvertTo-Json -Depth 5
+$headers = @{ Accept='application/json'; Authorization="Bearer $token" }
+Invoke-RestMethod 'http://127.0.0.1:8000/api/productos?estado=activo' -Headers $headers
+Invoke-RestMethod 'http://127.0.0.1:8000/api/stock/disponibilidad?id_producto=1' -Headers $headers
+Invoke-RestMethod 'http://127.0.0.1:8000/api/productos/1/unidades/1' -Headers $headers
 ```
 
-### 6.2. Buscar un producto por su código SKU (`P001`)
-```powershell
-Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/productos/codigo/P001" -Method GET -Headers @{ Accept = "application/json" } | ConvertTo-Json -Depth 5
-```
+Para anular un pago real registrado por error, sólo administrativo: `DELETE /api/compras/{compra}/pagos/{pago}` o `/api/v1/...`, JSON `{"motivo":"Pago duplicado verificado"}`. Respuesta 200 con pago marcado como anulado y resumen recalculado; reenvío no repite auditoría. El registro no se elimina físicamente. Consultar GET de pagos: `pagos` activos, `lista` historial completo; los totales excluyen anulados. Un pago de otra compra devuelve 404, rol insuficiente 403 y motivo inválido 422.
 
-### 6.3. Consultar stock actual de un producto (como lo pide `HttpStockApi::disponible` de G4)
-```powershell
-Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/stock/1" -Method GET -Headers @{ Accept = "application/json" } | ConvertTo-Json -Depth 5
-```
-
-### 6.4. Descontar stock por una Venta (como lo envía `HttpStockApi::ajustar` de G4)
-```powershell
-$body = @{
-    origen   = "ventas"
-    venta_id = 101
-    motivo   = "venta"
-    items    = @(
-        @{ id_producto = 1; cantidad = -2 }
-    )
-} | ConvertTo-Json -Depth 4
-
-Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/stock/movimientos" -Method POST -Headers @{ Accept = "application/json"; "Content-Type" = "application/json" } -Body $body | ConvertTo-Json -Depth 5
-```
-
-### 6.5. Reponer stock por Anulación de Venta o Devolución en Reparto
-```powershell
-$body = @{
-    origen   = "ventas"
-    venta_id = 101
-    motivo   = "anulacion"
-    items    = @(
-        @{ id_producto = 1; cantidad = 2 }
-    )
-} | ConvertTo-Json -Depth 4
-
-Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/stock/movimientos" -Method POST -Headers @{ Accept = "application/json"; "Content-Type" = "application/json" } -Body $body | ConvertTo-Json -Depth 5
-```
+Estos ejemplos no dan permiso para anular cualquier pago ni sustituyen la revisión de un movimiento bancario real. Ver [correcciones, pruebas y reversión](informe-cierre-pendientes-y-revision-2026-11-10.md).

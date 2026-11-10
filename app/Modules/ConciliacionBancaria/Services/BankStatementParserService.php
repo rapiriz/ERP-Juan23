@@ -21,7 +21,8 @@ class BankStatementParserService
             $desc
         );
         $desc = preg_replace('/\s+/', ' ', $desc);
-        return trim((string)$desc);
+
+        return trim((string) $desc);
     }
 
     /**
@@ -35,6 +36,7 @@ class BankStatementParserService
                 return $cuitLimpio;
             }
         }
+
         return null;
     }
 
@@ -46,6 +48,7 @@ class BankStatementParserService
         if (preg_match('/\b(COMP|NRO|NUM|REC|OPER|FAC|S\.)\s*[:#.]?\s*(\d+)\b/i', $texto, $matches)) {
             return $matches[2];
         }
+
         return null;
     }
 
@@ -56,7 +59,7 @@ class BankStatementParserService
      */
     public function clasificar(string $descNormalizada, float $monto, string $signo): array
     {
-        $esCredito = ($signo === 'ingreso' || $monto > 0);
+        $esCredito = $signo === 'ingreso';
 
         // 1. Detección de retenciones, contracargos o fondos suspendidos
         if (preg_match('/(CONTRACARGO|DEBITO SUSPENDIDO|RETENCION PREVENTIVA|EMBARGO|INVESTIGACION)/i', $descNormalizada)) {
@@ -91,7 +94,7 @@ class BankStatementParserService
         }
 
         // 5. Transferencias o DEBIN salientes (pago a proveedores)
-        if (!$esCredito && preg_match('/(TRANSFERENCIA ENVIADA|TRANSF\.?\s*EMITIDA|DEBIN DEBITO|DEBIN ENVIADO|PAGO PROVEEDOR)/i', $descNormalizada)) {
+        if (! $esCredito && preg_match('/(TRANSFERENCIA ENVIADA|TRANSF\.?\s*EMITIDA|DEBIN DEBITO|DEBIN ENVIADO|PAGO PROVEEDOR)/i', $descNormalizada)) {
             return [
                 'tipo_movimiento' => 'pago_proveedor',
                 'estado_conciliacion' => 'no_aplica',

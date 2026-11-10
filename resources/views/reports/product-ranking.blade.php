@@ -4,6 +4,7 @@
 
 @section('content')
     @include('reports.partials.navigation')
+    @include('reports.partials.exports', ['report' => 'product-ranking', 'ready' => $ready])
     <section class="page-heading">
         <p class="eyebrow">Reportes</p>
         <h1>Ranking comercial</h1>

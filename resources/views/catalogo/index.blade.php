@@ -18,7 +18,7 @@
         <fieldset class="cat-categories"><legend>Categorías</legend><div id="cat-category-options">
             <label class="cat-category"><input type="radio" name="categoria" value="" @checked(empty($filters['categoria']))><span>Todos los productos</span><small>{{ $totalCatalog ?? '—' }}</small></label>
             @foreach($categories as $category)
-                <label class="cat-category"><input type="radio" name="categoria" value="{{ $category['id'] }}" @checked(($filters['categoria'] ?? '') === $category['id'])><span>{{ $category['nombre'] }}</span><small>{{ $category['cantidad'] }}</small></label>
+                <label class="cat-category"><input type="radio" name="categoria" value="{{ $category['id'] }}" @checked(($filters['categoria'] ?? '') === $category['id'])><span style="padding-left:{{ (int) ($category['profundidad'] ?? 0) * 12 }}px">{{ $category['nombre'] }}</span><small>{{ $category['cantidad'] }}</small></label>
             @endforeach
             @if(!empty($filters['categoria']) && !collect($categories)->contains('id', $filters['categoria']))
                 <label class="cat-category"><input type="radio" name="categoria" value="{{ $filters['categoria'] }}" checked><span>Categoría seleccionada</span><small>0</small></label>

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Modules\Proveedores\Services;
@@ -6,14 +7,14 @@ namespace App\Modules\Proveedores\Services;
 use App\Modules\Proveedores\Models\HistorialPrecioProveedor;
 use App\Modules\Proveedores\Models\ProductoProveedor;
 use App\Modules\Proveedores\Repositories\HistorialPrecioProveedorRepository;
-use App\Modules\Stock\Models\UnidadMedida;
+use App\Modules\Stock\Services\ProductUnitService;
 use Carbon\Carbon;
 use InvalidArgumentException;
 
 class HistorialPrecioService
 {
     public function __construct(
-        protected HistorialPrecioProveedorRepository $repository = new HistorialPrecioProveedorRepository()
+        protected HistorialPrecioProveedorRepository $repository = new HistorialPrecioProveedorRepository
     ) {}
 
     /**
@@ -33,20 +34,11 @@ class HistorialPrecioService
         }
 
         $relacion = ProductoProveedor::find($idProductoProveedor);
-        if (!$relacion) {
+        if (! $relacion) {
             throw new InvalidArgumentException("La relación producto-proveedor #{$idProductoProveedor} no existe.");
         }
 
-        // Si no se especifica unidad, buscar la unidad base del producto
-        if ($idUnidad === null || $idUnidad <= 0) {
-            $idUnidad = UnidadMedida::where('id_producto', $relacion->id_producto)
-                ->where('es_base', 1)
-                ->value('id_unidad');
-
-            if (!$idUnidad) {
-                $idUnidad = UnidadMedida::where('es_base', 1)->value('id_unidad');
-            }
-        }
+        $idUnidad = ProductUnitService::resolve((int) $relacion->id_producto, $idUnidad && $idUnidad > 0 ? $idUnidad : null)->id_unidad;
 
         $fecha = $fechaActualizacion ? Carbon::parse($fechaActualizacion) : Carbon::now();
 
@@ -80,8 +72,8 @@ class HistorialPrecioService
         $preciosPreviosPorProducto = [];
         $itemsCalculados = [];
 
-        $carbonDesde = !empty($desde) ? Carbon::parse($desde)->startOfDay() : null;
-        $carbonHasta = !empty($hasta) ? Carbon::parse($hasta)->endOfDay() : null;
+        $carbonDesde = ! empty($desde) ? Carbon::parse($desde)->startOfDay() : null;
+        $carbonHasta = ! empty($hasta) ? Carbon::parse($hasta)->endOfDay() : null;
 
         foreach ($todosAsc as $registro) {
             $prodId = $registro->id_producto;
@@ -131,9 +123,9 @@ class HistorialPrecioService
                 'id_compra' => $registro->id_compra,
                 'numero_compra' => $registro->compra?->numero_compra,
                 'origen' => $registro->id_compra
-                    ? ('Factura Compra #' . ($registro->compra?->numero_compra ?? $registro->id_compra))
+                    ? ('Factura Compra #'.($registro->compra?->numero_compra ?? $registro->id_compra))
                     : 'Acuerdo comercial',
-                'observaciones' => $registro->observaciones ?? ($registro->id_compra ? ('Factura Compra #' . ($registro->compra?->numero_compra ?? $registro->id_compra)) : 'Acuerdo comercial'),
+                'observaciones' => $registro->observaciones ?? ($registro->id_compra ? ('Factura Compra #'.($registro->compra?->numero_compra ?? $registro->id_compra)) : 'Acuerdo comercial'),
                 'id_usuario' => $registro->id_usuario,
                 'usuario_nombre' => $registro->usuario?->nombre ?? $registro->usuario?->user ?? 'Sistema',
             ];
@@ -146,6 +138,7 @@ class HistorialPrecioService
             if ($cmp === 0) {
                 $cmp = $a['id_historial_prov'] <=> $b['id_historial_prov'];
             }
+
             return $ordenDesc ? -$cmp : $cmp;
         });
 
@@ -177,7 +170,7 @@ class HistorialPrecioService
         $porProducto = [];
         foreach ($historial as $item) {
             $pid = $item['id_producto'];
-            if (!isset($porProducto[$pid])) {
+            if (! isset($porProducto[$pid])) {
                 $porProducto[$pid] = [];
             }
             $porProducto[$pid][] = $item;
@@ -229,7 +222,7 @@ class HistorialPrecioService
         }
 
         // Ordenar productos por mayor variación porcentual descendente
-        usort($resumenProductos, fn($a, $b) => $b['variacion_porcentual'] <=> $a['variacion_porcentual']);
+        usort($resumenProductos, fn ($a, $b) => $b['variacion_porcentual'] <=> $a['variacion_porcentual']);
 
         $totalProds = count($resumenProductos);
         $promedioGeneral = $totalProds > 0 ? round($sumaVariaciones / $totalProds, 2) : 0.0;

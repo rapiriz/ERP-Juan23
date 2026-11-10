@@ -6,9 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Modules\ConciliacionBancaria\Models\MovimientoBancario;
 use App\Modules\ConciliacionBancaria\Services\BankStatementImportService;
 use App\Support\UsuarioActual;
+use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Exception;
+use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 class MovimientoBancarioController extends Controller
 {
@@ -25,6 +27,7 @@ class MovimientoBancarioController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
+        $request->validate(['fecha_desde' => 'nullable|date_format:Y-m-d', 'fecha_hasta' => 'nullable|date_format:Y-m-d|after_or_equal:fecha_desde', 'monto_min' => 'nullable|numeric|min:0', 'monto_max' => 'nullable|numeric|min:0', 'signo' => 'nullable|in:ingreso,egreso', 'per_page' => 'nullable|integer|between:1,100', 'page' => 'nullable|integer|min:1', 'q' => 'nullable|string|max:255', 'cuit' => 'nullable|string|max:20', 'comprobante' => 'nullable|string|max:100']);
         $query = MovimientoBancario::query();
 
         if ($request->filled('fecha_desde')) {
@@ -38,10 +41,10 @@ class MovimientoBancarioController extends Controller
             $query->where('cuit_extraido', 'like', "%{$cuitLimpio}%");
         }
         if ($request->filled('monto_min')) {
-            $query->where('monto', '>=', (float)$request->input('monto_min'));
+            $query->where('monto', '>=', (float) $request->input('monto_min'));
         }
         if ($request->filled('monto_max')) {
-            $query->where('monto', '<=', (float)$request->input('monto_max'));
+            $query->where('monto', '<=', (float) $request->input('monto_max'));
         }
         if ($request->filled('signo')) {
             $query->where('signo_monto', $request->input('signo'));
@@ -53,7 +56,7 @@ class MovimientoBancarioController extends Controller
             $query->where('estado_conciliacion', $request->input('estado_conciliacion'));
         }
         if ($request->filled('comprobante')) {
-            $query->where('nro_comprobante_extraido', 'like', '%' . $request->input('comprobante') . '%');
+            $query->where('nro_comprobante_extraido', 'like', '%'.$request->input('comprobante').'%');
         }
         if ($request->filled('q')) {
             $q = $request->input('q');
@@ -63,7 +66,7 @@ class MovimientoBancarioController extends Controller
             });
         }
 
-        $perPage = (int)$request->input('per_page', 25);
+        $perPage = (int) $request->input('per_page', 25);
         $movimientos = $query->orderBy('fecha_operacion', 'desc')
             ->orderBy('id_movimiento_bancario', 'desc')
             ->paginate($perPage);
@@ -85,17 +88,17 @@ class MovimientoBancarioController extends Controller
     public function show(int $id): JsonResponse
     {
         $movimiento = MovimientoBancario::with('archivoImportado')->find($id);
-        if (!$movimiento) {
+        if (! $movimiento) {
             return response()->json([
                 'error' => true,
                 'codigo' => 404,
-                'mensaje' => "Movimiento bancario #{$id} no encontrado."
+                'mensaje' => "Movimiento bancario #{$id} no encontrado.",
             ], 404);
         }
 
         return response()->json([
             'success' => true,
-            'data' => $movimiento
+            'data' => $movimiento,
         ]);
     }
 
@@ -113,13 +116,16 @@ class MovimientoBancarioController extends Controller
         $idUsuario = UsuarioActual::id() ?? 1;
 
         try {
-            $res = $this->importService->importar($archivo, (int)$idUsuario);
+            $res = $this->importService->importar($archivo, (int) $idUsuario);
+
             return response()->json($res, 201);
+        } catch (HttpExceptionInterface|ValidationException $e) {
+            throw $e;
         } catch (Exception $e) {
             return response()->json([
                 'error' => true,
                 'codigo' => 422,
-                'mensaje' => $e->getMessage()
+                'mensaje' => $e->getMessage(),
             ], 422);
         }
     }

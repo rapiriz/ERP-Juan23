@@ -1,3 +1,4 @@
+const escapeSuggestionHtml = value => window.erpSafeHtml.escape(value);
 const API_URL = '/api/sugerencias-reposicion';
 const TOKEN = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 
@@ -55,26 +56,26 @@ function renderTablaSugerencias(datos) {
         const badgeMotivo = obtenerBadgeMotivo(sugerencia.motivo_generacion);
         const row = `
             <tr>
-                <td><input type="checkbox" class="check-sugerencia" value="${sugerencia.id}" onchange="actualizarContadorSeleccionadas()"></td>
+                <td><input type="checkbox" class="check-sugerencia" value="${Number(sugerencia.id)}" onchange="actualizarContadorSeleccionadas()"></td>
                 <td>
-                    <a href="javascript:void(0)" onclick="verDetalle(${sugerencia.id})">
-                        <strong>${sugerencia.producto.nombre}</strong>
-                    </a><br><small>${sugerencia.producto.codigo}</small>
+                    <a href="javascript:void(0)" onclick="verDetalle(${Number(sugerencia.id)})">
+                        <strong>${escapeSuggestionHtml(sugerencia.producto.nombre)}</strong>
+                    </a><br><small>${escapeSuggestionHtml(sugerencia.producto.codigo)}</small>
                 </td>
-                <td>${sugerencia.proveedor.nombre}</td>
-                <td>${sugerencia.cantidad_sugerida}</td>
+                <td>${escapeSuggestionHtml(sugerencia.proveedor.nombre)}</td>
+                <td>${escapeSuggestionHtml(sugerencia.cantidad_sugerida)}</td>
                 <td>$${parseFloat(sugerencia.precio_unitario).toFixed(2)}</td>
                 <td><strong>$${parseFloat(sugerencia.costo_total).toFixed(2)}</strong></td>
                 <td>${parseFloat(sugerencia.velocidad_venta_diaria).toFixed(2)}</td>
-                <td>${sugerencia.plazo_entrega_dias}</td>
-                <td>${sugerencia.fecha_reorden}</td>
+                <td>${escapeSuggestionHtml(sugerencia.plazo_entrega_dias)}</td>
+                <td>${escapeSuggestionHtml(sugerencia.fecha_reorden)}</td>
                 <td><span class="${badgeMotivo}">${obtenerTextoMotivo(sugerencia.motivo_generacion)}</span></td>
-                <td><span class="badge bg-primary">${sugerencia.estado}</span></td>
+                <td><span class="badge bg-primary">${escapeSuggestionHtml(sugerencia.estado)}</span></td>
                 <td>
-                    <button class="clay-btn clay-btn-sm clay-btn-primary" onclick="generarOrdenDesdeSugerencia(${sugerencia.id})">
+                    <button class="clay-btn clay-btn-sm clay-btn-primary" onclick="generarOrdenDesdeSugerencia(${Number(sugerencia.id)})">
                         🛒 Generar orden
                     </button>
-                    <button class="clay-btn clay-btn-sm clay-btn-success" onclick="procesarSugerencia(${sugerencia.id})">
+                    <button class="clay-btn clay-btn-sm clay-btn-success" onclick="procesarSugerencia(${Number(sugerencia.id)})">
                         ✓ Procesar
                     </button>
                 </td>
@@ -147,16 +148,16 @@ function verDetalle(id) {
         if (!sugerencia) return;
 
         document.getElementById('detalleContent').innerHTML = `
-            <p><strong>Producto:</strong> ${sugerencia.producto.nombre} (${sugerencia.producto.codigo})</p>
-            <p><strong>Proveedor:</strong> ${sugerencia.proveedor.nombre}</p>
-            <p><strong>Cantidad sugerida:</strong> ${sugerencia.cantidad_sugerida}</p>
+            <p><strong>Producto:</strong> ${escapeSuggestionHtml(sugerencia.producto.nombre)} (${escapeSuggestionHtml(sugerencia.producto.codigo)})</p>
+            <p><strong>Proveedor:</strong> ${escapeSuggestionHtml(sugerencia.proveedor.nombre)}</p>
+            <p><strong>Cantidad sugerida:</strong> ${escapeSuggestionHtml(sugerencia.cantidad_sugerida)}</p>
             <p><strong>Costo total:</strong> $${parseFloat(sugerencia.costo_total).toFixed(2)}</p>
             <p><strong>Motivo:</strong> ${obtenerTextoMotivo(sugerencia.motivo_generacion)}</p>
-            <p><strong>Fecha de reorden:</strong> ${sugerencia.fecha_reorden}</p>
-            <p><strong>Observaciones:</strong> ${sugerencia.observaciones ?? '—'}</p>
-            ${sugerencia.motivo_rechazo ? `<p><strong>Motivo del rechazo:</strong> ${sugerencia.motivo_rechazo}</p>` : ''}
+            <p><strong>Fecha de reorden:</strong> ${escapeSuggestionHtml(sugerencia.fecha_reorden)}</p>
+            <p><strong>Observaciones:</strong> ${escapeSuggestionHtml(sugerencia.observaciones ?? '—')}</p>
+            ${sugerencia.motivo_rechazo ? `<p><strong>Motivo del rechazo:</strong> ${escapeSuggestionHtml(sugerencia.motivo_rechazo)}</p>` : ''}
             ${sugerencia.id_orden_compra
-                ? `<p><strong>Orden generada:</strong> <a href="/compras" class="text-blue-600 underline font-bold" target="_blank">#${sugerencia.id_orden_compra}</a></p>`
+                ? `<p><strong>Orden generada:</strong> <a href="/compras" class="text-blue-600 underline font-bold" target="_blank">#${Number(sugerencia.id_orden_compra)}</a></p>`
                 : ''}
         `;
 
@@ -345,11 +346,11 @@ function renderPaginacion(paginacion, elementId, callback) {
         html += `<button class="clay-btn clay-btn-sm clay-btn-secondary" onclick="${callback.name}(${paginacion.pagina_actual - 1})">‹ Anterior</button>`;
     }
 
-    html += `<span class="clay-btn clay-btn-sm" style="cursor: default; background: #e8ecf1;">Página ${paginacion.pagina_actual} de ${paginacion.total_paginas}</span>`;
+    html += `<span class="clay-btn clay-btn-sm" style="cursor: default; background: #e8ecf1;">Página ${Number(paginacion.pagina_actual)} de ${Number(paginacion.total_paginas)}</span>`;
 
     if (paginacion.tiene_siguiente) {
         html += `<button class="clay-btn clay-btn-sm clay-btn-secondary" onclick="${callback.name}(${paginacion.pagina_actual + 1})">Siguiente ›</button>`;
-        html += `<button class="clay-btn clay-btn-sm clay-btn-secondary" onclick="${callback.name}(${paginacion.total_paginas})">Última »</button>`;
+        html += `<button class="clay-btn clay-btn-sm clay-btn-secondary" onclick="${callback.name}(${Number(paginacion.total_paginas)})">Última »</button>`;
     }
 
     html += '</div>';

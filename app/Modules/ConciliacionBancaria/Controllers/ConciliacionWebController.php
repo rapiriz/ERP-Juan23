@@ -3,23 +3,19 @@
 namespace App\Modules\ConciliacionBancaria\Controllers;
 
 use App\Modules\ConciliacionBancaria\Services\ConciliacionService;
+use App\Modules\Shared\Auth\G2Identity;
 use App\Modules\Shared\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use App\Modules\Shared\Auth\G2Identity;
 
 class ConciliacionWebController extends Controller
 {
-
-
-    public function __construct(private ConciliacionService $service)
-    {
-    }
+    public function __construct(private ConciliacionService $service) {}
 
     public function index(Request $request)
     {
         $periodos = $this->service->listarPeriodos($request->query('estado'));
 
-        return view('conciliacion.index', compact('periodos'));
+        return view('conciliacion.split-screen');
     }
 
     public function asegurarMes()

@@ -4,24 +4,12 @@ namespace App\Modules\Ventas\Integraciones;
 
 use App\Modules\Ventas\Contracts\ClienteGateway;
 use App\Modules\Ventas\Exceptions\IntegracionNoDisponibleException;
+use App\Services\Integrations\InternalApiClient;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 use Throwable;
 
-/**
- * CLIENTES DESDE LA API REAL (APAGADA HOY - lista para integrar)
- *
- * Mismo esquema que HttpProductoApi. Testeada en
- * tests/Unit/Integraciones/HttpClienteApiTest.php.
- *
- * Para activarla, en el .env:
- *   VENTAS_INTEGRACION=http
- *   VENTAS_CLIENTES_URL=http://url-del-modulo-clientes
- *
- * ⚠ CONTRATO SUPUESTO (ajustar cuando el otro grupo lo confirme):
- *   GET {url}/api/clientes       → lista de clientes
- *   GET {url}/api/clientes/{id}  → un cliente (404 si no existe)
- */
+/** Clientes desde /api/v1/clientes: transporte interno o HTTP autenticado. */
 class HttpClienteApi implements ClienteGateway
 {
     private ?array $cache = null;
@@ -96,12 +84,17 @@ class HttpClienteApi implements ClienteGateway
             'condicion' => (string) ($cliente['condicion_iva'] ?? ''),
             'domicilio' => (string) ($cliente['direccion'] ?? ''),
             'localidad' => (string) ($cliente['localidad'] ?? ''),
+            'zona_id' => isset($cliente['zona_id']) ? (int) $cliente['zona_id'] : null,
             'movimientos' => [],
         ];
     }
 
-    private function cliente(): PendingRequest
+    private function cliente(): PendingRequest|InternalApiClient
     {
+        if (config('ventas.integracion') === 'internal') {
+            return new InternalApiClient(config('services.internal_api.token'));
+        }
+
         $cliente = Http::baseUrl(rtrim((string) config('ventas.servicios.clientes.url'), '/'))
             ->timeout((int) config('ventas.timeout'))
             ->acceptJson();

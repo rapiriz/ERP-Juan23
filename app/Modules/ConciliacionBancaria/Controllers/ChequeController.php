@@ -10,15 +10,11 @@ use Illuminate\Http\Request;
 /**
  * Controller de Cheques (dentro de Conciliación Bancaria).
  *
- * ALCANCE NO CONFIRMADO: no hay historia de usuario que respalde estos
- * endpoints — se propusieron a partir de los valores de `estado` en la
- * migración CHEQUE. Pendiente de formalizar y confirmar con el equipo.
+ * Operaciones de cartera y rechazo con reversión financiera trazable.
  */
 class ChequeController extends Controller
 {
-    public function __construct(private ChequeService $service)
-    {
-    }
+    public function __construct(private ChequeService $service) {}
 
     public function index(Request $request)
     {
@@ -53,9 +49,10 @@ class ChequeController extends Controller
         return Response::json($resultado);
     }
 
-    public function rechazar(int $id)
+    public function rechazar(Request $request, int $id)
     {
-        $resultado = $this->service->rechazar($id);
+        $data = $request->validate(['motivo' => 'required|string|min:3|max:500']);
+        $resultado = $this->service->rechazar($id, $data['motivo']);
 
         if ($resultado === null) {
             return Response::error('Cheque no encontrado', 404);

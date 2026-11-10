@@ -1,11 +1,11 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Modules\Stock\Services;
 
-use App\Modules\Stock\Models\MovimientoStock;
-use App\Modules\Stock\Models\UnidadMedida;
 use App\Modules\Productos\Models\Producto;
+use App\Modules\Stock\Models\MovimientoStock;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -44,13 +44,13 @@ class StockService
     /**
      * Aplica un ajuste con signo a la cantidad disponible y registra el movimiento.
      *
-     * @param Producto $producto  Producto afectado (debe estar persistido).
-     * @param string   $tipo      'ingreso' | 'venta' | 'devolucion' | 'ajuste'
-     * @param int      $cantidad  Cantidad positiva. El signo se deduce del tipo.
-     * @param string   $motivo    Motivo u observación.
-     * @param int      $idUsuario Usuario responsable del movimiento.
-     * @param int|null $idUnidad  Unidad de medida usada (opcional, S08).
-     * @param int|null $idVenta   Referencia a venta (opcional, grupo externo).
+     * @param  Producto  $producto  Producto afectado (debe estar persistido).
+     * @param  string  $tipo  'ingreso' | 'venta' | 'devolucion' | 'ajuste'
+     * @param  int  $cantidad  Cantidad positiva. El signo se deduce del tipo.
+     * @param  string  $motivo  Motivo u observación.
+     * @param  int  $idUsuario  Usuario responsable del movimiento.
+     * @param  int|null  $idUnidad  Unidad de medida usada (opcional, S08).
+     * @param  int|null  $idVenta  Referencia a venta (opcional, grupo externo).
      */
     public function registrarMovimiento(
         Producto $producto,
@@ -61,9 +61,10 @@ class StockService
         ?int $idUnidad = null,
         ?int $idVenta = null,
         ?int $idRecepcion = null,
-        \Carbon\Carbon|string|null $fechaPersonalizada = null,
+        Carbon|string|null $fechaPersonalizada = null,
         bool $esIncremento = false,
-        ?int $idSesionConteo = null
+        ?int $idSesionConteo = null,
+        ?int $idLote = null
     ): MovimientoStock {
         $idUnidad = ($idUnidad !== null && (int) $idUnidad > 0) ? (int) $idUnidad : null;
         $datosMovimiento = [
@@ -71,7 +72,7 @@ class StockService
             'id_unidad' => $idUnidad,
             'tipo' => $tipo,
             'cantidad' => $cantidad,
-            'cantidad_base' => self::cantidadEnUnidadBase($cantidad, $idUnidad),
+            'cantidad_base' => 0,
             'fecha' => '',
             'motivo' => $motivo,
             'id_usuario' => $idUsuario,
@@ -79,11 +80,11 @@ class StockService
             'id_recepcion' => $idRecepcion,
         ];
 
-        if (Schema::hasColumn('MOVIMIENTO_STOCK', 'id_sesion_conteo')) {
+        if (Schema::hasColumn('movimiento_stock', 'id_sesion_conteo')) {
             $datosMovimiento['id_sesion_conteo'] = $idSesionConteo;
         }
 
-        if (!in_array($tipo, self::TIPOS, true)) {
+        if (! in_array($tipo, self::TIPOS, true)) {
             throw new RuntimeException("Tipo de movimiento inválido: {$tipo}");
         }
         if ($cantidad <= 0) {
@@ -101,7 +102,7 @@ class StockService
             $fecha = $fechaPersonalizada->toDateTimeString();
         } elseif (is_string($fechaPersonalizada) && trim($fechaPersonalizada) !== '') {
             $parsed = Carbon::parse($fechaPersonalizada);
-            if (!str_contains($fechaPersonalizada, ':') || $parsed->format('H:i:s') === '00:00:00') {
+            if (! str_contains($fechaPersonalizada, ':') || $parsed->format('H:i:s') === '00:00:00') {
                 $ahora = Carbon::now();
                 $parsed->setTime($ahora->hour, $ahora->minute, $ahora->second);
             }
@@ -118,14 +119,20 @@ class StockService
             $idUnidad,
             $esIncremento,
             $datosMovimiento,
-            $fecha
+            $fecha,
+            $idLote
         ) {
-            $disponible = $producto->stock_disponible;
+            $producto = Producto::query()->whereKey($producto->id_producto)->lockForUpdate()->firstOrFail();
+            if ($producto->estado !== 'activo') {
+                throw new RuntimeException('El producto est? inactivo.');
+            }
+            $disponible = (int) $producto->stock;
 
             // PRODUCTO.stock se mantiene en unidades base (OB3), por lo que el delta
             // se aplica sobre la cantidad convertida y no sobre la cantidad cruda:
             // vender 3 cajas de 12 unidades resta 36, no 3.
-            $cantidadBase = self::cantidadEnUnidadBase($cantidad, $idUnidad);
+            $cantidadBase = ProductUnitService::quantity($cantidad, (int) $producto->id_producto, $idUnidad);
+            $datosMovimiento['cantidad_base'] = $cantidadBase;
 
             // Determinar delta aplicado al stock
             $delta = match ($tipo) {
@@ -144,12 +151,18 @@ class StockService
                 );
             }
 
+            if ($nuevoDisponible > 2147483647) {
+                throw new RuntimeException('El stock excede la capacidad de unidades del sistema.');
+            }
             $producto->stock = $nuevoDisponible;
             $producto->save();
             $this->recalcularAlerta($producto);
 
             $datosMovimiento['fecha'] = $fecha;
-            return MovimientoStock::create($datosMovimiento);
+
+            $movement = MovimientoStock::create($datosMovimiento);
+            app(LotStockAllocator::class)->apply($movement, $delta, $disponible, $idLote);
+            return $movement;
         });
     }
 
@@ -160,15 +173,17 @@ class StockService
      * cantidad_base, la misma cantidad normalizada a la unidad base: sin eso la
      * traza de auditoría queda inutilizable para razonar sobre stock.
      */
-    public static function cantidadEnUnidadBase(int $cantidad, ?int $idUnidad): int
+    public static function cantidadEnUnidadBase(int $cantidad, ?int $idUnidad, ?int $idProducto = null): int
     {
         if ($idUnidad === null || (int) $idUnidad <= 0) {
             return $cantidad;
         }
 
-        $equivalencia = UnidadMedida::where('id_unidad', $idUnidad)->value('equivalencia_base');
+        if ($idProducto === null) {
+            throw new RuntimeException('Debe indicar el producto para convertir su unidad.');
+        }
 
-        return (int) round($cantidad * ($equivalencia !== null ? (float) $equivalencia : 1.0));
+        return ProductUnitService::quantity($cantidad, $idProducto, $idUnidad);
     }
 
     /**
@@ -190,6 +205,7 @@ class StockService
         if ($equivalenciaDestino <= 0) {
             throw new RuntimeException('La unidad de destino debe tener una equivalencia mayor a cero.');
         }
+
         return (float) $cantidad * $equivalenciaOrigen / $equivalenciaDestino;
     }
 }

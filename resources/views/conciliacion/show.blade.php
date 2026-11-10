@@ -53,14 +53,14 @@
 
             @if (count($resultadoConciliacion['ambiguos_requieren_revision_manual']) > 0)
                 <div class="alerta alerta-error">
-                    {{ count($resultadoConciliacion['ambiguos_requieren_revision_manual']) }} movimiento(s) tienen más de un candidato posible
+                    {{ count($resultadoConciliacion['ambiguos_requieren_revision_manual']) }} movimiento(s) requieren revisión por coincidencias ambiguas
                     y requieren revisión manual — no se conciliaron para evitar un cruce incorrecto.
                 </div>
             @endif
 
             @if (count($resultadoConciliacion['sin_candidato']) > 0)
                 <div class="alerta alerta-error">
-                    {{ count($resultadoConciliacion['sin_candidato']) }} movimiento(s) no encontraron ningún candidato dentro del margen de 48hs.
+                    {{ count($resultadoConciliacion['sin_candidato']) }} movimiento(s) no encontraron un candidato identificable dentro del margen de 48hs.
                 </div>
             @endif
         </div>

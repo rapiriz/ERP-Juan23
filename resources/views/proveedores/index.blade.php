@@ -53,7 +53,7 @@
                        oninput="renderProveedores()">
             </div>
 
-            <select id="filtroEstadoProvs" onchange="renderProveedores()" class="clay-input py-2 text-xs font-bold text-slate-700 min-w-[140px]">
+            <select id="filtroEstadoProvs" aria-label="Estado del proveedor" onchange="renderProveedores()" class="clay-input py-2 text-xs font-bold text-slate-700 min-w-[140px]">
                 <option value="todos">Todos los Estados</option>
                 <option value="activo">Solo Activos</option>
                 <option value="inactivo">Solo Inactivos</option>
@@ -115,7 +115,7 @@
     <div class="clay-modal-content max-w-xl p-6 space-y-4" onclick="event.stopPropagation()">
         <div class="flex items-center justify-between pb-3 border-b border-slate-100">
             <h3 id="modalProveedorTitulo" class="text-base font-black text-slate-800">Nuevo Proveedor</h3>
-            <button onclick="cerrarModalProveedor()" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+            <button onclick="cerrarModalProveedor()" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg" aria-label="Cerrar diálogo">
                 <i data-lucide="x" class="w-5 h-5"></i>
             </button>
         </div>
@@ -195,7 +195,7 @@
                     <p id="asocProvSubtitulo" class="text-xs text-slate-500 font-bold">Catálogo de artículos provistos y precios acordados</p>
                 </div>
             </div>
-            <button onclick="cerrarModalAsociar()" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+            <button onclick="cerrarModalAsociar()" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg" aria-label="Cerrar diálogo">
                 <i data-lucide="x" class="w-5 h-5"></i>
             </button>
         </div>
@@ -293,7 +293,7 @@
                     <p id="editAsocSubtitulo" class="text-[11px] text-slate-400 font-bold">Modificar precio acordado y condición comercial</p>
                 </div>
             </div>
-            <button type="button" onclick="cerrarModalEditarAsociacion()" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+            <button type="button" onclick="cerrarModalEditarAsociacion()" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg" aria-label="Cerrar diálogo">
                 <i data-lucide="x" class="w-5 h-5"></i>
             </button>
         </div>
@@ -360,7 +360,7 @@
                     <p id="historialProvSubtitulo" class="text-xs text-slate-500 font-bold">Registro de alta, modificaciones y estado</p>
                 </div>
             </div>
-            <button onclick="cerrarModalHistorialProveedor()" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+            <button onclick="cerrarModalHistorialProveedor()" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg" aria-label="Cerrar diálogo">
                 <i data-lucide="x" class="w-5 h-5"></i>
             </button>
         </div>
@@ -391,7 +391,7 @@
                     <p id="preciosHistSubtitulo" class="text-xs text-slate-500 font-bold">Evolución de cotizaciones y comparación de aumentos</p>
                 </div>
             </div>
-            <button onclick="cerrarModalPreciosHistoricos()" class="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg">
+            <button onclick="cerrarModalPreciosHistoricos()" class="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg" aria-label="Cerrar diálogo">
                 <i data-lucide="x" class="w-5 h-5"></i>
             </button>
         </div>
@@ -513,7 +513,7 @@
     <div class="clay-modal-content max-w-md p-6 space-y-4" onclick="event.stopPropagation()">
         <div class="flex items-center justify-between pb-3 border-b border-slate-100">
             <h3 class="text-base font-black text-slate-800">Registrar Nuevo Precio Acordado</h3>
-            <button onclick="cerrarModalNuevoPrecioAcordado()" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+            <button onclick="cerrarModalNuevoPrecioAcordado()" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg" aria-label="Cerrar diálogo">
                 <i data-lucide="x" class="w-5 h-5"></i>
             </button>
         </div>
@@ -586,7 +586,7 @@
                 productosCache = json.data;
                 const select = document.getElementById('asocProductoSelect');
                 if (select) {
-                    select.innerHTML = productosCache.map(p => `<option value="${p.id_producto}">${p.codigo} - ${p.nombre}</option>`).join('');
+                    select.innerHTML = productosCache.map(p => `<option value="${p.id_producto}">${window.erpSafeHtml.escape(p.codigo)} - ${window.erpSafeHtml.escape(p.nombre)}</option>`).join('');
                 }
             }
         } catch (e) {}
@@ -621,7 +621,7 @@
             return `
                 <tr>
                     <td>
-                        <div class="font-black text-slate-800 text-sm leading-tight">${p.razon_social}</div>
+                        <div class="font-black text-slate-800 text-sm leading-tight">${window.erpSafeHtml.escape(p.razon_social)}</div>
                         <div class="mt-1">
                             <button onclick="abrirModalAsociarProducto(${p.id_proveedor})" class="text-[10px] font-extrabold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200/60 px-2 py-0.5 rounded-md inline-flex items-center gap-1 transition-colors" title="Ver y asociar productos provistos">
                                 <i data-lucide="package" class="w-3 h-3"></i>
@@ -629,21 +629,21 @@
                             </button>
                         </div>
                     </td>
-                    <td class="font-extrabold text-slate-700 whitespace-nowrap">${p.cuit || p.CUIT || '-'}</td>
-                    <td class="font-bold text-slate-700 text-xs">${p.contacto || '-'}</td>
+                    <td class="font-extrabold text-slate-700 whitespace-nowrap">${window.erpSafeHtml.escape(p.cuit || p.CUIT || '-')}</td>
+                    <td class="font-bold text-slate-700 text-xs">${window.erpSafeHtml.escape(p.contacto || '-')}</td>
                     <td>
-                        <div class="text-xs font-bold text-slate-800">${p.telefono || '-'}</div>
-                        <div class="text-[11px] text-slate-400">${email}</div>
+                        <div class="text-xs font-bold text-slate-800">${window.erpSafeHtml.escape(p.telefono || '-')}</div>
+                        <div class="text-[11px] text-slate-400">${window.erpSafeHtml.escape(email)}</div>
                     </td>
-                    <td class="text-xs text-slate-600 font-bold">${p.direccion || '-'}</td>
+                    <td class="text-xs text-slate-600 font-bold">${window.erpSafeHtml.escape(p.direccion || '-')}</td>
                     <td class="text-center font-black text-blue-700">${p.plazo_entrega_dias ?? 5} días</td>
-                    <td class="text-center"><span class="clay-badge ${badgeClase}">${p.estado}</span></td>
+                    <td class="text-center"><span class="clay-badge ${badgeClase}">${window.erpSafeHtml.escape(p.estado)}</span></td>
                     <td class="text-center">
                         <div class="flex items-center justify-center gap-1.5">
-                            <button onclick="abrirModalPreciosHistoricos(${p.id_proveedor}, '${(p.razon_social || '').replace(/'/g, "\\'")}')" class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg" title="Precios Históricos y Aumentos">
+                            <button onclick="abrirModalPreciosHistoricos(${p.id_proveedor}, ${window.erpSafeHtml.escape(JSON.stringify((p.razon_social || '')))})" class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg" title="Precios Históricos y Aumentos">
                                 <i data-lucide="trending-up" class="w-4 h-4"></i>
                             </button>
-                            <button onclick="verHistorialProveedor(${p.id_proveedor}, '${(p.razon_social || '').replace(/'/g, "\\'")}')" class="p-1.5 text-purple-600 hover:bg-purple-50 rounded-lg" title="Ver Historial de Cambios">
+                            <button onclick="verHistorialProveedor(${p.id_proveedor}, ${window.erpSafeHtml.escape(JSON.stringify((p.razon_social || '')))})" class="p-1.5 text-purple-600 hover:bg-purple-50 rounded-lg" title="Ver Historial de Cambios">
                                 <i data-lucide="history" class="w-4 h-4"></i>
                             </button>
                             <button onclick="editarProveedor(${p.id_proveedor})" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg" title="Editar">
@@ -658,7 +658,7 @@
                                 <i data-lucide="package-plus" class="w-4 h-4"></i>
                             </button>
                             `}
-                            <button onclick="cambiarEstadoProveedor(${p.id_proveedor}, '${p.estado}')" class="p-1.5 ${esActivo ? 'text-rose-600 hover:bg-rose-50' : 'text-emerald-600 hover:bg-emerald-50'} rounded-lg" title="${esActivo ? 'Desactivar' : 'Activar'}">
+                            <button onclick="cambiarEstadoProveedor(${p.id_proveedor}, '${window.erpSafeHtml.escape(p.estado)}')" class="p-1.5 ${esActivo ? 'text-rose-600 hover:bg-rose-50' : 'text-emerald-600 hover:bg-emerald-50'} rounded-lg" title="${esActivo ? 'Desactivar' : 'Activar'}">
                                 <i data-lucide="${esActivo ? 'power' : 'check'}" class="w-4 h-4"></i>
                             </button>
                         </div>
@@ -822,7 +822,7 @@
         const select = document.getElementById('asocProductoSelect');
         if (select && Array.isArray(productosCache) && productosCache.length > 0) {
             select.innerHTML = '<option value="">-- Seleccionar Producto del Catálogo --</option>' + 
-                productosCache.map(p => `<option value="${p.id_producto}">[${p.codigo}] ${p.nombre || p.descripcion}</option>`).join('');
+                productosCache.map(p => `<option value="${p.id_producto}">[${window.erpSafeHtml.escape(p.codigo)}] ${window.erpSafeHtml.escape(p.nombre || p.descripcion)}</option>`).join('');
         }
 
         document.getElementById('modalAsociarProductos').classList.remove('hidden');
@@ -843,7 +843,7 @@
             const res = await fetch(`${API_BASE}/proveedores/${idProveedor}/productos`);
             const json = await res.json();
             if (json.status !== 'success') {
-                tbody.innerHTML = `<tr><td colspan="6" class="text-center py-6 text-rose-500 font-bold">${json.message || 'Error al obtener productos'}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="6" class="text-center py-6 text-rose-500 font-bold">${window.erpSafeHtml.escape(json.message || 'Error al obtener productos')}</td></tr>`;
                 return;
             }
 
@@ -863,12 +863,12 @@
 
                 return `
                     <tr>
-                        <td class="font-extrabold text-slate-700 text-xs">${item.codigo || '-'}</td>
+                        <td class="font-extrabold text-slate-700 text-xs">${window.erpSafeHtml.escape(item.codigo || '-')}</td>
                         <td>
-                            <div class="font-black text-slate-800 text-xs">${item.nombre || item.descripcion || 'Producto'}</div>
-                            <div class="text-[10px] text-slate-400">${item.descripcion && item.nombre ? item.descripcion : ''}</div>
+                            <div class="font-black text-slate-800 text-xs">${window.erpSafeHtml.escape(item.nombre || item.descripcion || 'Producto')}</div>
+                            <div class="text-[10px] text-slate-400">${window.erpSafeHtml.escape(item.descripcion && item.nombre ? item.descripcion : '')}</div>
                         </td>
-                        <td class="text-xs text-slate-500 font-medium">${catMarca}</td>
+                        <td class="text-xs text-slate-500 font-medium">${window.erpSafeHtml.escape(catMarca)}</td>
                         <td class="text-right font-black text-slate-800 text-xs">${precio}</td>
                         <td class="text-center">
                             ${esPrincipal 
@@ -881,7 +881,7 @@
                                 <button onclick="abrirModalEditarAsociacion(${item.id_producto_proveedor})" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Editar asociación (precio acordado, rol)">
                                     <i data-lucide="edit-3" class="w-4 h-4"></i>
                                 </button>
-                                <button onclick="desasociarProductoDeProveedor(${item.id_producto_proveedor}, ${idProveedor}, '${(item.nombre || item.codigo || '').replace(/'/g, "\\'")}')" class="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors" title="Desasociar este producto del proveedor">
+                                <button onclick="desasociarProductoDeProveedor(${item.id_producto_proveedor}, ${idProveedor}, ${window.erpSafeHtml.escape(JSON.stringify((item.nombre || item.codigo || '')))})" class="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors" title="Desasociar este producto del proveedor">
                                     <i data-lucide="trash-2" class="w-4 h-4"></i>
                                 </button>
                             </div>
@@ -1105,7 +1105,7 @@
             const res = await fetch(`${API_BASE}/proveedores/${id}/historial`);
             const json = await res.json();
             if (json.status !== 'success') {
-                contenedor.innerHTML = `<div class="p-4 text-center text-rose-500 text-xs font-bold">${json.message || 'Error al obtener historial'}</div>`;
+                contenedor.innerHTML = `<div class="p-4 text-center text-rose-500 text-xs font-bold">${window.erpSafeHtml.escape(json.message || 'Error al obtener historial')}</div>`;
                 return;
             }
 
@@ -1144,12 +1144,12 @@
                     const vn = ev.valores_nuevos;
                     contenidoHtml = `
                         <div class="mt-2 text-xs bg-slate-50 p-2.5 rounded-lg border border-slate-100 grid grid-cols-2 gap-x-4 gap-y-1">
-                            <div><span class="text-slate-400 font-bold">Razón Social:</span> <span class="font-extrabold text-slate-700">${vn.razon_social || '-'}</span></div>
-                            <div><span class="text-slate-400 font-bold">CUIT:</span> <span class="font-extrabold text-slate-700">${vn.cuit || '-'}</span></div>
-                            <div><span class="text-slate-400 font-bold">Teléfono:</span> <span class="font-extrabold text-slate-700">${vn.telefono || '-'}</span></div>
-                            <div><span class="text-slate-400 font-bold">Email:</span> <span class="font-extrabold text-slate-700">${vn.email || vn.correo || '-'}</span></div>
+                            <div><span class="text-slate-400 font-bold">Razón Social:</span> <span class="font-extrabold text-slate-700">${window.erpSafeHtml.escape(vn.razon_social || '-')}</span></div>
+                            <div><span class="text-slate-400 font-bold">CUIT:</span> <span class="font-extrabold text-slate-700">${window.erpSafeHtml.escape(vn.cuit || '-')}</span></div>
+                            <div><span class="text-slate-400 font-bold">Teléfono:</span> <span class="font-extrabold text-slate-700">${window.erpSafeHtml.escape(vn.telefono || '-')}</span></div>
+                            <div><span class="text-slate-400 font-bold">Email:</span> <span class="font-extrabold text-slate-700">${window.erpSafeHtml.escape(vn.email || vn.correo || '-')}</span></div>
                             <div><span class="text-slate-400 font-bold">Plazo:</span> <span class="font-extrabold text-blue-700">${vn.plazo_entrega_dias ? vn.plazo_entrega_dias + ' días' : 'No especificado'}</span></div>
-                            <div><span class="text-slate-400 font-bold">Estado:</span> <span class="font-extrabold text-emerald-700">${vn.estado || 'activo'}</span></div>
+                            <div><span class="text-slate-400 font-bold">Estado:</span> <span class="font-extrabold text-emerald-700">${window.erpSafeHtml.escape(vn.estado || 'activo')}</span></div>
                         </div>
                     `;
                 } else if (Array.isArray(ev.cambios) && ev.cambios.length > 0) {
@@ -1157,18 +1157,18 @@
                         <div class="mt-2 text-xs bg-slate-50 p-2.5 rounded-lg border border-slate-100 space-y-1">
                             ${ev.cambios.map(c => `
                                 <div class="flex items-center justify-between py-0.5 border-b border-slate-100 last:border-0">
-                                    <span class="font-bold text-slate-500">${c.label || c.campo}:</span>
+                                    <span class="font-bold text-slate-500">${window.erpSafeHtml.escape(c.label || c.campo)}:</span>
                                     <div class="font-extrabold">
-                                        <span class="text-rose-600 line-through mr-1">${c.anterior !== null && c.anterior !== '' ? c.anterior : '(vacío)'}</span>
+                                        <span class="text-rose-600 line-through mr-1">${window.erpSafeHtml.escape(c.anterior !== null && c.anterior !== '' ? c.anterior : '(vacío)')}</span>
                                         <span class="text-slate-400">→</span>
-                                        <span class="text-emerald-700 ml-1">${c.nuevo !== null && c.nuevo !== '' ? c.nuevo : '(vacío)'}</span>
+                                        <span class="text-emerald-700 ml-1">${window.erpSafeHtml.escape(c.nuevo !== null && c.nuevo !== '' ? c.nuevo : '(vacío)')}</span>
                                     </div>
                                 </div>
                             `).join('')}
                         </div>
                     `;
                 } else if (ev.cambios_resumen) {
-                    contenidoHtml = `<div class="mt-1 text-xs text-slate-600 font-semibold">${ev.cambios_resumen}</div>`;
+                    contenidoHtml = `<div class="mt-1 text-xs text-slate-600 font-semibold">${window.erpSafeHtml.escape(ev.cambios_resumen)}</div>`;
                 }
 
                 return `
@@ -1179,12 +1179,12 @@
                                     <i data-lucide="${iconName}" class="w-3 h-3"></i>
                                     ${labelEvento}
                                 </span>
-                                <span class="text-xs font-black text-slate-800">${ev.titulo || ev.descripcion || 'Evento'}</span>
+                                <span class="text-xs font-black text-slate-800">${window.erpSafeHtml.escape(ev.titulo || ev.descripcion || 'Evento')}</span>
                             </div>
-                            <span class="text-[11px] font-bold text-slate-400">${ev.fecha_hora || '-'}</span>
+                            <span class="text-[11px] font-bold text-slate-400">${window.erpSafeHtml.escape(ev.fecha_hora || '-')}</span>
                         </div>
                         <div class="text-[11px] text-slate-500 font-medium">
-                            Responsable: <span class="font-bold text-slate-700">${ev.usuario_nombre || 'Sistema'}</span>
+                            Responsable: <span class="font-bold text-slate-700">${window.erpSafeHtml.escape(ev.usuario_nombre || 'Sistema')}</span>
                         </div>
                         ${contenidoHtml}
                     </div>
@@ -1208,7 +1208,8 @@
                 method: 'POST',
                 headers: {
                     'Accept': 'application/json',
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
                 }
             });
             const json = await res.json();
@@ -1238,7 +1239,7 @@
         if (selectProv) {
             selectProv.innerHTML = '<option value="">Seleccione un proveedor...</option>' +
                 proveedoresCache.map(p => `
-                    <option value="${p.id_proveedor}">${p.razon_social} (${p.cuit || p.CUIT || 'Sin CUIT'})</option>
+                    <option value="${p.id_proveedor}">${window.erpSafeHtml.escape(p.razon_social)} (${window.erpSafeHtml.escape(p.cuit || p.CUIT || 'Sin CUIT')})</option>
                 `).join('');
             
             if (idProveedor) {
@@ -1340,7 +1341,7 @@
 
                 renderTablaPreciosHistoricos(items);
             } else {
-                tbody.innerHTML = `<tr><td colspan="8" class="text-center py-8 text-rose-500 font-bold">${json.message || 'Error al cargar historial'}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="8" class="text-center py-8 text-rose-500 font-bold">${window.erpSafeHtml.escape(json.message || 'Error al cargar historial')}</td></tr>`;
             }
         } catch (e) {
             console.error('Error cargando historial de precios:', e);
@@ -1401,14 +1402,14 @@
                     <td class="font-bold text-xs text-slate-700">
                         <div class="flex items-center gap-1.5">
                             <i data-lucide="calendar" class="w-3.5 h-3.5 text-slate-400"></i>
-                            <span>${fechaSolo || '-'}</span>
+                            <span>${window.erpSafeHtml.escape(fechaSolo || '-')}</span>
                         </div>
                     </td>
                     <td>
-                        <div class="font-black text-slate-800 text-xs">${item.nombre_producto || '-'}</div>
-                        <div class="text-[10px] font-extrabold text-slate-400">Cód: ${item.codigo_producto || '-'} · ${item.marca || ''}</div>
+                        <div class="font-black text-slate-800 text-xs">${window.erpSafeHtml.escape(item.nombre_producto || '-')}</div>
+                        <div class="text-[10px] font-extrabold text-slate-400">Cód: ${window.erpSafeHtml.escape(item.codigo_producto || '-')} · ${window.erpSafeHtml.escape(item.marca || '')}</div>
                     </td>
-                    <td class="text-center font-bold text-xs text-slate-600">${item.unidad || 'Unidad'}</td>
+                    <td class="text-center font-bold text-xs text-slate-600">${window.erpSafeHtml.escape(item.unidad || 'Unidad')}</td>
                     <td class="text-right font-bold text-xs text-slate-400">
                         ${precioAnt !== null ? '$' + precioAnt.toFixed(2) : '-'}
                     </td>
@@ -1416,13 +1417,13 @@
                         $${precioActual.toFixed(2)}
                     </td>
                     <td class="text-center">${badgeVariacion}</td>
-                    <td class="text-xs font-bold text-slate-600 max-w-[200px] truncate" title="${item.observaciones || item.origen || '-'}">
+                    <td class="text-xs font-bold text-slate-600 max-w-[200px] truncate" title="${window.erpSafeHtml.escape(item.observaciones || item.origen || '-')}">
                         <span class="inline-flex items-center gap-1">
                             <i data-lucide="${item.id_compra ? 'file-text' : (item.observaciones ? 'message-square' : 'handshake')}" class="w-3.5 h-3.5 text-slate-400 flex-shrink-0"></i>
-                            <span class="truncate">${item.observaciones || item.origen || 'Acuerdo comercial'}</span>
+                            <span class="truncate">${window.erpSafeHtml.escape(item.observaciones || item.origen || 'Acuerdo comercial')}</span>
                         </span>
                     </td>
-                    <td class="text-xs font-bold text-slate-500">${item.usuario_nombre || 'Sistema'}</td>
+                    <td class="text-xs font-bold text-slate-500">${window.erpSafeHtml.escape(item.usuario_nombre || 'Sistema')}</td>
                 </tr>
             `;
         }).join('');
@@ -1445,13 +1446,13 @@
         if (selHist && selHist.options.length > 1) {
             selProd.innerHTML = '<option value="">Seleccione un producto provisto...</option>' +
                 Array.from(selHist.options).filter(opt => opt.value !== '').map(opt => `
-                    <option value="${opt.value}">${opt.textContent}</option>
+                    <option value="${opt.value}">${window.erpSafeHtml.escape(opt.textContent)}</option>
                 `).join('');
         } else {
             // Si no tiene asociados, listar catálogo general
             selProd.innerHTML = '<option value="">Seleccione un producto...</option>' +
                 productosCache.map(p => `
-                    <option value="${p.id_producto}">${p.codigo ? p.codigo + ' - ' : ''}${p.nombre || p.descripcion}</option>
+                    <option value="${p.id_producto}">${window.erpSafeHtml.escape(p.codigo ? p.codigo + ' - ' : '')}${window.erpSafeHtml.escape(p.nombre || p.descripcion)}</option>
                 `).join('');
         }
 

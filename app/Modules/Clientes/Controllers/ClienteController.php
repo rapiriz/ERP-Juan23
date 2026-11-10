@@ -9,6 +9,7 @@ use App\Modules\Clientes\Requests\SearchClienteRequest;
 use App\Modules\Clientes\Requests\StoreClienteRequest;
 use App\Modules\Clientes\Requests\UpdateClienteRequest;
 use App\Modules\Clientes\Services\ClientWriter;
+use App\Modules\NotificacionesTransferencia\Models\TransferNotification;
 use App\Modules\Reportes\Services\ReportService;
 use App\Services\Gateways\ExternalFinanceGateway;
 use App\Services\Gateways\RendicionesGateway;
@@ -16,6 +17,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 class ClienteController extends Controller
 {
@@ -57,19 +59,50 @@ class ClienteController extends Controller
         $filters = $request->validate([
             'desde' => ['nullable', 'date'],
             'hasta' => ['nullable', 'date', 'after_or_equal:desde'],
+            'aviso_id' => ['nullable', 'integer', 'min:1'],
         ]);
+
+        $snapshot = $finance->clientSnapshot($cliente->id);
+        $collections = $rendiciones->clientSnapshot($cliente->id);
+        $appliedIds = collect($snapshot['payments'])->pluck('rendicion_cobro_id')->filter()->all();
+        foreach ($collections['rows'] as &$collection) {
+            if (in_array($collection['estado_revision'] ?? null, ['anulado', 'rechazado'], true)) {
+                $collection['aplicacion'] = ucfirst($collection['estado_revision']);
+
+                continue;
+            }
+            $collection['aplicacion'] = in_array($collection['id'], $appliedIds)
+                ? 'Aplicado' : ($collection['estado_rendicion'] === 'aprobada' ? 'Aprobada · sin aplicación informada'
+                    : ($collection['estado_rendicion'] === 'rechazada' ? 'Rechazado' : 'Declarado · pendiente de aprobación'));
+        }
+        unset($collection);
+        $transferencia = isset($filters['aviso_id']) ? TransferNotification::whereKey($filters['aviso_id'])
+            ->where('cliente_id', $cliente->id)->where('estado', 'validada')->firstOrFail() : null;
+
+        $salesReady = $reports->salesAvailable();
+        $sales = collect();
+        if ($salesReady) {
+            try {
+                $sales = $reports->clientSales($cliente, $filters['desde'] ?? null, $filters['hasta'] ?? null);
+            } catch (HttpExceptionInterface $error) {
+                if (! in_array($error->getStatusCode(), [502, 503], true)) {
+                    throw $error;
+                }
+                $salesReady = false;
+            }
+        }
 
         return view('clientes.show', [
             'cliente' => $cliente,
-            'saldoDisponible' => $finance->isConfigured('balances'),
-            'saldo' => $finance->isConfigured('balances') ? $finance->clientBalance($cliente->id)['saldo'] : null,
-            'cobrosDisponibles' => $finance->isConfigured('billing'),
-            'cobros' => $finance->isConfigured('billing') ? $finance->clientPayments($cliente->id) : [],
-            'cobrosRendidos' => $rendiciones->clientSnapshot($cliente->id),
-            'salesReady' => $reports->salesAvailable(),
-            'ventas' => $reports->salesAvailable()
-                ? $reports->clientSales($cliente, $filters['desde'] ?? null, $filters['hasta'] ?? null)
-                : collect(),
+            'saldoDisponible' => $snapshot['balance_ready'],
+            'saldo' => $snapshot['balance']['saldo'] ?? null,
+            'saldoAFavor' => $snapshot['balance']['saldo_a_favor'] ?? 0,
+            'pagosDisponibles' => config('services.balances.transport') === 'internal',
+            'cobrosDisponibles' => $snapshot['payments_ready'],
+            'cobros' => $snapshot['payments'],
+            'cobrosRendidos' => $collections,
+            'transferencia' => $transferencia,
+            'salesReady' => $salesReady, 'ventas' => $sales,
             'desde' => $filters['desde'] ?? '',
             'hasta' => $filters['hasta'] ?? '',
         ]);

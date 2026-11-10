@@ -46,15 +46,15 @@
                 @csrf
 
                 <div class="field">
-                    <label for="usuario">Usuario <span aria-hidden="true">*</span></label>
-                    <input type="text" id="usuario" name="usuario" autocomplete="username" maxlength="50" required autofocus value="{{ old('usuario') }}">
-                    <small class="field-error" data-error-for="usuario"></small>
+                    <label for="usuario">Usuario (obligatorio) <span aria-hidden="true">*</span></label>
+                    <input type="text" id="usuario" name="usuario" aria-describedby="login-usuario-error" @if($errors->has('usuario')) aria-invalid="true" @endif autocomplete="username" maxlength="50" required autofocus value="{{ old('usuario') }}">
+                    <small class="field-error" id="login-usuario-error" data-error-for="usuario" aria-live="polite">{{ $errors->first('usuario') }}</small>
                 </div>
 
                 <div class="field">
-                    <label for="password">Contraseña <span aria-hidden="true">*</span></label>
-                    <input type="password" id="password" name="password" autocomplete="current-password" maxlength="255" required>
-                    <small class="field-error" data-error-for="password"></small>
+                    <label for="password">Contraseña (obligatoria) <span aria-hidden="true">*</span></label>
+                    <input type="password" id="password" name="password" aria-describedby="login-password-error" @if($errors->has('password')) aria-invalid="true" @endif autocomplete="current-password" maxlength="255" required>
+                    <small class="field-error" id="login-password-error" data-error-for="password" aria-live="polite">{{ $errors->first('password') }}</small>
                     <a class="auth-link" href="{{ route('password.request') }}">¿Olvidó su contraseña?</a>
                 </div>
 

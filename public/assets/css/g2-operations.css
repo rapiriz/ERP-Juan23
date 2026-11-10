@@ -1,0 +1,11 @@
+#bankApp [hidden], #deliveryEditor[hidden] { display: none !important; }
+#bankApp input[type="checkbox"] { width: 1.1rem; height: 1.1rem; min-height: 0; padding: 0; accent-color: var(--primary); }
+#bankApp [aria-pressed="true"] { background: var(--primary); border-color: var(--primary); color: white; }
+#bankApp .form-grid > .section-block { min-width: 0; margin-block: 0; padding: 1rem; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
+#bankApp td .button { margin: .25rem 0; padding: .4rem .65rem; font-size: .8rem; }
+#bankApp details { margin-block: .75rem; }
+#bankApp summary { cursor: pointer; font-weight: 600; }
+#bankApp .table-scroll { max-height: 36rem; overflow: auto; }
+#bankStatus:not(:empty) { padding: .75rem 1rem; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+#deliveryEditor { max-width: 60rem; margin-inline: auto; }
+#deliveryEditor input[type="checkbox"] { width: 1.1rem; height: 1.1rem; min-height: 0; }

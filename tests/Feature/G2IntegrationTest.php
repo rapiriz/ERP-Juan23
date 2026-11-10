@@ -36,7 +36,9 @@ class G2IntegrationTest extends TestCase
     {
         Schema::create('usuarios', function (Blueprint $table) {
             $table->id();
-            foreach (['nombre', 'usuario', 'email', 'rol', 'estado'] as $column) $table->string($column)->nullable();
+            foreach (['nombre', 'usuario', 'email', 'rol', 'estado'] as $column) {
+                $table->string($column)->nullable();
+            }
         });
         DB::table('usuarios')->insert([
             ['id' => 41, 'nombre' => 'Repartidor real', 'rol' => 'repartidor', 'estado' => 'activo'],
@@ -114,7 +116,7 @@ class G2IntegrationTest extends TestCase
         $this->withoutMiddleware(G2SchemaReady::class);
         $service = $this->mock(ConciliacionService::class);
         $service->shouldReceive('listarPeriodos')->once()->with(null)->andReturn([]);
-        $this->get('/conciliacion')->assertOk()->assertSee('Crear período del mes si falta');
+        $this->get('/conciliacion')->assertOk()->assertSee('Crear un período');
         $service->shouldReceive('asegurarPeriodoAutomaticoDelMes')->once()->with(27)->andReturn([]);
         $this->post('/conciliacion/mes')->assertRedirect(route('conciliacion.index'));
         $service->shouldReceive('crearPeriodo')->once()->with(Mockery::on(fn ($data) => $data['id_usuario'] === 27))
@@ -229,7 +231,9 @@ class G2IntegrationTest extends TestCase
     public function test_automatic_reconciliation_reports_its_missing_cobro_dependency(): void
     {
         $this->sessionAs(UserRole::CONTADOR, 27);
-        foreach (G2SchemaReady::TABLES['conciliacion'] as $table) Schema::create($table, fn (Blueprint $schema) => $schema->id());
+        foreach (G2SchemaReady::TABLES['conciliacion'] as $table) {
+            Schema::create($table, fn (Blueprint $schema) => $schema->id());
+        }
         $this->mock(ConciliacionService::class)->shouldNotReceive('conciliarAutomatico');
         $this->post('/conciliacion/1/conciliar')->assertStatus(503)->assertSee('integración de cobros');
     }

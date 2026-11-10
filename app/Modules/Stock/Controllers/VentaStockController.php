@@ -27,9 +27,9 @@ class VentaStockController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'id_producto' => 'required|integer|exists:PRODUCTO,id_producto',
+            'id_producto' => 'required|integer|exists:producto,id_producto',
             'cantidad' => 'required|integer|min:1',
-            'id_unidad' => 'nullable|integer|exists:UNIDAD_MEDIDA,id_unidad',
+            'id_unidad' => 'nullable|integer|exists:unidad_medida,id_unidad',
             'id_venta' => 'nullable|integer|min:1',
             'motivo' => 'nullable|string|max:255',
         ], [

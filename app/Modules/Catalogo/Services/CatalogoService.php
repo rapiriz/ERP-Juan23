@@ -22,7 +22,7 @@ final class CatalogoService
             $matched = $all->filter(fn ($p) => $this->matches($p, $query, true));
             $approximate = $matched->isNotEmpty();
         }
-        $categories = $this->facets($this->filter($matched, $filters, 'categoria'), 'categoriaId', 'categoria');
+        $categories = $this->categories($this->filter($matched, $filters, 'categoria'));
         $brands = $this->facets($this->filter($matched, $filters, 'marca'), 'marcaId', 'marca');
         $filtered = $this->filter($matched, $filters);
         $sort = $filters['orden'] ?? 'nombre';
@@ -50,7 +50,7 @@ final class CatalogoService
     private function filter(Collection $products, array $filters, ?string $except = null): Collection
     {
         return $products->filter(function ($p) use ($filters, $except) {
-            if ($except !== 'categoria' && filled($filters['categoria'] ?? null) && $p->categoriaId !== $filters['categoria']) {
+            if ($except !== 'categoria' && filled($filters['categoria'] ?? null) && ! in_array((string) $filters['categoria'], array_merge([$p->categoriaId], array_column($p->categoriaRuta, 'id')), true)) {
                 return false;
             }
             if ($except !== 'marca' && filled($filters['marca'] ?? null) && $p->marcaId !== $filters['marca']) {
@@ -71,6 +71,22 @@ final class CatalogoService
         return $products->groupBy($id)->map(fn ($rows, $key) => [
             'id' => (string) $key, 'nombre' => $rows->first()->{$label}, 'cantidad' => $rows->count(),
         ])->sortBy('nombre', SORT_NATURAL | SORT_FLAG_CASE)->values()->all();
+    }
+
+    private function categories(Collection $products): array
+    {
+        $rows = [];
+        foreach ($products as $product) {
+            $path = $product->categoriaRuta ?: [['id' => $product->categoriaId, 'nombre' => $product->categoria]];
+            foreach ($path as $depth => $category) {
+                $id = (string) $category['id'];
+                $rows[$id] ??= ['id' => $id, 'nombre' => $category['nombre'], 'cantidad' => 0, 'profundidad' => $depth,
+                    'orden' => implode(' / ', array_column(array_slice($path, 0, $depth + 1), 'nombre'))];
+                $rows[$id]['cantidad']++;
+            }
+        }
+        usort($rows, fn ($a, $b) => strnatcasecmp($a['orden'], $b['orden']));
+        return array_values($rows);
     }
 
     private function matches(ProductoCatalogo $product, string $query, bool $fuzzy = false): bool

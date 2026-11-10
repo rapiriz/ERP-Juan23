@@ -8,11 +8,11 @@ use Symfony\Component\HttpFoundation\Response;
 
 class EnsureApiUser
 {
-    public function handle(Request $request, Closure $next, ?string $role = null): Response
+    public function handle(Request $request, Closure $next, string ...$roles): Response
     {
         $user = $request->user();
 
-        if (! $user || ($role !== null && $user->rol->value !== $role)) {
+        if (! $user || ($roles !== [] && ! in_array($user->rol->value, $roles, true))) {
             return response()->json(['message' => 'No tiene permisos para esta operacion.'], 403);
         }
 

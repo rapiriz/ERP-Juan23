@@ -20,7 +20,7 @@ class DatabaseSeeder extends Seeder
         ];
 
         foreach ($users as $data) {
-            User::query()->updateOrCreate(
+            User::query()->firstOrCreate(
                 ['usuario' => $data['usuario']],
                 [
                     'password_hash' => Hash::make($data['password']),

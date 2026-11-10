@@ -3,14 +3,13 @@
 declare(strict_types=1);
 
 use App\Http\Middleware\IdentidadUsuario;
+use App\Modules\Login\Middleware\AuthenticateApiSessionRequest;
+use App\Modules\Productos\Middleware\AuthorizeProductInternals;
 use App\Modules\Productos\Controllers\ProductoController;
 use App\Modules\Stock\Controllers\DevolucionController;
 use App\Modules\Stock\Controllers\StockController;
 use App\Modules\Stock\Controllers\VentaStockController;
-use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
-use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Http\Request;
-use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -40,6 +39,7 @@ $registrarApisIntegracionG3 = function (): void {
                 'GET /api/productos/{id}',
                 'GET /api/productos/codigo/{codigo}',
                 'GET /api/stock',
+                'GET /api/stock/disponibilidad',
                 'GET /api/stock/{id}',
                 'POST /api/stock/movimientos',
                 'POST /api/stock/ventas',
@@ -55,33 +55,32 @@ $registrarApisIntegracionG3 = function (): void {
     });
 
     // ========== PRODUCTOS (Consumo de G1 Catálogo/Reportes y G4 Ventas/Promociones) ==========
-    Route::get('productos/codigo/{codigo}', [ProductoController::class, 'showByCodigo']);
-    Route::get('productos', [ProductoController::class, 'index']);
-    Route::get('productos/{id}', [ProductoController::class, 'show'])->whereNumber('id');
+    Route::middleware(AuthorizeProductInternals::class)->group(function (): void {
+        Route::get('productos/codigo/{codigo}', [ProductoController::class, 'showByCodigo']);
+        Route::get('productos', [ProductoController::class, 'index']);
+        Route::get('productos/{id}', [ProductoController::class, 'show'])->whereNumber('id');
+    });
 
     // ========== STOCK (Consumo de G4 Ventas HttpStockApi y G2 Rendiciones/Reparto) ==========
     Route::get('stock', [StockController::class, 'consultaGeneral']);
+    Route::get('stock/disponibilidad', [StockController::class, 'consultaGeneral']);
     Route::get('stock/{id}', [StockController::class, 'show'])->whereNumber('id');
     Route::get('stock/productos/{id}', [StockController::class, 'show'])->whereNumber('id');
-    Route::post('stock/movimientos', [StockController::class, 'registrarMovimientosLote']);
-    Route::post('stock/ventas', [VentaStockController::class, 'store']);
-    Route::post('stock/descuentos', [VentaStockController::class, 'store']);
-    Route::patch('stock/{id}/descontar', function (Request $request, int $id, VentaStockController $controller) {
-        $request->merge(['id_producto' => $id]);
+    Route::middleware([AuthenticateApiSessionRequest::class, 'api.audience:administrativo,repartidor',
+        IdentidadUsuario::class])->group(function (): void {
+        Route::post('stock/movimientos', [StockController::class, 'registrarMovimientosLote']);
+        Route::post('stock/ventas', [VentaStockController::class, 'store']);
+        Route::post('stock/descuentos', [VentaStockController::class, 'store']);
+        Route::patch('stock/{id}/descontar', function (Request $request, int $id, VentaStockController $controller) {
+            $request->merge(['id_producto' => $id]);
 
-        return $controller->store($request);
-    })->whereNumber('id');
-    Route::post('stock/devoluciones', [DevolucionController::class, 'store']);
+            return $controller->store($request);
+        })->whereNumber('id');
+        Route::post('stock/devoluciones', [DevolucionController::class, 'store']);
+    });
 };
 
-$g3ApiMiddleware = [
-    EncryptCookies::class,
-    AddQueuedCookiesToResponse::class,
-    StartSession::class,
-    IdentidadUsuario::class,
-];
-
-Route::middleware($g3ApiMiddleware)->group(function () use ($registrarApisIntegracionG3): void {
+Route::group([], function () use ($registrarApisIntegracionG3): void {
     Route::prefix('v1')->name('api.v1.')->group($registrarApisIntegracionG3);
     Route::name('api.')->group($registrarApisIntegracionG3);
 });

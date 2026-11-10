@@ -34,7 +34,7 @@ class HttpSalesGateway implements SalesGateway
             return $this->analytics->buyerIds($productId);
         }
         $path = str_replace('{id}', (string) $productId, config('services.sales.buyers_path'));
-        $rows = $this->client->get('sales', $path);
+        $rows = $this->client->getList('sales', $path);
         if (! array_is_list($rows) || Validator::make($rows, [
             '*' => ['array'],
             '*.cliente_id' => ['required', 'integer', 'min:1', 'distinct'],

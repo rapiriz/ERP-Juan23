@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Modules\Compras\Controllers;
@@ -6,17 +7,22 @@ namespace App\Modules\Compras\Controllers;
 use App\Http\Controllers\Controller;
 use App\Modules\Compras\Models\Compra;
 use App\Modules\Compras\Models\DetalleCompra;
+use App\Modules\Compras\Models\Recepcion;
+use App\Modules\PedidosDeCompra\Models\OrdenCompra;
+use App\Modules\PedidosDeCompra\Services\PurchaseOrderProgress;
 use App\Modules\Productos\Models\Producto;
 use App\Modules\Proveedores\Models\ProductoProveedor;
 use App\Modules\Proveedores\Models\Proveedor;
-use App\Modules\Stock\Models\UnidadMedida;
-use App\Modules\Compras\Models\Recepcion;
+use App\Modules\Proveedores\Services\HistorialPrecioService;
+use App\Modules\Stock\Services\ProductUnitService;
+use App\Support\UsuarioActual;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
-use App\Support\UsuarioActual;
+use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 /**
  * Módulo Compras.
@@ -34,19 +40,45 @@ class CompraController extends Controller
      */
     private function formato(Compra $c): array
     {
+        $importeTotal = round((float) $c->importe_total, 2);
+        $totalPagado = $c->relationLoaded('pagos')
+            ? round((float) $c->pagos->sum('importe'), 2)
+            : $c->totalPagado();
+        $saldoAPagar = $c->estado === 'cancelada'
+            ? 0.0
+            : max(0.0, round($importeTotal - $totalPagado, 2));
+
+        if ($c->estado === 'cancelada') {
+            $estadoPago = 'cancelada';
+        } elseif ($saldoAPagar <= 0 && $importeTotal > 0) {
+            $estadoPago = 'pagada';
+        } elseif ($totalPagado > 0) {
+            $estadoPago = 'pago_parcial';
+        } else {
+            $estadoPago = 'pendiente_pago';
+        }
+
         return [
             'id_compra' => $c->id_compra,
             'numero_compra' => $c->numero_compra,
             'numero_comprobante' => $c->numero_comprobante,
+            'id_orden' => $c->id_orden ? (int) $c->id_orden : null,
+            'numero_orden' => $c->orden?->numero_orden,
             'id_proveedor' => $c->id_proveedor,
             'proveedor' => $c->proveedor?->razon_social,
             'proveedor_cuit' => $c->proveedor?->cuit,
             'proveedor_direccion' => $c->proveedor?->direccion,
             'proveedor_telefono' => $c->proveedor?->telefono,
             'proveedor_email' => $c->proveedor?->email,
-            'importe_total' => (float) $c->importe_total,
+            'importe_total' => $importeTotal,
             'saldo_pendiente' => (float) $c->saldo_pendiente,
+            'total_pagado' => $totalPagado,
+            'saldo_a_pagar' => $saldoAPagar,
+            'estado_pago' => $estadoPago,
             'estado' => $c->estado,
+            'cierre_parcial' => (bool) ($c->cierre_parcial ?? false),
+            'observaciones' => $c->observaciones ?? null,
+            'fecha_entrega_prevista' => $c->fecha_entrega_prevista?->format('Y-m-d'),
             'fecha_compra' => $c->fecha_compra ? $c->fecha_compra->format('Y-m-d') : null,
             'fecha_vencimiento' => $c->fecha_vencimiento ? $c->fecha_vencimiento->format('Y-m-d') : null,
             'fecha_cancelacion' => $c->fecha_cancelacion ? $c->fecha_cancelacion->format('Y-m-d') : null,
@@ -60,25 +92,35 @@ class CompraController extends Controller
      */
     private function validarItems(array $items): ?array
     {
-        foreach ($items as $item) {
-            if (!isset($item['id_producto']) || (int) $item['id_producto'] <= 0) {
+        $validation = Validator::make(['items' => $items], [
+            'items.*.id_producto' => 'required|integer|min:1',
+            'items.*.id_unidad' => 'nullable|integer|min:1',
+            'items.*.cantidad' => 'required|integer|min:1|max:2147483647',
+            'items.*.precio_unitario' => ['required', 'numeric', 'min:0', 'max:9999999999.99', 'regex:/^\\d+(?:\\.\\d{1,2})?$/D'],
+        ]);
+        if ($validation->fails()) {
+            return ['status' => 'error', 'message' => $validation->errors()->first(), 'code' => 400];
+        }
+        foreach (collect($items)->sortBy('id_producto') as $item) {
+            if (! isset($item['id_producto']) || (int) $item['id_producto'] <= 0) {
                 return ['status' => 'error', 'message' => 'Cada ítem debe indicar un producto.', 'code' => 400];
             }
-            $producto = Producto::find((int) $item['id_producto']);
-            if (!$producto || $producto->estado !== 'activo') {
+            $producto = Producto::query()->when(DB::transactionLevel() > 0, fn ($q) => $q->lockForUpdate())->find((int) $item['id_producto']);
+            if (! $producto || $producto->estado !== 'activo') {
                 return [
                     'status' => 'error',
                     'message' => "El producto con ID {$item['id_producto']} no existe o no está activo.",
                     'code' => 400,
                 ];
             }
-            if (!isset($item['cantidad']) || (int) $item['cantidad'] <= 0) {
+            if (! isset($item['cantidad']) || (int) $item['cantidad'] <= 0) {
                 return ['status' => 'error', 'message' => 'Cada ítem debe indicar una cantidad mayor a cero.', 'code' => 400];
             }
-            if (!isset($item['precio_unitario']) || (float) $item['precio_unitario'] < 0) {
+            if (! isset($item['precio_unitario']) || (float) $item['precio_unitario'] < 0) {
                 return ['status' => 'error', 'message' => 'Cada ítem debe indicar un precio unitario válido.', 'code' => 400];
             }
         }
+
         return null;
     }
 
@@ -87,23 +129,24 @@ class CompraController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
-        if (!$request->has('items') && $request->has('detalles')) {
+        if (! $request->has('items') && $request->has('detalles')) {
             $request->merge(['items' => $request->input('detalles')]);
         }
-        if (!$request->has('fecha_compra') && $request->has('fecha')) {
+        if (! $request->has('fecha_compra') && $request->has('fecha')) {
             $request->merge(['fecha_compra' => $request->input('fecha')]);
         }
-        if (!$request->has('numero_comprobante') && $request->has('numero_factura')) {
+        if (! $request->has('numero_comprobante') && $request->has('numero_factura')) {
             $request->merge(['numero_comprobante' => $request->input('numero_factura')]);
         }
 
         $validator = Validator::make($request->all(), [
             'id_proveedor' => 'required|integer',
-            'id_orden' => 'nullable|integer|exists:ORDEN_COMPRA,id_orden',
+            'id_orden' => 'nullable|integer|exists:orden_compra,id_orden',
             'fecha_compra' => 'nullable|date|before_or_equal:today',
             'fecha_vencimiento' => 'nullable|date',
+            'fecha_entrega_prevista' => 'nullable|date_format:Y-m-d',
             'numero_comprobante' => 'nullable|string|max:50',
-            'items' => 'required|array|min:1',
+            'items' => 'required|array|min:1|max:100',
         ], [
             'id_proveedor.required' => 'Debe seleccionar un proveedor.',
             'id_orden.exists' => 'La orden de compra vinculada no existe.',
@@ -118,7 +161,7 @@ class CompraController extends Controller
         }
 
         $proveedor = Proveedor::find((int) $request->input('id_proveedor'));
-        if (!$proveedor) {
+        if (! $proveedor) {
             return response()->json(['status' => 'error', 'message' => 'El proveedor seleccionado no existe.'], 404);
         }
         if ($proveedor->estado !== 'activo') {
@@ -138,6 +181,28 @@ class CompraController extends Controller
 
         try {
             $compra = DB::transaction(function () use ($request, $proveedor, $items, $idUsuario, $fecha, $idOrden) {
+                if ($idOrden) {
+                    $order = OrdenCompra::whereKey($idOrden)->lockForUpdate()->firstOrFail();
+                    abort_unless((int) $order->id_proveedor === (int) $proveedor->id_proveedor, 409, 'La orden pertenece a otro proveedor.');
+                    abort_unless(in_array($order->estado, ['pendiente', 'enviada', 'recibida_parcialmente'], true), 409, 'La orden está '.$order->estado.' y no admite nuevas compras.');
+                }
+                $productIds = array_column($items, 'id_producto');
+                if ($idOrden) {
+                    $productIds = array_merge($productIds, $order->detalles()->pluck('id_producto')->all());
+                }
+                Producto::whereIn('id_producto', $productIds)->orderBy('id_producto')->lockForUpdate()->get();
+                if ($error = $this->validarItems($items)) {
+                    abort(422, $error['message']);
+                }
+                if ($idOrden) {
+                    app(PurchaseOrderProgress::class)->requirePurchase($order, $items);
+                }
+                if ($idOrden && $order->estado === 'pendiente') {
+                    $order->update(['estado' => 'enviada', 'fecha_envio' => today(), 'fecha_modificacion' => today()]);
+                    DB::table('log_auditoria')->insert(['tabla_afectada' => 'orden_compra', 'id_registro' => $idOrden, 'accion' => 'UPDATE',
+                        'valores_anteriores' => json_encode(['estado' => 'pendiente']), 'valores_nuevos' => json_encode(['estado' => 'enviada', 'origen' => 'registro_compra']),
+                        'id_usuario' => $idUsuario, 'fecha_hora' => now()]);
+                }
                 $importeTotal = 0;
                 $detalles = [];
 
@@ -167,6 +232,7 @@ class CompraController extends Controller
                     'saldo_pendiente' => $importeTotal,
                     'estado' => 'pendiente',
                     'fecha_compra' => $fecha,
+                    'fecha_entrega_prevista' => $request->input('fecha_entrega_prevista') ?: ($proveedor->plazo_entrega_dias === null ? null : Carbon::parse($fecha)->addDays(max(0, (int) $proveedor->plazo_entrega_dias))->toDateString()),
                     'fecha_vencimiento' => $fechaVenc,
                     'id_usuario' => $idUsuario,
                 ]);
@@ -183,10 +249,13 @@ class CompraController extends Controller
                     ]);
 
                     // PV05: Asociar automáticamente el producto al proveedor al registrar una compra
+                    // y actualizar el precio_acordado con el costo facturado.
+                    $factor = (float) ProductUnitService::resolve((int) $d['id_producto'], (int) $d['id_unidad'])->equivalencia_base;
+                    $precioCompra = round((float) $d['precio_unitario'] / $factor, 2);
                     $asocProv = ProductoProveedor::where('id_producto', $d['id_producto'])
                         ->where('id_proveedor', $proveedor->id_proveedor)
                         ->first();
-                    if (!$asocProv) {
+                    if (! $asocProv) {
                         $tieneOtroPrincipal = ProductoProveedor::where('id_producto', $d['id_producto'])
                             ->where('activo', true)
                             ->where('es_proveedor_principal', true)
@@ -195,19 +264,19 @@ class CompraController extends Controller
                         $asocProv = ProductoProveedor::create([
                             'id_producto' => $d['id_producto'],
                             'id_proveedor' => $proveedor->id_proveedor,
-                            'es_proveedor_principal' => !$tieneOtroPrincipal,
-                            'precio_acordado' => (float) $d['precio_unitario'],
+                            'es_proveedor_principal' => ! $tieneOtroPrincipal,
+                            'precio_acordado' => $precioCompra,
                             'activo' => true,
                             'fecha_asociacion' => $fecha,
                             'id_usuario' => $idUsuario,
                         ]);
-                    } elseif ($asocProv->precio_acordado === null) {
-                        $asocProv->update(['precio_acordado' => (float) $d['precio_unitario']]);
+                    } else {
+                        $asocProv->update(['precio_acordado' => $precioCompra, 'activo' => true, 'fecha_desasociacion' => null, 'id_usuario' => $idUsuario]);
                     }
 
                     // PV06: Registrar snapshot de precio en el historial del proveedor vinculado a la compra
                     if ($asocProv) {
-                        app(\App\Modules\Proveedores\Services\HistorialPrecioService::class)->registrarSnapshot(
+                        app(HistorialPrecioService::class)->registrarSnapshot(
                             $asocProv->id_producto_proveedor,
                             (float) $d['precio_unitario'],
                             $idUsuario,
@@ -215,9 +284,29 @@ class CompraController extends Controller
                             $d['id_unidad'],
                             $fecha
                         );
+                        if ($asocProv->es_proveedor_principal && $precioCompra > 0) {
+                            Producto::findOrFail($d['id_producto'])->sincronizarCostoReposicion($idUsuario);
+                        }
                     }
                 }
 
+                if ($request->boolean('recibir_ahora')) {
+                    $receiptItems = [];
+                    foreach ($compra->detalles()->orderBy('id_detalle_compra')->get()->values() as $i => $detail) {
+                        $quantity = (int) ($items[$i]['cantidad_recibida'] ?? $detail->cantidad);
+                        abort_if($quantity > (int) $detail->cantidad, 422, 'La recepción inicial excede la cantidad comprada.');
+                        if ($quantity > 0) $receiptItems[] = ['id_detalle_compra' => $detail->id_detalle_compra,
+                            'id_producto' => $detail->id_producto, 'id_unidad' => $detail->id_unidad, 'cantidad_recibida' => $quantity,
+                            'nro_lote' => $items[$i]['nro_lote'] ?? null, 'fecha_vencimiento' => $items[$i]['fecha_vencimiento'] ?? null];
+                    }
+                    if ($receiptItems) {
+                        $receipt = Request::create('/api/compras/'.$compra->id_compra.'/recepciones', 'POST', ['items' => $receiptItems]);
+                        $receipt->setUserResolver(fn () => $request->user());
+                        $response = app(RecepcionController::class)->store($receipt, $compra->id_compra);
+                        abort_if($response->getStatusCode() >= 400, $response->getStatusCode(), $response->getData(true)['message'] ?? 'Recepción inválida.');
+                        $compra->refresh();
+                    }
+                }
                 return $compra;
             });
 
@@ -226,10 +315,14 @@ class CompraController extends Controller
                 'message' => 'Compra registrada exitosamente.',
                 'data' => $this->formato($compra),
             ], 201);
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (HttpExceptionInterface $e) {
+            throw $e;
         } catch (\Throwable $e) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Error al registrar la compra: ' . $e->getMessage(),
+                'message' => 'Error al registrar la compra: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -241,52 +334,18 @@ class CompraController extends Controller
      */
     private function unidadDelItem(array $item): int
     {
-        $idUnidad = isset($item['id_unidad']) ? (int) $item['id_unidad'] : 0;
-
-        if ($idUnidad > 0) {
-            return $idUnidad;
-        }
-
-        $idProducto = (int) ($item['id_producto'] ?? 0);
-        if ($idProducto <= 0) {
-            throw new \InvalidArgumentException('Cada ítem debe indicar un producto válido para asignar su unidad de medida.');
-        }
-
-        $base = UnidadMedida::where('id_producto', $idProducto)
-            ->where('es_base', 1)
-            ->first();
-
-        if ($base) {
-            return (int) $base->id_unidad;
-        }
-
-        $base = UnidadMedida::where('id_producto', $idProducto)
-            ->where('equivalencia_base', 1)
-            ->orderBy('id_unidad')
-            ->first();
-
-        if ($base) {
-            $base->es_base = true;
-            $base->save();
-
-            return (int) $base->id_unidad;
-        }
-
-        return (int) UnidadMedida::create([
-            'id_producto' => $idProducto,
-            'nombre_unidad' => 'Unidad individual',
-            'equivalencia_base' => 1,
-            'es_base' => true,
-            'descripcion' => 'Unidad base del producto',
-        ])->id_unidad;
+        return (int) ProductUnitService::resolve(
+            (int) $item['id_producto'], isset($item['id_unidad']) ? (int) $item['id_unidad'] : null
+        )->id_unidad;
     }
 
     /**
      * Genera un identificador único de comprobante (C01): NCC-AAAA-000000.
      */
-    private function generarComprobante(): string    {
+    private function generarComprobante(): string
+    {
         do {
-            $numero = 'NCC-' . Carbon::now()->format('Y') . '-' . str_pad((string) random_int(1, 999999), 6, '0', STR_PAD_LEFT);
+            $numero = 'NCC-'.Carbon::now()->format('Y').'-'.str_pad((string) random_int(1, 999999), 6, '0', STR_PAD_LEFT);
         } while (Compra::where('numero_compra', $numero)->exists());
 
         return $numero;
@@ -297,7 +356,7 @@ class CompraController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Compra::with('proveedor');
+        $query = Compra::with(['proveedor', 'orden', 'pagos']);
 
         if ($request->filled('id_proveedor')) {
             $query->where('id_proveedor', (int) $request->input('id_proveedor'));
@@ -379,6 +438,7 @@ class CompraController extends Controller
                 'numero_compra' => $c->numero_compra,
                 'numero_comprobante' => $c->numero_comprobante,
                 'fecha_compra' => $c->fecha_compra ? $c->fecha_compra->format('Y-m-d') : null,
+            'fecha_entrega_prevista' => $c->fecha_entrega_prevista?->format('Y-m-d'),
                 'fecha_vencimiento' => $c->fecha_vencimiento ? $c->fecha_vencimiento->format('Y-m-d') : null,
                 'importe_total' => $importeTotal,
                 'total_pagado' => $totalPagado,
@@ -392,7 +452,7 @@ class CompraController extends Controller
 
             $todasComprasConDeuda[] = $itemCompra;
 
-            if (!isset($deudasPorProveedor[$idProv])) {
+            if (! isset($deudasPorProveedor[$idProv])) {
                 $deudasPorProveedor[$idProv] = [
                     'id_proveedor' => $idProv,
                     'razon_social' => $c->proveedor?->razon_social ?? "Proveedor #{$idProv}",
@@ -444,8 +504,8 @@ class CompraController extends Controller
      */
     public function show(int $id): JsonResponse
     {
-        $compra = Compra::with(['proveedor', 'detalles.producto', 'recepciones.detalles.producto'])->find($id);
-        if (!$compra) {
+        $compra = Compra::with(['proveedor', 'orden', 'pagos', 'detalles.producto', 'detalles.unidad', 'recepciones.detalles.producto'])->find($id);
+        if (! $compra) {
             return response()->json(['status' => 'error', 'message' => 'La compra no existe.'], 404);
         }
 
@@ -455,6 +515,10 @@ class CompraController extends Controller
         $detalles = $compra->detalles->map(function (DetalleCompra $d) {
             return [
                 'id_detalle' => $d->id_detalle_compra,
+                'id_detalle_compra' => $d->id_detalle_compra,
+                'id_unidad' => $d->id_unidad,
+                'presentacion' => $d->unidad?->nombre_unidad,
+                'equivalencia_base' => $d->unidad ? (float) $d->unidad->equivalencia_base : 1,
                 'id_producto' => $d->id_producto,
                 'codigo' => $d->producto?->codigo,
                 'nombre' => $d->producto?->nombre,
@@ -509,7 +573,7 @@ class CompraController extends Controller
     public function estado(int $id): JsonResponse
     {
         $compra = Compra::with(['proveedor'])->find($id);
-        if (!$compra) {
+        if (! $compra) {
             return response()->json(['status' => 'error', 'message' => 'La compra no existe.'], 404);
         }
 
@@ -567,7 +631,7 @@ class CompraController extends Controller
         return [
             'cantidad' => $compra->pagos()->count(),
             'total_pagado' => $totalPagado,
-            'saldo_a_pagar' => max(0.0, round($importeTotal - $totalPagado, 2)),
+            'saldo_a_pagar' => $compra->estado === 'cancelada' ? 0.0 : max(0.0, round($importeTotal - $totalPagado, 2)),
             'completos' => $importeTotal - $totalPagado <= 0,
             'por_metodo' => $compra->pagos()
                 ->selectRaw('metodo_pago, count(*) as cantidad_pagos, sum(importe) as total')
@@ -579,6 +643,9 @@ class CompraController extends Controller
                     'cantidad_pagos' => (int) $r->cantidad_pagos,
                     'total' => round((float) $r->total, 2),
                 ]),
+            'lista' => \App\Modules\Compras\Models\PagoProveedor::where('id_compra', $compra->id_compra)
+                ->orderBy('fecha_pago')->orderBy('id_pago')->get()
+                ->map(fn ($p) => \App\Modules\Compras\Services\PagoCompraService::formatear($p))->all(),
         ];
     }
 
@@ -588,7 +655,7 @@ class CompraController extends Controller
     public function update(Request $request, int $id): JsonResponse
     {
         $compra = Compra::with('proveedor')->find($id);
-        if (!$compra) {
+        if (! $compra) {
             return response()->json(['status' => 'error', 'message' => 'La compra no existe.'], 404);
         }
 
@@ -606,21 +673,22 @@ class CompraController extends Controller
             ], 400);
         }
 
-        if (!$request->has('items') && $request->has('detalles')) {
+        if (! $request->has('items') && $request->has('detalles')) {
             $request->merge(['items' => $request->input('detalles')]);
         }
-        if (!$request->has('fecha_compra') && $request->has('fecha')) {
+        if (! $request->has('fecha_compra') && $request->has('fecha')) {
             $request->merge(['fecha_compra' => $request->input('fecha')]);
         }
-        if (!$request->has('numero_comprobante') && $request->has('numero_factura')) {
+        if (! $request->has('numero_comprobante') && $request->has('numero_factura')) {
             $request->merge(['numero_comprobante' => $request->input('numero_factura')]);
         }
 
         $validator = Validator::make($request->all(), [
             'fecha_compra' => 'nullable|date|before_or_equal:today',
             'fecha_vencimiento' => 'nullable|date',
+            'fecha_entrega_prevista' => 'nullable|date_format:Y-m-d',
             'numero_comprobante' => 'nullable|string|max:50',
-            'items' => 'required|array|min:1',
+            'items' => 'required|array|min:1|max:100',
         ], [
             'fecha_compra.before_or_equal' => 'La fecha de la compra no puede ser posterior a la fecha actual.',
             'numero_comprobante.max' => 'El número de comprobante no puede superar los 50 caracteres.',
@@ -642,6 +710,10 @@ class CompraController extends Controller
 
         try {
             $compra = DB::transaction(function () use ($compra, $items, $idUsuario, $request) {
+                $compra = Compra::query()->whereKey($compra->id_compra)->lockForUpdate()->firstOrFail();
+                if ($compra->estado !== 'pendiente') {
+                    abort(409, 'La compra dejó de estar pendiente.');
+                }
                 $importeTotal = 0;
                 $nuevos = [];
 
@@ -660,6 +732,9 @@ class CompraController extends Controller
                 }
 
                 $importeTotal = round($importeTotal, 2);
+                if ($importeTotal < $compra->totalPagado()) {
+                    throw ValidationException::withMessages(['items' => 'El total no puede ser menor que los pagos registrados.']);
+                }
 
                 $compra->detalles()->delete();
 
@@ -677,6 +752,9 @@ class CompraController extends Controller
 
                 if ($request->filled('fecha_compra')) {
                     $compra->fecha_compra = $request->input('fecha_compra');
+                }
+                if ($request->has('fecha_entrega_prevista')) {
+                    $compra->fecha_entrega_prevista = $request->input('fecha_entrega_prevista') ?: null;
                 }
                 if ($request->has('fecha_vencimiento')) {
                     $compra->fecha_vencimiento = $request->input('fecha_vencimiento') ?: null;
@@ -699,10 +777,14 @@ class CompraController extends Controller
                 'message' => 'Compra modificada exitosamente.',
                 'data' => $this->formato($compra),
             ], 200);
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (HttpExceptionInterface $e) {
+            throw $e;
         } catch (\Throwable $e) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Error al modificar la compra: ' . $e->getMessage(),
+                'message' => 'Error al modificar la compra: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -712,26 +794,12 @@ class CompraController extends Controller
      */
     public function cancelar(Request $request, int $id): JsonResponse
     {
-        $compra = Compra::find($id);
-        if (!$compra) {
-            return response()->json(['status' => 'error', 'message' => 'La compra no existe.'], 404);
-        }
-
-        if ($compra->estado !== 'pendiente') {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Solo se pueden cancelar compras pendientes. (C05)',
-            ], 400);
-        }
-
-        $compra->estado = 'cancelada';
-        $compra->fecha_cancelacion = Carbon::now()->toDateString();
-        $compra->save();
-
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Compra cancelada. Se conserva el historial.',
-            'data' => $this->formato($compra),
-        ], 200);
+        $purchase = app(\App\Modules\Compras\Services\PurchaseLifecycle::class)->cancel($id, UsuarioActual::id($request));
+        return response()->json(['status' => 'success', 'message' => 'Compra anulada con reversión de stock verificada.', 'data' => $this->formato($purchase)]);
+    }
+    public function cerrarParcial(Request $request, int $id): JsonResponse
+    {
+        $purchase = app(\App\Modules\Compras\Services\PurchaseLifecycle::class)->closePartial($id, UsuarioActual::id($request));
+        return response()->json(['status' => 'success', 'message' => 'Cierre parcial definitivo registrado.', 'data' => $this->formato($purchase)]);
     }
 }

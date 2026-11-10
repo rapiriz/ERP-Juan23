@@ -47,14 +47,13 @@
         }
         return body.data;
     }
-    // El renderizador original usa HTML: escapar los campos externos antes de delegar.
-    const escape = value => String(value ?? '').replace(/[&<>"']/g, character => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[character]));
+    // El renderizador compartido escapa el HTML; aquí sólo se normalizan IDs.
     const originalRender = window.renderizarTabla;
     window.renderizarTabla = rows => originalRender(rows.map(row => ({...row,
         id_rendicion: Number(row.id_rendicion), id_repartidor: Number(row.id_repartidor),
         id_entrega: row.id_entrega == null ? null : Number(row.id_entrega),
-        observaciones: escape(row.observaciones),
-        repartidor: row.repartidor ? {...row.repartidor, nombre: escape(row.repartidor.nombre)} : null,
+        observaciones: row.observaciones,
+        repartidor: row.repartidor ? {...row.repartidor, nombre: row.repartidor.nombre} : null,
     })));
     window.cargarContadoresGlobales = async () => {
         const version = ++countersVersion;

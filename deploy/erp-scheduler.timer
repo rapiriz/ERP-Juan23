@@ -1,0 +1,8 @@
+[Unit]
+Description=Run ERP scheduler every minute
+[Timer]
+OnCalendar=*-*-* *:*:00
+Persistent=true
+Unit=erp-scheduler.service
+[Install]
+WantedBy=timers.target

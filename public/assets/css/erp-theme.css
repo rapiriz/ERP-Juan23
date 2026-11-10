@@ -1,0 +1,12 @@
+/* Lenguaje visual compartido por las pantallas internas de todos los módulos. */
+.erp-shell { --erp-primary:#075bdd; --erp-ink:#12345b; --erp-background:#f4ecda; --erp-surface:#fffaf0; --bg:#f4ecda; --surface:#fffaf0; --surface-muted:#faf4e8; --text:#12345b; --muted:#526b85; --primary:#075bdd; --border:#dfcdb1; font-family:Arial,Helvetica,sans-serif; color:var(--erp-ink); background:var(--erp-background); }
+.erp-shell .erp-workspace, .erp-shell .app-workspace { background:var(--erp-background); }
+.erp-shell main h1, .erp-shell main h2, .erp-shell main h3 { color:var(--erp-ink); }
+.erp-shell main input:not([type="checkbox"]):not([type="radio"]), .erp-shell main select, .erp-shell main textarea { border-color:#dfcdb1; border-radius:8px; background-color:#fffdf8; color:var(--erp-ink); }
+.erp-shell main button, .erp-shell main .button { border-radius:8px; }
+.erp-shell main .bg-white { background-color:var(--erp-surface); }
+.erp-shell :is(.clay-btn-primary,.button-primary,.btn-primary) { background:var(--erp-primary); color:#fff; border-color:var(--erp-primary); }
+.erp-shell :is(.section-block,.clay-card,.card) { border-color:var(--border); border-radius:12px; background-color:var(--erp-surface); }
+.erp-shell main table { border-color:#dfcdb1; }
+.erp-shell .clay-modal-backdrop.hidden, .erp-shell [role="dialog"].hidden { display:none!important; }
+@media (prefers-reduced-motion:reduce) { .erp-shell * { scroll-behavior:auto!important; } }

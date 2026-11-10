@@ -3,10 +3,10 @@
 namespace App\Modules\Login\Models;
 
 use App\Modules\Clientes\Models\Cliente;
+use App\Modules\ConciliacionBancaria\Repositories\Cobro;
 use App\Modules\Login\Enums\UserRole;
 use App\Modules\Login\Enums\UserStatus;
 use App\Modules\Reclamos\Models\Reclamo;
-use App\Modules\Ventas\Models\Cobro;
 use App\Modules\Ventas\Models\Venta;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
@@ -67,12 +67,12 @@ class User extends Authenticatable
 
     public function ventas(): HasMany
     {
-        return $this->hasMany(Venta::class, 'usuario_id');
+        return $this->hasMany(Venta::class, 'id_usuario');
     }
 
     public function cobros(): HasMany
     {
-        return $this->hasMany(Cobro::class, 'usuario_id');
+        return $this->hasMany(Cobro::class, 'id_usuario');
     }
 
     protected function casts(): array

@@ -3,10 +3,15 @@
 namespace App\Modules\Ventas\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Promociones\Services\PromotionSaleService;
+use App\Modules\Shared\Services\UsuarioService;
 use App\Modules\Ventas\Contracts\ClienteGateway;
 use App\Modules\Ventas\Contracts\ProductoGateway;
 use App\Modules\Ventas\Contracts\StockGateway;
-use App\Modules\Shared\Services\UsuarioService;
+use App\Modules\Ventas\Enums\EstadoVenta;
+use App\Modules\Ventas\Services\CalculadoraVenta;
+use App\Modules\Ventas\Services\SaleCreationRequests;
+use App\Modules\Ventas\Services\StockDeliveryService;
 use App\Support\UsuarioActual;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -23,6 +28,7 @@ class VentaController extends Controller
             if ($disponible !== null) {
                 $producto['stock'] = $disponible;
             }
+
             return $producto;
         })->all();
 
@@ -39,6 +45,7 @@ class VentaController extends Controller
             if ($disponible !== null) {
                 $producto['stock'] = $disponible;
             }
+
             return $producto;
         })->values()->all();
 
@@ -47,20 +54,31 @@ class VentaController extends Controller
 
     public function store(Request $request, ClienteGateway $clientes, ProductoGateway $productos, StockGateway $stock)
     {
-        $todosLosProductos = $productos->todos();
+        if ($request->header('Idempotency-Key')) {
+            abort_if($request->filled('request_key') && $request->input('request_key') !== $request->header('Idempotency-Key'), 422, 'Las referencias de solicitud no coinciden.');
+            $request->merge(['request_key' => $request->header('Idempotency-Key')]);
+        }
         $datos = $request->validate([
+            'request_key' => ['nullable', 'uuid'],
             'cliente_id' => ['required', 'integer'],
             'lista' => ['required', Rule::in(['minorista', 'mayorista'])],
             'observaciones' => ['nullable', 'string', 'max:150'],
             'items' => ['required', 'array', 'min:1', 'max:100'],
-            'items.*.id' => ['required', 'integer', Rule::in(array_column($todosLosProductos, 'id'))],
+            'items.*.id' => ['required', 'integer', 'min:1'],
             'items.*.cantidad' => ['required', 'integer', 'min:1', 'max:9999'],
             'items.*.descuento' => ['required', 'numeric', 'min:0'],
-            'items.*.id_promocion' => ['nullable', 'integer', 'exists:promocion,id_promocion'],
+            'items.*.id_promocion' => ['nullable', 'integer', 'min:1'],
+            'fecha_vencimiento' => ['nullable', 'date'],
             'descuento_global' => ['sometimes', 'array'],
             'descuento_global.modo' => ['required_with:descuento_global', Rule::in(['porcentaje', 'monto'])],
             'descuento_global.valor' => ['required_with:descuento_global', 'numeric', 'min:0'],
         ]);
+        $requestKey = $datos['request_key'] ?? (string) Str::uuid();
+        $previous = app(SaleCreationRequests::class)->replay($requestKey, UsuarioActual::id($request), $datos);
+        if ($previous !== null) {
+            return $this->saleResponse([...$previous, 'repetido' => true], (int) $datos['cliente_id']);
+        }
+        $todosLosProductos = $productos->todos();
         $cliente = $clientes->buscar((int) $datos['cliente_id']);
 
         if ($cliente === null) {
@@ -68,72 +86,26 @@ class VentaController extends Controller
                 'cliente_id' => ['Seleccioná un cliente válido.'],
             ]);
         }
-        $productosIndexados = collect($todosLosProductos)->keyBy('id');
-        $lista = $datos['lista'] === 'mayorista' ? 'precioMay' : 'precioMin';
-        foreach ($datos['items'] as $indice => $item) {
-            $producto = $productosIndexados->get((int) $item['id']);
-            if ((float) $item['descuento'] > (float) $producto[$lista]) {
-                throw ValidationException::withMessages([
-                    "items.{$indice}.descuento" => ['El descuento no puede superar el precio unitario actual.'],
-                ]);
-            }
-        }
-
-        $detalles = collect($datos['items'])->map(function (array $item) use ($productosIndexados, $lista): array {
-            $producto = $productosIndexados->get((int) $item['id']);
-            $precio = (int) $producto[$lista];
-            $descuento = round((float) $item['descuento'], 2);
-            $subtotal = round((int) $item['cantidad'] * ($precio - $descuento), 2);
-
-            return [
-                'id_producto' => $producto['id'],
-                'id_promocion' => isset($item['id_promocion']) ? (int) $item['id_promocion'] : null,
-                'cantidad' => (int) $item['cantidad'],
-                'precio_unitario' => $precio,
-                'descuento' => $descuento,
-                'subtotal' => $subtotal,
-            ];
-        });
-
-        $cantidadesPorProducto = [];
-        foreach ($detalles as $detalle) {
-            $idProducto = (int) $detalle['id_producto'];
-            $cantidadesPorProducto[$idProducto] = ($cantidadesPorProducto[$idProducto] ?? 0) + (int) $detalle['cantidad'];
-        }
-
-        foreach ($cantidadesPorProducto as $idProducto => $cantidadSolicitada) {
-            $disponible = $stock->disponible($idProducto);
-            if ($disponible !== null && $cantidadSolicitada > $disponible) {
-                throw ValidationException::withMessages([
-                    'items' => ["Stock insuficiente para el producto #{$idProducto}: disponible {$disponible}, solicitado {$cantidadSolicitada}."],
-                ]);
-            }
-        }
-
-        $subtotalConDescuentosDeLinea = round($detalles->sum('subtotal'), 2);
-        $descuentoGlobal = $datos['descuento_global'] ?? ['modo' => 'monto', 'valor' => 0];
-        $valorDescuentoGlobal = (float) $descuentoGlobal['valor'];
-
-        if ($descuentoGlobal['modo'] === 'porcentaje' && $valorDescuentoGlobal > 100) {
-            throw ValidationException::withMessages([
-                'descuento_global.valor' => ['El porcentaje de descuento global debe estar entre 0 y 100.'],
-            ]);
-        }
-
-        $montoDescuentoGlobal = $descuentoGlobal['modo'] === 'porcentaje'
-            ? round($subtotalConDescuentosDeLinea * $valorDescuentoGlobal / 100, 2)
-            : round(min($valorDescuentoGlobal, $subtotalConDescuentosDeLinea), 2);
-        $total = round($subtotalConDescuentosDeLinea - $montoDescuentoGlobal, 2);
-
-        if ($total <= 0) {
-            throw ValidationException::withMessages([
-                'items' => ['La venta debe tener un total mayor a cero.'],
-            ]);
-        }
-
+        $catalogo = collect($todosLosProductos)->keyBy('id')->all();
         $observaciones = trim($datos['observaciones'] ?? '') ?: 'Venta POS a cuenta corriente';
 
-        $ventaId = DB::transaction(function () use ($request, $cliente, $detalles, $cantidadesPorProducto, $stock, $total, $montoDescuentoGlobal, $observaciones): int {
+        $resultado = DB::transaction(function () use ($request, $cliente, $catalogo, $datos, $observaciones, $requestKey): array {
+            DB::table('clientes')->where('id', $cliente['id'])->lockForUpdate()->firstOrFail();
+            $previous = app(SaleCreationRequests::class)->claim($requestKey, UsuarioActual::id($request), $datos);
+            if ($previous !== null) {
+                return [...$previous, 'repetido' => true];
+            }
+            app(PromotionSaleService::class)->validate($datos['items'], $catalogo, $datos['lista'] === 'mayorista' ? 'precioMay' : 'precioMin');
+            $calculo = app(CalculadoraVenta::class)->calcular(
+                $datos['items'], $catalogo, $datos['lista'], $datos['descuento_global'] ?? null);
+            $detalles = $calculo['detalles'];
+            $total = $calculo['total'];
+            $montoDescuentoGlobal = $calculo['descuento_global'];
+            $cantidadesPorProducto = [];
+            foreach ($detalles as $detalle) {
+                $pid = (int) $detalle['id_producto'];
+                $cantidadesPorProducto[$pid] = ($cantidadesPorProducto[$pid] ?? 0) + (int) $detalle['cantidad'];
+            }
             $ventaId = DB::table('venta')->insertGetId([
                 'id_cliente' => $cliente['id'],
                 'fecha' => now()->toDateString(),
@@ -143,6 +115,7 @@ class VentaController extends Controller
                 'estado' => 'pendiente',
                 'observaciones' => $observaciones,
                 'id_usuario' => UsuarioActual::id($request),
+                'fecha_vencimiento' => $datos['fecha_vencimiento'] ?? null,
             ], 'id_venta');
 
             foreach ($detalles as $detalle) {
@@ -171,18 +144,29 @@ class VentaController extends Controller
             foreach ($cantidadesPorProducto as $idProducto => $cantidad) {
                 $cambiosStock[(int) $idProducto] = -((int) $cantidad);
             }
-            $stock->ajustar($cambiosStock, $ventaId, 'venta');
+            $operation = app(StockDeliveryService::class)->enqueue(
+                (int) $ventaId, $cambiosStock, 'venta', UsuarioActual::id($request));
 
-            return (int) $ventaId;
+            $response = ['venta_id' => (int) $ventaId, 'total' => $total, 'descuento_global' => $montoDescuentoGlobal, 'stock_operation_id' => $operation, 'request_key' => $requestKey];
+            app(SaleCreationRequests::class)->complete($requestKey, $response);
+
+            return [...$response, 'repetido' => false];
         });
 
+        return $this->saleResponse($resultado, (int) $cliente['id']);
+    }
+
+    private function saleResponse(array $resultado, int $clientId)
+    {
+        $operation = $resultado['stock_operation_id'];
+        $applied = $operation === null || app(StockDeliveryService::class)->deliver($operation);
+
         return response()->json([
+            ...$resultado,
+            'stock_estado' => $applied ? 'aplicado' : 'pendiente',
             'mensaje' => 'Venta registrada y cargada a la cuenta corriente.',
-            'venta_id' => $ventaId,
-            'cliente_id' => $cliente['id'],
-            'descuento_global' => $montoDescuentoGlobal,
-            'total' => $total,
-        ], 201);
+            'cliente_id' => $clientId,
+        ], $resultado['repetido'] ? 200 : 201);
     }
 
     public function historial(ClienteGateway $clientes, ProductoGateway $productos)
@@ -221,7 +205,6 @@ class VentaController extends Controller
                 )
                 ->get()
                 ->groupBy('id_venta');
-
 
         $metodosPago = collect();
 
@@ -270,11 +253,15 @@ class VentaController extends Controller
 
             $medios = $metodosPago->get($venta->id_venta, []);
             $esCC = empty($medios);
+            $acciones = EstadoVenta::accionesPara($venta->estado);
+            if (DB::table('entrega_pedido')->where('id_venta', $venta->id_venta)->exists() || DB::table('g4_devoluciones')->where('venta_id', $venta->id_venta)->exists()) {
+                $acciones = array_replace($acciones, ['puede_modificar' => false, 'puede_eliminar' => false, 'puede_restaurar' => false]);
+            }
 
             return [
                 'id' => (int) $venta->id_venta,
                 'cliente_id' => (int) $venta->id_cliente,
-                'factura' => $venta->factura ?? ('#' . $venta->id_venta),
+                'factura' => $venta->factura ?? ('#'.$venta->id_venta),
                 'fecha' => $venta->fecha,
                 'fecha_iso' => substr((string) $venta->fecha, 0, 10),
                 'cliente' => $cliente['nombre'] ?? "Cliente #{$venta->id_cliente}",
@@ -291,12 +278,11 @@ class VentaController extends Controller
                 'cc' => $esCC,
 
                 // Conserva las acciones que ya tenía develop-g4.
-                ...\App\Modules\Ventas\Enums\EstadoVenta::accionesPara($venta->estado),
+                ...$acciones,
 
                 'detalle' => $detalle,
             ];
         })->values();
-
 
         $kpis = [
             'total_vendido' => $ventas->sum('total'),

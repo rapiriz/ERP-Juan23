@@ -135,28 +135,28 @@ document.addEventListener("DOMContentLoaded", () => {
             let botonesAccion = "";
             if (promo.estado === "activa") {
                 botonesAccion = `
-                    <button type="button" class="btn-action btn-cart" data-promo-id="${promo.id}" title="Agregar a Venta">🛒 Agregar</button>
-                    <button type="button" class="btn-action btn-edit" onclick="editarPromocion(${promo.id})" title="Modificar">✏️ Editar</button>
-                    <button type="button" class="btn-action btn-danger" onclick="cambiarEstado(${promo.id}, 'inactiva')" title="Dar de baja">🚫 Baja</button>
+                    <button type="button" class="btn-action btn-cart" data-promo-id="${Number(promo.id)}" title="Agregar a Venta">🛒 Agregar</button>
+                    <button type="button" class="btn-action btn-edit" onclick="editarPromocion(${Number(promo.id)})" title="Modificar">✏️ Editar</button>
+                    <button type="button" class="btn-action btn-danger" onclick="cambiarEstado(${Number(promo.id)}, 'inactiva')" title="Dar de baja">🚫 Baja</button>
                 `;
             } else {
                 botonesAccion = `
-                    <button type="button" class="btn-action" style="background-color: #10b981;" onclick="cambiarEstado(${promo.id}, 'activa')" title="Reactivar Promoción">✅ Reactivar</button>
+                    <button type="button" class="btn-action" style="background-color: #10b981;" onclick="cambiarEstado(${Number(promo.id)}, 'activa')" title="Reactivar Promoción">✅ Reactivar</button>
                 `;
             }
 
             tr.innerHTML = `
-                <td style="color: #94a3b8; font-family: monospace;">${promo.codigo}</td>
+                <td style="color: #94a3b8; font-family: monospace;">${escapar(promo.codigo)}</td>
                 <td>
                     <strong>${escapar(promo.nombre)}</strong><br>
                     <span style="font-size: 0.8rem; color: #64748b;">${escapar(promo.descripcion)}</span>
                 </td>
                 <td style="font-size: 0.85rem; color: #475569;">
-                    ${formatearFecha(promo.fechaInicio)} al ${formatearFecha(promo.fechaFin)}
+                    ${escapar(formatearFecha(promo.fechaInicio))} al ${escapar(formatearFecha(promo.fechaFin))}
                     ${badges}
                 </td>
                 <td class="text-center" style="white-space: nowrap;">
-                    <span class="badge-discount">${textoPrecio}</span>
+                    <span class="badge-discount">${escapar(textoPrecio)}</span>
                 </td>
                 <td class="text-right" onclick="event.stopPropagation();">
                     <div class="actions-group">
@@ -577,7 +577,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function calcularDetallePromo(promo, carrito = []) {
-        const lineas = promo.productos.map((item) => {
+        const lineas = [...promo.productos].sort((a, b) => Number(a.id_producto) - Number(b.id_producto)).map((item) => {
             const producto = productosDisponibles.find((disponible) => disponible.id === Number(item.id_producto));
             const itemEnCarrito = carrito.find((carritoItem) => Number(carritoItem.id) === Number(item.id_producto));
             const precioUnitario = Number(itemEnCarrito?.precioUnit ?? producto?.precioMin ?? 0);
@@ -607,7 +607,7 @@ document.addEventListener("DOMContentLoaded", () => {
             descuentoRestante -= descuentoAsignado;
 
             const descuentoUnitario = linea.cantidad > 0
-                ? Math.min(linea.precioUnitario, Math.round(descuentoAsignado / 100 / linea.cantidad * 100) / 100)
+                ? Math.min(linea.precioUnitario, Math.floor(descuentoAsignado / linea.cantidad) / 100)
                 : 0;
             const precioConDescuento = Math.max(0, linea.precioUnitario - descuentoUnitario);
             const totalLinea = Math.round(precioConDescuento * linea.cantidad * 100) / 100;
@@ -689,7 +689,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     esPromocion: true,
                     promocionId: Number(promo.id),
                     promocionNombre: promo.nombre,
-                    promocionInstanciaId: `promo-${promo.id}-${Date.now()}`,
+                    promocionInstanciaId: `promo-${Number(promo.id)}-${Date.now()}`,
                     descuentoMonto: linea.descuentoLinea,
                     descuentoInputModo: promo.tipoValor === "%" ? "porcentaje" : "monto",
                     descuentoInputValor: promo.tipoValor === "%" ? Number(promo.valor) : linea.descuentoLinea,

@@ -40,6 +40,8 @@ class CajaCorreccionesTest extends TestCase
     public function test_vendedor_no_puede_abrir_caja(): void
     {
         $repo = Mockery::mock(CajaRepository::class);
+        $repo->shouldReceive('bloquearUsuario')->byDefault()->andReturnNull();
+        $repo->shouldReceive('movimientoProtegido')->byDefault()->andReturnFalse();
         $repo->shouldReceive('crear')->never();
 
         $r = (new CajaService($repo))->abrirCaja(3, 'vendedor', 100.0);
@@ -57,6 +59,8 @@ class CajaCorreccionesTest extends TestCase
     public function test_permite_abrir_otra_caja_el_mismo_dia_si_la_anterior_esta_cerrada(): void
     {
         $repo = Mockery::mock(CajaRepository::class);
+        $repo->shouldReceive('bloquearUsuario')->byDefault()->andReturnNull();
+        $repo->shouldReceive('movimientoProtegido')->byDefault()->andReturnFalse();
         $repo->shouldReceive('buscarCualquierAbiertaDeUsuario')->andReturn(null);
         $repo->shouldReceive('crear')->once()->andReturnUsing(fn ($d) => new Caja($d));
 
@@ -71,6 +75,8 @@ class CajaCorreccionesTest extends TestCase
         $vencida = $this->caja(['fecha_hora_vencimiento' => Carbon::parse('2026-10-15 10:00:00')]);
 
         $repo = Mockery::mock(CajaRepository::class);
+        $repo->shouldReceive('bloquearUsuario')->byDefault()->andReturnNull();
+        $repo->shouldReceive('movimientoProtegido')->byDefault()->andReturnFalse();
         $repo->shouldReceive('buscarPorId')->with(7)->andReturn($vencida);
         $repo->shouldReceive('crearMovimiento')->once()->andReturnUsing(fn ($d) => new CajaMovimiento($d));
 
@@ -84,6 +90,8 @@ class CajaCorreccionesTest extends TestCase
     public function test_diferencia_se_redondea_a_dos_decimales(): void
     {
         $repo = Mockery::mock(CajaRepository::class);
+        $repo->shouldReceive('bloquearUsuario')->byDefault()->andReturnNull();
+        $repo->shouldReceive('movimientoProtegido')->byDefault()->andReturnFalse();
         $repo->shouldReceive('buscarPorId')->with(7)->andReturn($this->caja(['monto_inicial' => 100.10]));
         $repo->shouldReceive('calcularSaldoMovimientos')->with(7)->andReturn(0.20);
         $repo->shouldReceive('guardar')->once()->andReturnUsing(fn ($c) => $c);
@@ -101,6 +109,8 @@ class CajaCorreccionesTest extends TestCase
         $mov = new CajaMovimiento(['id_caja' => 7, 'tipo' => 'cobro', 'monto' => 10, 'concepto' => 'X']);
 
         $repo = Mockery::mock(CajaRepository::class);
+        $repo->shouldReceive('bloquearUsuario')->byDefault()->andReturnNull();
+        $repo->shouldReceive('movimientoProtegido')->byDefault()->andReturnFalse();
         $repo->shouldReceive('buscarMovimientoPorId')->andReturn($mov);
         $repo->shouldReceive('buscarPorId')->with(7)->andReturn($this->caja(['estado' => Caja::ESTADO_CERRADA]));
         $repo->shouldReceive('guardarMovimiento')->never();
@@ -117,10 +127,13 @@ class CajaCorreccionesTest extends TestCase
         $guardado = null;
 
         $repo = Mockery::mock(CajaRepository::class);
+        $repo->shouldReceive('bloquearUsuario')->byDefault()->andReturnNull();
+        $repo->shouldReceive('movimientoProtegido')->byDefault()->andReturnFalse();
         $repo->shouldReceive('buscarMovimientoPorId')->andReturn($mov);
         $repo->shouldReceive('buscarPorId')->with(7)->andReturn($this->caja());
         $repo->shouldReceive('guardarMovimiento')->once()->andReturnUsing(function ($m) use (&$guardado) {
             $guardado = $m;
+
             return $m;
         });
 
@@ -138,6 +151,8 @@ class CajaCorreccionesTest extends TestCase
     public function test_cobro_en_efectivo_sin_caja_abierta_se_rechaza(): void
     {
         $repo = Mockery::mock(CajaRepository::class);
+        $repo->shouldReceive('bloquearUsuario')->byDefault()->andReturnNull();
+        $repo->shouldReceive('movimientoProtegido')->byDefault()->andReturnFalse();
         $repo->shouldReceive('buscarCualquierAbiertaDeUsuario')->with(1)->andReturn(null);
         $repo->shouldReceive('crearMovimiento')->never();
 
@@ -151,10 +166,13 @@ class CajaCorreccionesTest extends TestCase
         $capturado = null;
 
         $repo = Mockery::mock(CajaRepository::class);
+        $repo->shouldReceive('bloquearUsuario')->byDefault()->andReturnNull();
+        $repo->shouldReceive('movimientoProtegido')->byDefault()->andReturnFalse();
         $repo->shouldReceive('buscarCualquierAbiertaDeUsuario')->with(1)->andReturn($this->caja());
         $repo->shouldReceive('buscarPorId')->with(7)->andReturn($this->caja());
         $repo->shouldReceive('crearMovimiento')->once()->andReturnUsing(function ($d) use (&$capturado) {
             $capturado = $d;
+
             return new CajaMovimiento($d);
         });
 

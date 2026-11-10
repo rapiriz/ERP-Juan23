@@ -2,25 +2,26 @@
 
 namespace App\Modules\Ventas\Controllers;
 
+use App\Http\Controllers\Controller;
+use App\Modules\Ventas\Contracts\ClienteGateway;
 use App\Modules\Ventas\Contracts\ProductoGateway;
 use App\Modules\Ventas\Contracts\StockGateway;
-use App\Modules\Ventas\Contracts\ClienteGateway;
 use App\Modules\Ventas\Enums\EstadoVenta;
 use App\Modules\Ventas\Exceptions\VentaException;
-use App\Http\Controllers\Controller;
+use App\Modules\Ventas\Logging\VentaLogger;
+use App\Modules\Ventas\Models\Venta;
 use App\Modules\Ventas\Requests\AnularVentaRequest;
 use App\Modules\Ventas\Requests\CambiarEstadoVentaRequest;
 use App\Modules\Ventas\Requests\ListarVentasRequest;
 use App\Modules\Ventas\Requests\ModificarVentaRequest;
 use App\Modules\Ventas\Resources\VentaResource;
-use App\Modules\Ventas\Logging\VentaLogger;
-use App\Modules\Ventas\Models\Venta;
 use App\Modules\Ventas\Services\EstadisticasVentaService;
 use App\Modules\Ventas\Services\VentaService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Throwable;
 
 /**
@@ -132,12 +133,12 @@ class VentaApiController extends Controller
             $disponible = $stock->disponible((int) $p['id']);
 
             return [
-            'id' => (int) $p['id'],
-            'codigo' => $p['codigo'] ?? null,
-            'nombre' => $p['nombre'],
-            'precioMin' => (float) $p['precioMin'],
-            'precioMay' => (float) $p['precioMay'],
-            'stock' => $disponible ?? (isset($p['stock']) ? (int) $p['stock'] : null),
+                'id' => (int) $p['id'],
+                'codigo' => $p['codigo'] ?? null,
+                'nombre' => $p['nombre'],
+                'precioMin' => (float) $p['precioMin'],
+                'precioMay' => (float) $p['precioMay'],
+                'stock' => $disponible ?? (isset($p['stock']) ? (int) $p['stock'] : null),
             ];
         }, $productos->todos());
 
@@ -233,6 +234,8 @@ class VentaApiController extends Controller
         } catch (VentaException $e) {
             $log->bloqueada($e);
             throw $e; // la excepción arma su propia respuesta (método render)
+        } catch (HttpExceptionInterface $e) {
+            throw $e;
         } catch (Throwable $e) {
             $respuesta = [
                 'message' => 'Hubo un error al procesar la venta. No se guardó ningún cambio.',

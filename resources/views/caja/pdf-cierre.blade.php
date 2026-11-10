@@ -35,7 +35,7 @@
 <h1>Cierre de caja #{{ $cierre['id_caja'] }}</h1>
 <div class="meta">
     Fecha {{ \Illuminate\Support\Carbon::parse($cierre['fecha'])->format('d/m/Y') }}
-    · Dueño: usuario #{{ $cierre['id_usuario'] ?? '—' }}
+    · Dueño: {{ $cierre['nombre_usuario'] ?? 'Sin usuario verificable' }}
     · {{ !empty($cierre['cierre_automatico']) ? 'Cierre automático (72 h)' : 'Cierre manual' }}
 </div>
 

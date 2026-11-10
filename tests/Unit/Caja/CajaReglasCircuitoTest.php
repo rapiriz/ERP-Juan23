@@ -38,9 +38,12 @@ class CajaReglasCircuitoTest extends TestCase
     private function repoSinCajaAbierta(?array &$capturado): CajaRepository
     {
         $repo = Mockery::mock(CajaRepository::class);
+        $repo->shouldReceive('bloquearUsuario')->byDefault()->andReturnNull();
+        $repo->shouldReceive('movimientoProtegido')->byDefault()->andReturnFalse();
         $repo->shouldReceive('buscarCualquierAbiertaDeUsuario')->andReturn(null);
         $repo->shouldReceive('crear')->once()->andReturnUsing(function ($datos) use (&$capturado) {
             $capturado = $datos;
+
             return new Caja($datos);
         });
 
@@ -91,6 +94,8 @@ class CajaReglasCircuitoTest extends TestCase
         ]);
 
         $repo = Mockery::mock(CajaRepository::class);
+        $repo->shouldReceive('bloquearUsuario')->byDefault()->andReturnNull();
+        $repo->shouldReceive('movimientoProtegido')->byDefault()->andReturnFalse();
         $repo->shouldReceive('buscarCualquierAbiertaDeUsuario')->with(1)->andReturn($existente);
         $repo->shouldReceive('crear')->never();
 
@@ -111,6 +116,8 @@ class CajaReglasCircuitoTest extends TestCase
         ]);
 
         $repo = Mockery::mock(CajaRepository::class);
+        $repo->shouldReceive('bloquearUsuario')->byDefault()->andReturnNull();
+        $repo->shouldReceive('movimientoProtegido')->byDefault()->andReturnFalse();
         $repo->shouldReceive('buscarCualquierAbiertaDeUsuario')->with(1)->andReturn($existente);
 
         $r = (new CajaService($repo))->abrirCaja(1, 'repartidor', 1000.0);
@@ -124,6 +131,8 @@ class CajaReglasCircuitoTest extends TestCase
     public function test_repartidor_no_puede_registrar_impuesto(): void
     {
         $repo = Mockery::mock(CajaRepository::class);
+        $repo->shouldReceive('bloquearUsuario')->byDefault()->andReturnNull();
+        $repo->shouldReceive('movimientoProtegido')->byDefault()->andReturnFalse();
         $repo->shouldReceive('buscarPorId')->with(7)->andReturn($this->crearCaja());
         $repo->shouldReceive('crearMovimiento')->never();
 
@@ -140,9 +149,12 @@ class CajaReglasCircuitoTest extends TestCase
         $capturado = null;
 
         $repo = Mockery::mock(CajaRepository::class);
+        $repo->shouldReceive('bloquearUsuario')->byDefault()->andReturnNull();
+        $repo->shouldReceive('movimientoProtegido')->byDefault()->andReturnFalse();
         $repo->shouldReceive('buscarPorId')->with(7)->andReturn($this->crearCaja(['id_usuario' => 2]));
         $repo->shouldReceive('crearMovimiento')->once()->andReturnUsing(function ($datos) use (&$capturado) {
             $capturado = $datos;
+
             return new CajaMovimiento($datos);
         });
 
@@ -157,6 +169,8 @@ class CajaReglasCircuitoTest extends TestCase
     public function test_no_permite_movimientos_en_caja_de_otro_usuario(): void
     {
         $repo = Mockery::mock(CajaRepository::class);
+        $repo->shouldReceive('bloquearUsuario')->byDefault()->andReturnNull();
+        $repo->shouldReceive('movimientoProtegido')->byDefault()->andReturnFalse();
         $repo->shouldReceive('buscarPorId')->with(7)->andReturn($this->crearCaja(['id_usuario' => 2]));
 
         $r = (new CajaService($repo))->registrarMovimiento(
@@ -169,6 +183,8 @@ class CajaReglasCircuitoTest extends TestCase
     public function test_no_permite_movimientos_en_caja_cerrada(): void
     {
         $repo = Mockery::mock(CajaRepository::class);
+        $repo->shouldReceive('bloquearUsuario')->byDefault()->andReturnNull();
+        $repo->shouldReceive('movimientoProtegido')->byDefault()->andReturnFalse();
         $repo->shouldReceive('buscarPorId')->with(7)
             ->andReturn($this->crearCaja(['estado' => Caja::ESTADO_CERRADA]));
 
@@ -184,6 +200,8 @@ class CajaReglasCircuitoTest extends TestCase
     public function test_cierre_sin_diferencia(): void
     {
         $repo = Mockery::mock(CajaRepository::class);
+        $repo->shouldReceive('bloquearUsuario')->byDefault()->andReturnNull();
+        $repo->shouldReceive('movimientoProtegido')->byDefault()->andReturnFalse();
         $repo->shouldReceive('buscarPorId')->with(7)->andReturn($this->crearCaja());
         $repo->shouldReceive('calcularSaldoMovimientos')->with(7)->andReturn(300.0); // +500 cobro -200 egreso
         $repo->shouldReceive('guardar')->once()->andReturnUsing(fn ($caja) => $caja);
@@ -197,6 +215,8 @@ class CajaReglasCircuitoTest extends TestCase
     public function test_cierre_con_faltante_registra_diferencia_negativa(): void
     {
         $repo = Mockery::mock(CajaRepository::class);
+        $repo->shouldReceive('bloquearUsuario')->byDefault()->andReturnNull();
+        $repo->shouldReceive('movimientoProtegido')->byDefault()->andReturnFalse();
         $repo->shouldReceive('buscarPorId')->with(7)->andReturn($this->crearCaja());
         $repo->shouldReceive('calcularSaldoMovimientos')->with(7)->andReturn(300.0);
         $repo->shouldReceive('guardar')->once()->andReturnUsing(fn ($caja) => $caja);
@@ -209,6 +229,8 @@ class CajaReglasCircuitoTest extends TestCase
     public function test_no_permite_cerrar_la_caja_de_otro_usuario(): void
     {
         $repo = Mockery::mock(CajaRepository::class);
+        $repo->shouldReceive('bloquearUsuario')->byDefault()->andReturnNull();
+        $repo->shouldReceive('movimientoProtegido')->byDefault()->andReturnFalse();
         $repo->shouldReceive('buscarPorId')->with(7)->andReturn($this->crearCaja(['id_usuario' => 2]));
         $repo->shouldReceive('guardar')->never();
 

@@ -101,7 +101,7 @@
                            oninput="renderCompras()">
                 </div>
 
-                <select id="filtroEstadoCompras" onchange="renderCompras()" class="clay-input py-2 text-xs font-bold text-slate-700 min-w-[150px]">
+                <select id="filtroEstadoCompras" aria-label="Estado de compra" onchange="renderCompras()" class="clay-input py-2 text-xs font-bold text-slate-700 min-w-[150px]">
                     <option value="">Todos los Estados</option>
                     <option value="pendiente">Pendiente</option>
                     <option value="parcialmente_recibida">Parcialmente Recibida</option>
@@ -109,7 +109,7 @@
                     <option value="cancelada">Cancelada</option>
                 </select>
 
-                <select id="filtroProveedorCompras" onchange="renderCompras()" class="clay-input py-2 text-xs font-bold text-slate-700 min-w-[170px]">
+                <select id="filtroProveedorCompras" aria-label="Proveedor de compra" onchange="renderCompras()" class="clay-input py-2 text-xs font-bold text-slate-700 min-w-[170px]">
                     <option value="">Todos los Proveedores</option>
                 </select>
             </div>
@@ -309,9 +309,23 @@
 
         <!-- TABLA DE SUGERENCIAS -->
         <div class="clay-card overflow-hidden">
-            <div class="p-4 border-b border-slate-100 flex items-center justify-between">
-                <span class="text-xs font-black uppercase text-slate-600 tracking-wider">Productos que requieren reposición inmediata</span>
-                <span id="badgeSugerenciasCount" class="clay-badge clay-badge-info">0 sugerencias</span>
+            <div class="p-4 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-3">
+                <div class="flex items-center gap-2 flex-wrap">
+                    <span class="text-xs font-black uppercase text-slate-600 tracking-wider">Productos que requieren reposición inmediata</span>
+                    <span id="badgeSugerenciasCount" class="clay-badge clay-badge-info">0 sugerencias</span>
+                </div>
+                <div class="flex items-center gap-3 flex-wrap">
+                    <div class="flex items-center gap-1.5">
+                        <label for="filtroProveedorSugerencias" class="text-[11px] font-extrabold text-slate-500 uppercase">Proveedor:</label>
+                        <select id="filtroProveedorSugerencias" onchange="renderSugerencias()" class="clay-input py-1.5 px-2.5 text-xs font-bold text-slate-700 min-w-[190px]">
+                            <option value="">Todos los Proveedores</option>
+                        </select>
+                    </div>
+                    <label class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-violet-50/80 border border-violet-200 cursor-pointer select-none" title="Si se activa, al emitir una orden se juntarán todos los productos pendientes del mismo proveedor en una única Orden de Compra">
+                        <input type="checkbox" id="chkAgruparSugerenciasProveedor" class="w-3.5 h-3.5 rounded text-violet-600 focus:ring-violet-500">
+                        <span class="text-[11px] font-extrabold text-violet-900">Agrupar por proveedor al emitir</span>
+                    </label>
+                </div>
             </div>
             <div class="overflow-x-auto">
                 <table class="clay-table">
@@ -446,7 +460,7 @@
                 <h3 class="text-base font-black text-slate-800">Registrar Pago a Proveedor</h3>
                 <p id="pagoSubtituloCompra" class="text-xs text-slate-500 font-bold">Compra #</p>
             </div>
-            <button onclick="cerrarModalPago()" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+            <button onclick="cerrarModalPago()" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg" aria-label="Cerrar diálogo">
                 <i data-lucide="x" class="w-5 h-5"></i>
             </button>
         </div>
@@ -534,7 +548,7 @@
                 <h3 class="text-base font-black text-slate-800">Registrar Recepción de Mercadería</h3>
                 <p id="recepcionSubtituloCompra" class="text-xs text-slate-500 font-bold">Ingreso directo de mercadería a stock</p>
             </div>
-            <button onclick="cerrarModalRecepcion()" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+            <button onclick="cerrarModalRecepcion()" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg" aria-label="Cerrar diálogo">
                 <i data-lucide="x" class="w-5 h-5"></i>
             </button>
         </div>
@@ -572,7 +586,7 @@
                                 <th class="text-center">Comprado</th>
                                 <th class="text-center">Recibido</th>
                                 <th class="text-center">Pendiente</th>
-                                <th class="w-28 text-center">Cant. a Recibir</th>
+                                <th class="w-28 text-center">Cant. a Recibir</th><th>Lote (opcional)</th><th>Vencimiento del lote</th>
                             </tr>
                         </thead>
                         <tbody id="recepcionItemsBody">
@@ -616,7 +630,7 @@
                 <h3 id="modalCompraTitulo" class="text-base font-black text-slate-800">Registrar Compra de Mercadería</h3>
                 <p id="modalCompraSubtitulo" class="text-xs text-slate-500 font-bold">Selección de proveedor y productos para abastecimiento</p>
             </div>
-            <button onclick="cerrarModalNuevaCompra()" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+            <button onclick="cerrarModalNuevaCompra()" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg" aria-label="Cerrar diálogo">
                 <i data-lucide="x" class="w-5 h-5"></i>
             </button>
         </div>
@@ -624,13 +638,12 @@
         <form onsubmit="guardarNuevaCompra(event)" class="space-y-4">
             <input type="hidden" id="compraModoEdicion" value="false">
             <input type="hidden" id="compraIdEditar" value="">
-            <input type="hidden" id="compraIdOrden" value="">
 
             <div class="grid grid-cols-1 sm:grid-cols-12 gap-3">
                 <!-- PROVEEDOR -->
                 <div class="sm:col-span-6">
                     <label class="block text-[11px] font-extrabold text-slate-600 uppercase mb-1">Proveedor</label>
-                    <select id="compraProveedor" required onchange="alCambiarProveedorCompra()" class="clay-input w-full text-xs font-bold">
+                    <select id="compraProveedor" aria-label="Proveedor de compra" required onchange="alCambiarProveedorCompra()" class="clay-input w-full text-xs font-bold">
                         <option value="">Seleccione proveedor activo...</option>
                     </select>
                 </div>
@@ -638,13 +651,24 @@
                 <!-- FECHA COMPRA -->
                 <div class="sm:col-span-3">
                     <label class="block text-[11px] font-extrabold text-slate-600 uppercase mb-1">Fecha de Compra</label>
-                    <input type="date" id="compraFecha" required class="clay-input w-full text-xs font-bold">
+                    <input type="date" id="compraFecha" aria-label="Fecha de compra" required class="clay-input w-full text-xs font-bold">
                 </div>
 
                 <!-- FECHA VENCIMIENTO -->
                 <div class="sm:col-span-3">
                     <label class="block text-[11px] font-extrabold text-slate-600 uppercase mb-1">Fecha de Vencimiento</label>
-                    <input type="date" id="compraVencimiento" class="clay-input w-full text-xs font-bold">
+                    <input type="date" id="compraVencimiento" aria-label="Fecha de vencimiento" class="clay-input w-full text-xs font-bold">
+                    <label for="compraEntregaPrevista" class="block text-xs font-bold mt-2">Entrega comprometida (opcional)</label><input type="date" id="compraEntregaPrevista" class="clay-input w-full text-xs"><small>Si se omite al crear, se conserva el plazo actual del proveedor.</small>
+                </div>
+
+                <!-- ORDEN DE COMPRA VINCULADA (OPCIONAL) -->
+                <div class="sm:col-span-12">
+                    <label class="block text-[11px] font-extrabold text-slate-600 uppercase mb-1">
+                        Vincular a Orden de Compra Emitida <span class="text-slate-400 font-normal">(Opcional — autocompleta productos solicitados)</span>
+                    </label>
+                    <select id="compraIdOrden" aria-label="Orden de compra vinculada" onchange="alSeleccionarOrdenEnCompra()" class="clay-input w-full text-xs font-bold text-slate-700">
+                        <option value="">Compra directa (Sin Orden de Compra previa)</option>
+                    </select>
                 </div>
 
                 <!-- COMPROBANTE / FACTURA -->
@@ -655,7 +679,7 @@
                     <div class="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
                         <!-- TIPO COMPROBANTE -->
                         <div class="sm:col-span-4">
-                            <select id="compraTipoComprobante" onchange="sincronizarComprobante()" class="clay-input w-full text-xs font-bold">
+                            <select id="compraTipoComprobante" aria-label="Tipo de comprobante" onchange="sincronizarComprobante()" class="clay-input w-full text-xs font-bold">
                                 <option value="A">Factura A</option>
                                 <option value="B">Factura B</option>
                                 <option value="C">Factura C</option>
@@ -703,14 +727,14 @@
                 <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
                     <div class="sm:col-span-6">
                         <label class="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Producto</label>
-                        <select id="compraItemProducto" onchange="alCambiarProductoCompra()" class="clay-input w-full text-xs font-bold">
+                        <select id="compraItemProducto" aria-label="Producto de compra" onchange="alCambiarProductoCompra()" class="clay-input w-full text-xs font-bold">
                             <option value="">Seleccione producto...</option>
                         </select>
                     </div>
 
                     <div class="sm:col-span-2">
                         <label class="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Cantidad</label>
-                        <input type="number" id="compraItemCantidad" min="1" value="1" 
+                        <input type="number" id="compraItemCantidad" aria-label="Cantidad de la presentación seleccionada" min="1" value="1" 
                                onkeydown="if(event.key === 'Enter'){ event.preventDefault(); agregarItemCompra(); }" 
                                class="clay-input w-full text-xs font-black text-center">
                     </div>
@@ -737,18 +761,28 @@
                     <thead>
                         <tr>
                             <th>Producto</th>
-                            <th class="text-center w-24">Cantidad</th>
-                            <th class="text-right w-32">Precio Unit.</th>
-                            <th class="text-right w-32">Subtotal</th>
+                            <th class="text-center w-24">Cant. Facturada</th>
+                            <th id="thColRecibirAhora" class="text-center w-28 text-emerald-800 bg-emerald-50/60 font-black">Cant. a Recibir</th>
+                            <th class="text-right w-28">Precio Unit.</th>
+                            <th class="text-right w-28">Subtotal</th>
                             <th class="text-center w-12"></th>
                         </tr>
                     </thead>
                     <tbody id="detalleCompraItems">
                         <tr>
-                            <td colspan="5" class="text-center py-4 text-slate-400 font-bold text-xs">Sin productos agregados.</td>
+                            <td colspan="6" class="text-center py-4 text-slate-400 font-bold text-xs">Sin productos agregados.</td>
                         </tr>
                     </tbody>
                 </table>
+            </div>
+
+            <!-- OPCIÓN: RECEPCIÓN INMEDIATA DE STOCK AL REGISTRAR FACTURA -->
+            <div id="bloqueCompraRecibirAhora" class="p-3 bg-emerald-50/70 rounded-xl border border-emerald-200/80 flex items-start gap-2.5">
+                <input type="checkbox" id="compraRecibirAhora" checked onchange="alCambiarRecibirAhora()" class="mt-0.5 w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer">
+                <label for="compraRecibirAhora" class="text-xs font-bold text-slate-700 cursor-pointer select-none">
+                    <span class="font-black text-emerald-800 block">La mercadería ingresó junto con el comprobante (Impactar Stock ahora)</span>
+                    <span class="text-[11px] text-slate-500">Registra el ingreso a stock inmediatamente. Podés indicar la cantidad recibida exacta de cada producto si llegaron menos unidades que las facturadas. Destildalo si la mercadería todavía no llegó al depósito.</span>
+                </label>
             </div>
 
             <div class="flex items-center justify-between pt-2">
@@ -774,7 +808,7 @@
                 <h3 class="text-base font-black text-slate-800">Detalle de Compra</h3>
                 <p id="detalleCompraSubtitulo" class="text-xs font-bold text-slate-500">Compra</p>
             </div>
-            <button onclick="cerrarModalDetalleCompra()" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+            <button onclick="cerrarModalDetalleCompra()" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg" aria-label="Cerrar diálogo">
                 <i data-lucide="x" class="w-5 h-5"></i>
             </button>
         </div>
@@ -865,6 +899,10 @@
                 <span>Imprimir Ficha</span>
             </button>
             <div class="flex items-center gap-2">
+                <button type="button" id="btnDetalleAccionCerrarParcial" onclick="cerrarCompraParcialDesdeDetalle()" class="clay-btn-secondary px-3 py-2 text-xs font-bold text-teal-700 hover:bg-teal-50 flex items-center gap-1.5 hidden" title="Cerrar la compra con la mercadería recibida y recalcular la deuda">
+                    <i data-lucide="check-check" class="w-4 h-4"></i>
+                    <span>Dar por completada con lo recibido</span>
+                </button>
                 <button type="button" id="btnDetalleAccionRecepcionar" onclick="irDesdeDetalleARecepcion()" class="clay-btn-secondary px-3 py-2 text-xs font-bold text-emerald-700 flex items-center gap-1.5 hidden">
                     <i data-lucide="package-check" class="w-4 h-4"></i>
                     <span>Recepcionar</span>
@@ -889,7 +927,7 @@
                 <h3 id="modalOrdenTitulo" class="text-base font-black text-slate-800">Emitir Orden de Compra</h3>
                 <p id="modalOrdenSubtitulo" class="text-xs text-slate-500 font-bold">Pedido formal de reposición hacia un proveedor</p>
             </div>
-            <button onclick="cerrarModalNuevaOrden()" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+            <button onclick="cerrarModalNuevaOrden()" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg" aria-label="Cerrar diálogo">
                 <i data-lucide="x" class="w-5 h-5"></i>
             </button>
         </div>
@@ -994,7 +1032,7 @@
                 <h3 class="text-base font-black text-slate-800">Detalle de Orden de Compra</h3>
                 <p id="detalleOrdenSubtitulo" class="text-xs font-bold text-slate-500">Orden</p>
             </div>
-            <button onclick="cerrarModalDetalleOrden()" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+            <button onclick="cerrarModalDetalleOrden()" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg" aria-label="Cerrar diálogo">
                 <i data-lucide="x" class="w-5 h-5"></i>
             </button>
         </div>
@@ -1004,18 +1042,35 @@
                 <thead>
                     <tr>
                         <th>Producto</th>
-                        <th class="text-center">Cant. Solicitada</th>
-                        <th class="text-right">Precio Estimado</th>
+                        <th class="text-center">Solicitado</th>
+                        <th class="text-center">Recibido / Fact.</th>
+                        <th class="text-center">Pendiente</th>
+                        <th class="text-right">Precio Est.</th>
                         <th class="text-right">Subtotal</th>
                     </tr>
                 </thead>
                 <tbody id="detalleOrdenTablaBody">
-                    <tr><td colspan="4" class="text-center py-4 text-slate-400">Cargando ítems...</td></tr>
+                    <tr><td colspan="6" class="text-center py-4 text-slate-400">Cargando ítems...</td></tr>
                 </tbody>
             </table>
         </div>
 
-        <div class="flex justify-end pt-3 border-t border-slate-100">
+        <div id="detalleOrdenComprasBox" class="hidden p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1.5">
+            <span class="text-[10px] font-black uppercase text-slate-500 block">Comprobantes de Compra registrados sobre esta Orden</span>
+            <div id="detalleOrdenComprasLista" class="space-y-1 text-xs"></div>
+        </div>
+
+        <div class="flex justify-between items-center pt-3 border-t border-slate-100 flex-wrap gap-2">
+            <div id="detalleOrdenAccionesBox" class="flex items-center gap-2">
+                <button type="button" onclick="imprimirFichaOrden()" class="clay-btn-secondary px-3 py-2 text-xs font-bold flex items-center gap-1.5" title="Imprimir Orden de Compra">
+                    <i data-lucide="printer" class="w-3.5 h-3.5"></i>
+                    <span>Imprimir Orden</span>
+                </button>
+                <button type="button" id="btnDetalleOrdenCerrarParcial" onclick="cerrarOrdenParcialDesdeDetalle()" class="clay-btn-secondary px-3 py-2 text-xs font-bold text-teal-700 hover:bg-teal-50 flex items-center gap-1.5 hidden" title="Cerrar y dar por completada con lo recibido">
+                    <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+                    <span>Dar por completada con lo recibido</span>
+                </button>
+            </div>
             <button type="button" onclick="cerrarModalDetalleOrden()" class="clay-btn-secondary px-4 py-2 text-xs font-bold">Cerrar</button>
         </div>
     </div>
@@ -1113,25 +1168,52 @@
             if (c.estado === 'pendiente' || c.estado === 'parcialmente_recibida') badgeClass = 'clay-badge-warning';
 
             const total = Number(c.importe_total || 0).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' });
-            const saldo = Number(c.saldo_pendiente ?? c.importe_total ?? 0).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' });
+            const saldoVal = Number(c.saldo_a_pagar ?? Math.max(0, Number(c.importe_total || 0) - Number(c.total_pagado || 0)));
+            const pagadoVal = Number(c.total_pagado || 0);
+            const saldo = saldoVal.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' });
             
             const esPendiente = c.estado === 'pendiente';
             const esParcial = c.estado === 'parcialmente_recibida';
+            const esCancelada = c.estado === 'cancelada';
             const admiteRecepcion = esPendiente || esParcial;
-            const admitePago = c.estado !== 'cancelada';
+            const admitePago = !esCancelada && saldoVal > 0;
+
+            let pagoBadgeClass = 'clay-badge-warning';
+            let pagoLabel = 'IMPAGA';
+            if (esCancelada) {
+                pagoBadgeClass = 'clay-badge-danger';
+                pagoLabel = 'ANULADA';
+            } else if (saldoVal <= 0) {
+                pagoBadgeClass = 'clay-badge-success';
+                pagoLabel = 'PAGADA';
+            } else if (pagadoVal > 0) {
+                pagoBadgeClass = 'clay-badge-info';
+                pagoLabel = 'PAGO PARCIAL';
+            }
+
+            let stockInfoHtml = '';
+            if (!esCancelada) {
+                if (c.estado === 'completada') {
+                    stockInfoHtml = '<div class="text-[10px] font-bold text-emerald-600 mt-0.5">✓ Stock ingresado</div>';
+                } else if (c.estado === 'parcialmente_recibida') {
+                    stockInfoHtml = '<div class="text-[10px] font-bold text-amber-600 mt-0.5">⏳ Recepción parcial</div>';
+                } else {
+                    stockInfoHtml = '<div class="text-[10px] font-bold text-slate-400 mt-0.5">⏳ Falta recepcionar</div>';
+                }
+            }
 
             return `
                 <tr>
                     <td>
                         <div class="font-black text-slate-800">${c.numero_compra || `#CMP-${c.id_compra}`}</div>
-                        <div class="text-[11px] text-slate-400 font-bold">${c.fecha_compra ? c.fecha_compra.substring(0, 10) : '-'}</div>
+                        <div class="text-[11px] text-slate-400 font-bold">${window.erpSafeHtml.escape(c.fecha_compra ? c.fecha_compra.substring(0, 10) : '-')}</div>
                     </td>
-                    <td class="font-bold text-slate-800">${c.proveedor || `Proveedor #${c.id_proveedor}`}</td>
-                    <td class="text-xs text-slate-600 font-bold">${c.numero_comprobante || '<span class="text-slate-400 italic">Sin comprobante</span>'}</td>
-                    <td class="text-xs font-bold text-slate-600">${c.fecha_vencimiento ? c.fecha_vencimiento.substring(0, 10) : '<span class="text-slate-400">-</span>'}</td>
+                    <td class="font-bold text-slate-800">${window.erpSafeHtml.escape(c.proveedor || `Proveedor #${c.id_proveedor}`)}</td>
+                    <td class="text-xs text-slate-600 font-bold">${window.erpSafeHtml.escape(c.numero_comprobante || '?')}</td>
+                    <td class="text-xs font-bold text-slate-600">${window.erpSafeHtml.escape(c.fecha_vencimiento ? c.fecha_vencimiento.substring(0, 10) : '?')}</td>
                     <td class="text-right font-black text-slate-800">${total}</td>
-                    <td class="text-right font-black ${Number(c.saldo_pendiente) > 0 ? 'text-amber-600' : 'text-slate-400'}">${saldo}</td>
-                    <td class="text-center"><span class="clay-badge ${badgeClass} uppercase">${c.estado.replace('_', ' ')}</span></td>
+                    <td class="text-right font-black ${Number(c.saldo_a_pagar) > 0 ? 'text-amber-600' : 'text-slate-400'}">${saldo}</td>
+                    <td class="text-center"><span class="clay-badge ${badgeClass} uppercase">${window.erpSafeHtml.escape(c.estado.replace('_', ' '))}</span></td>
                     <td class="text-center">
                         <div class="flex items-center justify-center gap-1.5">
                             <button onclick="abrirModalDetalleCompra(${c.id_compra})" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-all" title="Ver Detalle">
@@ -1141,8 +1223,13 @@
                                 <i data-lucide="printer" class="w-4 h-4"></i>
                             </button>
                             ${admiteRecepcion ? `
-                            <button onclick="abrirModalRecepcionCompra(${c.id_compra})" class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all" title="Registrar Recepción">
+                            <button onclick="abrirModalRecepcionCompra(${c.id_compra})" class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all" title="Registrar Recepción de Mercadería">
                                 <i data-lucide="package-check" class="w-4 h-4"></i>
+                            </button>
+                            ` : ''}
+                            ${esParcial ? `
+                            <button onclick="cerrarCompraParcial(${c.id_compra})" class="p-1.5 text-teal-600 hover:bg-teal-50 rounded-lg transition-all" title="Dar por completada con lo recibido (Recalcular deuda y cerrar compra)">
+                                <i data-lucide="check-check" class="w-4 h-4"></i>
                             </button>
                             ` : ''}
                             ${admitePago ? `
@@ -1154,7 +1241,9 @@
                             <button onclick="abrirModalEditarCompra(${c.id_compra})" class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-all" title="Modificar Compra">
                                 <i data-lucide="edit-3" class="w-4 h-4"></i>
                             </button>
-                            <button onclick="cancelarCompra(${c.id_compra})" class="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition-all" title="Cancelar Compra">
+                            ` : ''}
+                            ${!esCancelada ? `
+                            <button onclick="cancelarCompra(${c.id_compra})" class="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition-all" title="Anular / Cancelar Compra">
                                 <i data-lucide="x-circle" class="w-4 h-4"></i>
                             </button>
                             ` : ''}
@@ -1191,10 +1280,10 @@
                 const selFiltroD = document.getElementById('filtroProveedorDeudas');
 
                 const opts = '<option value="">Seleccione proveedor activo...</option>' + 
-                    proveedoresCache.map(p => `<option value="${p.id_proveedor}">${p.razon_social} (${p.cuit || p.CUIT || ''})</option>`).join('');
+                    proveedoresCache.map(p => `<option value="${p.id_proveedor}">${window.erpSafeHtml.escape(p.razon_social)} (${window.erpSafeHtml.escape(p.cuit || p.CUIT || '')})</option>`).join('');
 
                 const optsFiltro = '<option value="">Todos los Proveedores</option>' + 
-                    proveedoresCache.map(p => `<option value="${p.id_proveedor}">${p.razon_social}</option>`).join('');
+                    proveedoresCache.map(p => `<option value="${p.id_proveedor}">${window.erpSafeHtml.escape(p.razon_social)}</option>`).join('');
 
                 if (selC) selC.innerHTML = opts;
                 if (selO) selO.innerHTML = opts;
@@ -1218,17 +1307,45 @@
         }
     }
 
-    // Al seleccionar proveedor en Nueva Compra, cargamos sus productos asociados
+    // Al seleccionar proveedor en Nueva Compra, cargamos sus productos asociados y órdenes disponibles
     async function alCambiarProveedorCompra() {
         const idProv = document.getElementById('compraProveedor').value;
         const selProd = document.getElementById('compraItemProducto');
+        const selOrden = document.getElementById('compraIdOrden');
         const lblInfo = document.getElementById('labelProductosProveedorInfo');
         if (!selProd) return;
 
         if (!idProv) {
             selProd.innerHTML = '<option value="">Seleccione primero un proveedor...</option>';
+            if (selOrden) {
+                selOrden.innerHTML = '<option value="">Compra directa (Sin Orden de Compra previa)</option>';
+                selOrden.value = '';
+            }
             if (lblInfo) lblInfo.textContent = '';
             return;
+        }
+
+        // Poblar órdenes de compra del proveedor seleccionado (con saldo pendiente o la ya vinculada)
+        if (selOrden) {
+            const ordenPrevia = selOrden.value;
+            const ordenesProv = (ordenesCache || []).filter(o =>
+                String(o.id_proveedor) === String(idProv) &&
+                (
+                    ((o.estado === 'pendiente' || o.estado === 'enviada' || o.estado === 'recibida_parcialmente') && (o.total_pendiente === undefined || o.total_pendiente > 0)) ||
+                    String(o.id_orden) === String(ordenPrevia)
+                )
+            );
+            let optsOrden = '<option value="">Compra directa (Sin Orden de Compra previa)</option>';
+            ordenesProv.forEach(o => {
+                const nro = o.numero_orden || `#ORD-${o.id_orden}`;
+                const est = Number(o.total_estimado || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                const pendInfo = o.total_pendiente !== undefined && o.total_productos ? ` • Pend: ${o.total_pendiente}/${o.total_productos} u.` : '';
+                optsOrden += `<option value="${o.id_orden}">${window.erpSafeHtml.escape(nro)} — Est: $${est} (${(o.estado || '').replace('_', ' ').toUpperCase()}${pendInfo})</option>`;
+            });
+            selOrden.innerHTML = optsOrden;
+            if (ordenPrevia && ordenesProv.some(o => String(o.id_orden) === String(ordenPrevia))) {
+                selOrden.value = String(ordenPrevia);
+            }
         }
 
         try {
@@ -1247,7 +1364,7 @@
                 html += '<optgroup label="Productos Asociados al Proveedor">';
                 asociados.forEach(a => {
                     const precio = a.precio_acordado !== null ? a.precio_acordado : (a.precio_unitario || 0);
-                    html += `<option value="${a.id_producto}" data-precio="${precio}" data-asociado="true">★ ${a.codigo} - ${a.nombre} ($${Number(precio).toFixed(2)})</option>`;
+                    html += `<option value="${a.id_producto}" data-precio="${precio}" data-asociado="true">★ ${window.erpSafeHtml.escape(a.codigo)} - ${window.erpSafeHtml.escape(a.nombre)} ($${Number(precio).toFixed(2)})</option>`;
                 });
                 html += '</optgroup>';
             }
@@ -1257,7 +1374,7 @@
             if (otros.length > 0) {
                 html += '<optgroup label="Otros Productos del Catálogo (Se asociarán automáticamente)">';
                 otros.forEach(p => {
-                    html += `<option value="${p.id_producto}" data-precio="${p.precio_unitario || 0}" data-asociado="false">${p.codigo} - ${p.nombre}</option>`;
+                    html += `<option value="${p.id_producto}" data-precio="${p.precio_unitario || 0}" data-asociado="false">${window.erpSafeHtml.escape(p.codigo)} - ${window.erpSafeHtml.escape(p.nombre)}</option>`;
                 });
                 html += '</optgroup>';
             }
@@ -1280,6 +1397,41 @@
             }
         } catch (e) {
             console.error('Error productos proveedor:', e);
+        }
+    }
+
+    async function alSeleccionarOrdenEnCompra() {
+        const idOrden = document.getElementById('compraIdOrden')?.value;
+        if (!idOrden) {
+            return;
+        }
+        try {
+            const res = await fetch(`${API_BASE}/ordenes-compra/${idOrden}`);
+            const json = await res.json();
+            if (json.status === 'success' && json.data) {
+                const o = json.data.orden || {};
+                const detallesPendientes = (json.data.detalles || []).filter(d => {
+                    const pend = Number(d.cantidad_pendiente_base ?? d.cantidad_pendiente ?? d.cantidad_solicitada);
+                    return pend > 0;
+                });
+                const listaUsar = detallesPendientes.length > 0 ? detallesPendientes : (json.data.detalles || []);
+                itemsNuevaCompra = listaUsar.map(d => {
+                    const cant = Number(d.cantidad_pendiente_base ?? d.cantidad_pendiente ?? d.cantidad_solicitada);
+                    const precio = Number(d.precio_estimado_base ?? d.precio_estimado ?? 0);
+                    return {
+                        id_producto: d.id_producto,
+                        id_unidad: d.id_unidad_compra ?? d.id_unidad,
+                        nombre: d.nombre || d.descripcion || d.codigo || `Prod #${d.id_producto}`,
+                        cantidad: cant,
+                        precio_unitario: precio,
+                        subtotal: Math.round(cant * precio * 100) / 100
+                    };
+                });
+                renderItemsNuevaCompra();
+                mostrarNotificacion(`Productos pendientes cargados desde la Orden ${o.numero_orden || '#' + idOrden}.`, 'info');
+            }
+        } catch (e) {
+            console.error('Error al cargar ítems de la orden seleccionada:', e);
         }
     }
 
@@ -1333,7 +1485,7 @@
         const pto = ptoRaw ? ptoRaw.padStart(4, '0') : '0001';
         const nro = nroRaw ? nroRaw.padStart(8, '0') : '';
 
-        const finalVal = nro ? `${tipo}-${pto}-${nro}` : `${tipo}-${pto}`;
+        const finalVal = nro ? `${tipo}-${pto}-${window.erpSafeHtml.escape(nro)}` : `${tipo}-${pto}`;
         inputHidden.value = finalVal;
         if (preview) {
             preview.textContent = `Asignado: ${finalVal}`;
@@ -1402,8 +1554,13 @@
         document.getElementById('compraProveedor').disabled = false;
         document.getElementById('compraProveedor').value = '';
         actualizarInputsDesdeComprobante('');
+        document.getElementById('compraEntregaPrevista').value = '';
         document.getElementById('compraFecha').value = new Date().toISOString().split('T')[0];
         document.getElementById('compraVencimiento').value = new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0];
+        const chkRecibir = document.getElementById('compraRecibirAhora');
+        const blkRecibir = document.getElementById('bloqueCompraRecibirAhora');
+        if (chkRecibir) chkRecibir.checked = true;
+        if (blkRecibir) blkRecibir.classList.remove('hidden');
 
         itemsNuevaCompra = [];
         renderItemsNuevaCompra();
@@ -1430,6 +1587,8 @@
             document.getElementById('compraModoEdicion').value = 'true';
             document.getElementById('compraIdEditar').value = idCompra;
             document.getElementById('compraIdOrden').value = c.id_orden || '';
+            const blkRecibir = document.getElementById('bloqueCompraRecibirAhora');
+            if (blkRecibir) blkRecibir.classList.add('hidden');
             document.getElementById('modalCompraTitulo').textContent = `Modificar Compra Pendiente #${c.numero_compra || idCompra}`;
             document.getElementById('modalCompraSubtitulo').textContent = 'Edición de cantidades, precios y productos antes de la recepción';
             document.getElementById('btnGuardarCompraSubmit').textContent = 'Guardar Cambios';
@@ -1437,10 +1596,12 @@
             document.getElementById('compraProveedor').value = c.id_proveedor;
             document.getElementById('compraProveedor').disabled = true; // El proveedor de la compra no cambia
             await alCambiarProveedorCompra();
+            document.getElementById('compraIdOrden').value = c.id_orden || '';
 
             actualizarInputsDesdeComprobante(c.numero_comprobante || '');
             document.getElementById('compraFecha').value = c.fecha_compra ? c.fecha_compra.substring(0, 10) : new Date().toISOString().split('T')[0];
             document.getElementById('compraVencimiento').value = c.fecha_vencimiento ? c.fecha_vencimiento.substring(0, 10) : '';
+            document.getElementById('compraEntregaPrevista').value = c.fecha_entrega_prevista ? c.fecha_entrega_prevista.substring(0,10) : '';
 
             itemsNuevaCompra = (json.data.detalles || []).map(d => ({
                 id_producto: d.id_producto,
@@ -1480,6 +1641,7 @@
         const idx = itemsNuevaCompra.findIndex(i => i.id_producto === idProd);
         if (idx >= 0) {
             itemsNuevaCompra[idx].cantidad += cant;
+            itemsNuevaCompra[idx].cantidad_recibida = itemsNuevaCompra[idx].cantidad;
             itemsNuevaCompra[idx].precio_unitario = precio;
             itemsNuevaCompra[idx].subtotal = itemsNuevaCompra[idx].cantidad * precio;
         } else {
@@ -1487,6 +1649,7 @@
                 id_producto: idProd,
                 nombre: nombre,
                 cantidad: cant,
+                cantidad_recibida: cant,
                 precio_unitario: precio,
                 subtotal: Math.round(cant * precio * 100) / 100
             });
@@ -1496,6 +1659,20 @@
         document.getElementById('compraItemCantidad').value = '1';
     }
 
+    function alCambiarRecibirAhora() {
+        renderItemsNuevaCompra();
+    }
+
+    function actualizarCantRecibidaItem(idx, val) {
+        if (!itemsNuevaCompra[idx]) return;
+        const max = Number(itemsNuevaCompra[idx].cantidad || 1);
+        let n = parseInt(val, 10);
+        if (isNaN(n) || n < 0) n = 0;
+        if (n > max) n = max;
+        itemsNuevaCompra[idx].cantidad_recibida = n;
+        renderItemsNuevaCompra();
+    }
+
     function quitarItemCompra(idx) {
         itemsNuevaCompra.splice(idx, 1);
         renderItemsNuevaCompra();
@@ -1503,18 +1680,31 @@
 
     function renderItemsNuevaCompra() {
         const tbody = document.getElementById('detalleCompraItems');
+        const recibirAhora = Boolean(document.getElementById('compraRecibirAhora')?.checked);
         let total = 0;
+
+        // Mostrar / ocultar el encabezado de "Cant. a Recibir"
+        const thRecibir = document.getElementById('thColRecibirAhora');
+        if (thRecibir) {
+            thRecibir.style.display = recibirAhora ? '' : 'none';
+        }
+
         if (itemsNuevaCompra.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-slate-400 font-bold text-xs">Sin productos agregados.</td></tr>';
+            tbody.innerHTML = `<tr><td colspan="${recibirAhora ? 6 : 5}" class="text-center py-4 text-slate-400 font-bold text-xs">Sin productos agregados.</td></tr>`;
             document.getElementById('compraTotalDisplay').textContent = '$0.00';
             return;
         }
 
         tbody.innerHTML = itemsNuevaCompra.map((it, idx) => {
             total += it.subtotal;
+            const cantFact = Number(it.cantidad || 0);
+            if (it.cantidad_recibida === undefined) it.cantidad_recibida = cantFact;
+            const cantRec = Number(it.cantidad_recibida);
+            const esParcial = recibirAhora && cantRec < cantFact;
+
             return `
                 <tr>
-                    <td class="font-bold text-slate-800">${it.nombre}</td>
+                    <td class="font-bold text-slate-800">${window.erpSafeHtml.escape(it.nombre)}</td>
                     <td class="text-center font-black">${it.cantidad}</td>
                     <td class="text-right font-black">$${it.precio_unitario.toFixed(2)}</td>
                     <td class="text-right font-black text-blue-600">$${it.subtotal.toFixed(2)}</td>
@@ -1538,17 +1728,22 @@
         const esEdicion = document.getElementById('compraModoEdicion').value === 'true';
         const idEditar = document.getElementById('compraIdEditar').value;
         const idOrden = document.getElementById('compraIdOrden').value;
+        const recibirAhora = !esEdicion && Boolean(document.getElementById('compraRecibirAhora')?.checked);
         sincronizarComprobante();
         const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
         const payload = {
             id_proveedor: Number(idProv),
             id_orden: idOrden ? Number(idOrden) : null,
+            recibir_ahora: recibirAhora,
             numero_comprobante: document.getElementById('compraComprobante').value.trim() || null,
             fecha_compra: document.getElementById('compraFecha').value,
             fecha_vencimiento: document.getElementById('compraVencimiento').value || null,
+            fecha_entrega_prevista: document.getElementById('compraEntregaPrevista').value || null,
             items: itemsNuevaCompra.map(i => ({
                 id_producto: i.id_producto,
+                ...(i.id_unidad ? {id_unidad: i.id_unidad} : {}),
                 cantidad: i.cantidad,
+                cantidad_recibida: recibirAhora && i.cantidad_recibida !== undefined ? Number(i.cantidad_recibida) : Number(i.cantidad),
                 precio_unitario: i.precio_unitario
             }))
         };
@@ -1576,7 +1771,12 @@
     }
 
     async function cancelarCompra(id) {
-        if (!confirm('¿Confirma la cancelación de esta compra pendiente? Esta acción conservará el historial.')) return;
+        const compraObj = (comprasCache || []).find(c => Number(c.id_compra) === Number(id));
+        const yaRecibio = compraObj && (compraObj.estado === 'completada' || compraObj.estado === 'parcialmente_recibida');
+        const msgConfirm = yaRecibio
+            ? '¿Confirma la anulación de esta compra? Se revertirá automáticamente el ingreso de mercadería en Stock y se conservará el historial.'
+            : '¿Confirma la cancelación de esta compra pendiente? Esta acción conservará el historial.';
+        if (!confirm(msgConfirm)) return;
         const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
         try {
             const res = await fetch(`${API_BASE}/compras/${id}/cancelar`, {
@@ -1587,13 +1787,39 @@
             const data = await res.json();
             if (data.status === 'success') {
                 mostrarNotificacion('Compra cancelada exitosamente.', 'success');
-                await Promise.all([cargarCompras(), cargarDeudas()]);
+                await Promise.all([cargarCompras(), cargarOrdenes(), cargarDeudas()]);
             } else {
                 mostrarNotificacion(data.message || 'Error al cancelar la compra.', 'error');
             }
         } catch (err) {
             mostrarNotificacion('Error de conexión al cancelar la compra.', 'error');
         }
+    }
+
+    async function cerrarCompraParcial(id) {
+        if (!confirm('¿Desea cerrar y dar por completada esta compra con la mercadería ya recibida? Se ajustarán las cantidades facturadas al stock efectivamente ingresado y se recalculará la deuda y saldo pendiente.')) return;
+        const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+        try {
+            const res = await fetch(`${API_BASE}/compras/${id}/cerrar-parcial`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf }
+            });
+            const data = await res.json();
+            if (data.status === 'success') {
+                mostrarNotificacion(data.message || 'Compra completada con lo recibido. Deuda recalculada.', 'success');
+                cerrarModalDetalleCompra();
+                await Promise.all([cargarCompras(), cargarOrdenes(), cargarDeudas()]);
+            } else {
+                mostrarNotificacion(data.message || 'Error al cerrar la compra.', 'error');
+            }
+        } catch (e) {
+            mostrarNotificacion('Error de conexión al cerrar la compra.', 'error');
+        }
+    }
+
+    function cerrarCompraParcialDesdeDetalle() {
+        if (!idCompraDetalleActual) return;
+        cerrarCompraParcial(idCompraDetalleActual);
     }
 
     // =========================================================
@@ -1618,6 +1844,10 @@
                 const c = json.data.compra;
                 compraDetalleActualObjeto = c;
                 compraDetalleDataCompleta = json.data;
+                document.getElementById('detalleCompraSubtitulo').textContent =
+                    `Compra ${c.numero_compra || '#' + id}` +
+                    (c.id_orden ? ` • Vinculada a Orden ${c.numero_orden || ('#ORD-' + c.id_orden)}` : '') +
+                    (c.cierre_parcial ? ' • [CERRADA CON RECEPCIÓN PARCIAL DEFINITIVA]' : '');
                 const totComp = json.data.total_comprado || 1;
                 const totRec = json.data.total_recibido || 0;
                 const pctRec = Math.min(100, Math.round((totRec / totComp) * 100));
@@ -1668,6 +1898,7 @@
                 // Acciones directas desde el detalle
                 const btnRecep = document.getElementById('btnDetalleAccionRecepcionar');
                 const btnPago = document.getElementById('btnDetalleAccionPagar');
+                const btnCerrarParcial = document.getElementById('btnDetalleAccionCerrarParcial');
                 if (btnRecep) {
                     if (c.estado === 'pendiente' || c.estado === 'parcialmente_recibida') {
                         btnRecep.classList.remove('hidden');
@@ -1675,8 +1906,15 @@
                         btnRecep.classList.add('hidden');
                     }
                 }
+                if (btnCerrarParcial) {
+                    if (c.estado === 'parcialmente_recibida') {
+                        btnCerrarParcial.classList.remove('hidden');
+                    } else {
+                        btnCerrarParcial.classList.add('hidden');
+                    }
+                }
                 if (btnPago) {
-                    const saldo = Number(c.saldo_pendiente ?? c.importe_total ?? 0);
+                    const saldo = Number(pagos.saldo_a_pagar ?? c.saldo_a_pagar ?? Math.max(0, Number(c.importe_total || 0) - Number(c.total_pagado || 0)));
                     if (c.estado !== 'cancelada' && saldo > 0) {
                         btnPago.classList.remove('hidden');
                     } else {
@@ -1694,8 +1932,8 @@
                 tbody.innerHTML = (json.data.detalles || []).map(d => `
                     <tr>
                         <td>
-                            <div class="font-bold text-slate-800">${d.nombre || d.descripcion || `Prod #${d.id_producto}`}</div>
-                            ${d.codigo ? `<div class="text-[11px] text-slate-400 font-bold">${d.codigo}${d.descripcion && d.descripcion !== d.nombre ? ` • ${d.descripcion}` : ''}</div>` : ''}
+                            <div class="font-bold text-slate-800">${window.erpSafeHtml.escape(d.nombre || d.descripcion || ('Prod #' + d.id_producto))}</div>
+                            ${d.codigo ? `<div class="text-[11px] text-slate-400 font-bold">${window.erpSafeHtml.escape(d.codigo)}${d.descripcion && d.descripcion !== d.nombre ? ` • ${window.erpSafeHtml.escape(d.descripcion)}` : ''}</div>` : ''}
                         </td>
                         <td class="text-center font-black">${d.cantidad}</td>
                         <td class="text-center font-bold text-emerald-600">${d.cantidad_recibida || 0}</td>
@@ -1709,7 +1947,7 @@
                 if (json.data.recepciones && json.data.recepciones.length > 0) {
                     divRecep.innerHTML = json.data.recepciones.map(r => `
                         <div class="p-1.5 bg-slate-50 rounded-lg flex items-center justify-between">
-                            <span>Recepción #${r.id_recepcion} (${r.fecha_recepcion})</span>
+                            <span>Recepción #${r.id_recepcion} (${window.erpSafeHtml.escape(r.fecha_recepcion)})</span>
                             <span class="font-black text-emerald-600">+${r.total_recibido} unidades</span>
                         </div>
                     `).join('');
@@ -1719,10 +1957,22 @@
 
                 // Pagos históricos
                 const divPagos = document.getElementById('detallePagosHistorial');
-                if (pagos.por_metodo && pagos.por_metodo.length > 0) {
+                const listaPagos = pagos.lista || [];
+                if (listaPagos.length > 0) {
+                    divPagos.innerHTML = listaPagos.map(p => `
+                        <div class="p-1.5 bg-slate-50 rounded-lg flex items-center justify-between gap-2 border border-slate-100">
+                            <div><span class="font-bold">${window.erpSafeHtml.escape(p.metodo_pago || '')}</span>
+                                <span class="text-xs block">${window.erpSafeHtml.escape(p.fecha_pago || '')} · ${p.estado === 'anulado' ? 'Anulado' : 'Registrado'}</span>
+                                ${p.estado === 'anulado' ? `<span class="text-xs block">${window.erpSafeHtml.escape(p.motivo_anulacion || '')}</span>` : ''}
+                            </div>
+                            <div class="flex items-center gap-2"><span class="font-black">$${Number(p.importe).toFixed(2)}</span>
+                                ${p.estado !== 'anulado' && c.estado !== 'cancelada' ? `<button type="button" class="clay-btn clay-btn-danger" onclick="anularPagoCompra(${Number(c.id_compra)}, ${Number(p.id_pago)}, ${Number(p.importe)})" aria-label="Anular pago ${Number(p.id_pago)}">Anular</button>` : ''}
+                            </div>
+                        </div>`).join('');
+                } else if (pagos.por_metodo && pagos.por_metodo.length > 0) {
                     divPagos.innerHTML = pagos.por_metodo.map(p => `
                         <div class="p-1.5 bg-slate-50 rounded-lg flex items-center justify-between">
-                            <span class="capitalize">${p.metodo_pago.replace('_', ' ')} (${p.cantidad_pagos} pago(s))</span>
+                            <span class="capitalize">${window.erpSafeHtml.escape(p.metodo_pago.replace('_', ' '))} (${p.cantidad_pagos} pago(s))</span>
                             <span class="font-black text-violet-600">$${Number(p.total).toFixed(2)}</span>
                         </div>
                     `).join('');
@@ -1751,6 +2001,25 @@
         if (!idCompraDetalleActual) return;
         cerrarModalDetalleCompra();
         abrirModalPagoCompra(idCompraDetalleActual);
+    }
+
+    async function anularPagoCompra(idCompra, idPago, importe) {
+        if (!confirm(`¿Anular el pago de $${Number(importe).toFixed(2)}? El original se conservará y se recalculará la deuda.`)) return;
+        const motivo = prompt('Indicá el motivo de la anulación (al menos 3 caracteres):');
+        if (motivo === null) return;
+        if (motivo.trim().length < 3) { mostrarNotificacion('Indicá un motivo de al menos 3 caracteres.', 'error'); return; }
+        try {
+            const response = await fetch(`${API_BASE}/compras/${Number(idCompra)}/pagos/${Number(idPago)}`, {
+                method: 'DELETE', headers: {'Accept':'application/json','Content-Type':'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''},
+                body: JSON.stringify({motivo:motivo.trim()})
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message || 'No se pudo anular el pago.');
+            mostrarNotificacion(data.message, 'success');
+            await abrirModalDetalleCompra(idCompra);
+            await Promise.all([cargarCompras(), cargarOrdenes(), cargarDeudas()]);
+        } catch(error) { mostrarNotificacion(error.message, 'error'); }
     }
 
     async function imprimirFichaCompra(id = null) {
@@ -1809,13 +2078,14 @@
 
         const fmtMonto = (val) => '$ ' + Number(val || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         const fmtFecha = (f) => f ? f.substring(0, 10).split('-').reverse().join('/') : '-';
-        const estadoLabel = (c.estado || 'pendiente').replace('_', ' ').toUpperCase();
+        const esCierreParcial = Boolean(c.cierre_parcial);
+        const estadoLabel = (c.estado || 'pendiente').replace('_', ' ').toUpperCase() + (esCierreParcial ? ' (CIERRE PARCIAL DEFINITIVO)' : '');
 
         const html = `<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Comprobante #${c.id_compra} - ${c.proveedor || 'Proveedor'}</title>
+    <title>Comprobante #${c.id_compra} - ${window.erpSafeHtml.escape(c.proveedor || 'Proveedor')}</title>
     <style>
         @page {
             size: A4 portrait;
@@ -2085,17 +2355,18 @@
 
             <div class="header-letter-box">
                 <span class="letter">${letra}</span>
-                <span class="subtext">${codigoLetra}</span>
+                <span class="subtext">${window.erpSafeHtml.escape(codigoLetra)}</span>
             </div>
 
             <div class="header-col">
                 <div class="invoice-title">COMPROBANTE DE COMPRA</div>
-                <div class="invoice-number">N° ${c.numero_comprobante || ('0001-' + String(c.id_compra).padStart(8, '0'))}</div>
+                <div class="invoice-number">N° ${window.erpSafeHtml.escape(c.numero_comprobante || ('0001-' + String(c.id_compra).padStart(8, '0')))}</div>
                 <div class="invoice-meta">
-                    <strong>Orden Interna:</strong> ${c.numero_compra || ('#CMP-' + c.id_compra)}<br>
+                    <strong>Orden Interna:</strong> ${window.erpSafeHtml.escape(c.numero_compra || ('#CMP-' + c.id_compra))}<br>
                     <strong>Fecha Emisión:</strong> ${fmtFecha(c.fecha_compra)}<br>
                     <strong>Fecha Vencimiento:</strong> ${fmtFecha(c.fecha_vencimiento)}<br>
                     <strong>Estado:</strong> ${estadoLabel}
+                    ${esCierreParcial ? `<br><span style="display:inline-block; margin-top: 3px; padding: 2px 6px; background: #fef2f2; border: 1px solid #ef4444; color: #b91c1c; border-radius: 3px; font-size: 8.5px; font-weight: 900;">CERRADA POR RECEPCIÓN PARCIAL</span>` : ''}
                 </div>
             </div>
         </div>
@@ -2104,17 +2375,35 @@
         <div class="prov-section">
             <div class="prov-grid">
                 <div class="prov-item">
-                    <strong>Proveedor:</strong> ${c.proveedor || '-'}<br>
-                    <strong>Domicilio:</strong> ${c.proveedor_direccion || '-'}<br>
-                    <strong>Contacto:</strong> ${(c.proveedor_telefono || '-') + ' / ' + (c.proveedor_email || '-')}
+                    <strong>Proveedor:</strong> ${window.erpSafeHtml.escape(c.proveedor || '-')}<br>
+                    <strong>Domicilio:</strong> ${window.erpSafeHtml.escape(c.proveedor_direccion || '-')}<br>
+                    <strong>Contacto:</strong> ${window.erpSafeHtml.escape((c.proveedor_telefono || '-') + ' / ' + (c.proveedor_email || '-'))}
                 </div>
                 <div class="prov-item">
-                    <strong>CUIT Proveedor:</strong> ${c.proveedor_cuit || '-'}<br>
+                    <strong>CUIT Proveedor:</strong> ${window.erpSafeHtml.escape(c.proveedor_cuit || '-')}<br>
                     <strong>Condición frente al IVA:</strong> -<br>
-                    <strong>Comprobante Origen:</strong> ${c.numero_comprobante || '-'}
+                    <strong>Comprobante Origen:</strong> ${window.erpSafeHtml.escape(c.numero_comprobante || '-')}
                 </div>
             </div>
         </div>
+
+        ${esCierreParcial ? `
+        <!-- AVISO DE AUDITORÍA Y NOTA DE CIERRE PARCIAL -->
+        <div style="margin: 8px 16px; padding: 8px 12px; background: #fffbeb; border: 1.5px dashed #f59e0b; border-radius: 4px; display: flex; align-items: center; justify-content: space-between;">
+            <div>
+                <div style="font-size: 10px; font-weight: 900; color: #b45309; text-transform: uppercase;">
+                    AVISO DE AUDITORÍA: COMPROBANTE AJUSTADO POR RECEPCIÓN PARCIAL DEFINITIVA
+                </div>
+                <div style="font-size: 9px; color: #78350f; margin-top: 2px; line-height: 1.35;">
+                    Este comprobante fue liquidado y cerrado conforme a la mercadería efectivamente recibida e ingresada a depósito.<br>
+                    El saldo no entregado por el proveedor fue cancelado de común acuerdo. Total liquidado recalculado únicamente sobre las unidades reales recibidas.
+                </div>
+            </div>
+            <div style="margin-left: 14px; border: 2px solid #b45309; color: #b45309; font-weight: 900; font-size: 10px; padding: 4px 8px; border-radius: 4px; text-transform: uppercase; white-space: nowrap; transform: rotate(-2deg); background: #fef3c7;">
+                RECEPCIÓN PARCIAL DEFINITIVA
+            </div>
+        </div>
+        ` : ''}
 
         <!-- ITEMS / DETALLE -->
         <table class="items-table">
@@ -2134,10 +2423,10 @@
                 ${detalles.map((d, idx) => `
                     <tr>
                         <td class="text-center" style="font-weight: bold; color: #555;">${idx + 1}</td>
-                        <td style="font-weight: bold; font-family: monospace;">${d.codigo || '-'}</td>
+                        <td style="font-weight: bold; font-family: monospace;">${window.erpSafeHtml.escape(d.codigo || '-')}</td>
                         <td>
-                            <strong style="color: #000;">${d.nombre || d.descripcion || ('Producto #' + d.id_producto)}</strong>
-                            ${d.descripcion && d.descripcion !== d.nombre ? `<div style="font-size: 10px; color: #555;">${d.descripcion}</div>` : ''}
+                            <strong style="color: #000;">${window.erpSafeHtml.escape(d.nombre || d.descripcion || ('Producto #' + d.id_producto))}</strong>
+                            ${d.descripcion && d.descripcion !== d.nombre ? `<div style="font-size: 10px; color: #555;">${window.erpSafeHtml.escape(d.descripcion)}</div>` : ''}
                         </td>
                         <td class="text-center" style="font-weight: 800;">${d.cantidad}</td>
                         <td class="text-center" style="font-weight: 800;">${d.cantidad_recibida || 0}</td>
@@ -2177,7 +2466,7 @@
                     <strong>${fmtMonto(impTot)}</strong>
                 </div>
                 <div class="totals-row main-total">
-                    <span>TOTAL FACTURA:</span>
+                    <span>${esCierreParcial ? 'TOTAL LIQUIDADO (RECIBIDO):' : 'TOTAL FACTURA:'}</span>
                     <span>${fmtMonto(impTot)}</span>
                 </div>
                 <div class="totals-row">
@@ -2193,6 +2482,225 @@
 
         <div class="doc-disclaimer">
             Documento de uso interno y control administrativo · Sistema ERP Distribuidora PyB · ${new Date().toLocaleDateString('es-AR')} ${new Date().toLocaleTimeString('es-AR')}
+        </div>
+    </div>
+</body>
+</html>`;
+
+        let printFrame = document.getElementById('comprasPrintFrame');
+        if (!printFrame) {
+            printFrame = document.createElement('iframe');
+            printFrame.id = 'comprasPrintFrame';
+            printFrame.style.position = 'fixed';
+            printFrame.style.top = '-9999px';
+            printFrame.style.left = '-9999px';
+            printFrame.style.width = '0px';
+            printFrame.style.height = '0px';
+            printFrame.style.border = 'none';
+            document.body.appendChild(printFrame);
+        }
+
+        const frameDoc = printFrame.contentWindow.document;
+        frameDoc.open();
+        frameDoc.write(html);
+        frameDoc.close();
+
+        setTimeout(() => {
+            printFrame.contentWindow.focus();
+            printFrame.contentWindow.print();
+        }, 250);
+    }
+
+    async function imprimirFichaOrden(id = null) {
+        let data = null;
+        const targetId = id || idOrdenDetalleActual;
+        if (!targetId) {
+            mostrarNotificacion('No se especificó la orden a imprimir.', 'error');
+            return;
+        }
+
+        try {
+            const res = await fetch(`${API_BASE}/ordenes-compra/${targetId}`);
+            const json = await res.json();
+            if (json.status === 'success' && json.data) {
+                data = json.data;
+            }
+        } catch (e) {
+            console.error('Error al obtener datos de la orden para imprimir:', e);
+        }
+
+        if (!data || !data.orden) {
+            mostrarNotificacion('No se pudo cargar la información para imprimir la orden.', 'error');
+            return;
+        }
+
+        const o = data.orden;
+        const detalles = data.detalles || [];
+        const fmtMonto = (val) => '$ ' + Number(val || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const fmtFecha = (f) => f ? f.substring(0, 10).split('-').reverse().join('/') : '-';
+        const esCierreParcial = Boolean(o.cierre_parcial);
+        const estadoLabel = (o.estado || 'pendiente').replace('_', ' ').toUpperCase() + (esCierreParcial ? ' (CIERRE PARCIAL DEFINITIVO)' : '');
+        const totSol = detalles.reduce((acc, d) => acc + Number(d.cantidad_solicitada || 0), 0);
+        const totRec = detalles.reduce((acc, d) => acc + Number(d.cantidad_recibida ?? d.cantidad_comprada ?? 0), 0);
+        const totEst = Number(o.total_estimado || detalles.reduce((acc, d) => acc + Number(d.subtotal || 0), 0));
+
+        const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Orden de Compra #${window.erpSafeHtml.escape(o.numero_orden || o.id_orden)} - ${window.erpSafeHtml.escape(o.proveedor || 'Proveedor')}</title>
+    <style>
+        @page { size: A4 portrait; margin: 8mm 10mm; }
+        * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; color: #000; }
+        body { margin: 0; padding: 0; background: #fff; font-size: 11.5px; width: 100%; }
+        .factura-box { width: 100%; border: 1.5px solid #000; margin: 0 auto; background: #fff; }
+        .factura-header { display: flex; position: relative; border-bottom: 1.5px solid #000; }
+        .header-col { flex: 1; padding: 12px 16px; }
+        .header-col-left { border-right: 1px solid #888; }
+        .header-letter-box { position: absolute; left: 50%; top: 0; transform: translateX(-50%); width: 68px; height: 58px; background: #fff; border: 1.5px solid #000; border-top: none; border-radius: 0 0 6px 6px; text-align: center; z-index: 10; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        .header-letter-box .letter { font-size: 26px; font-weight: 900; line-height: 1; color: #000; }
+        .header-letter-box .subtext { font-size: 7.5px; font-weight: 800; color: #444; text-transform: uppercase; margin-top: 2px; }
+        .company-name { font-size: 17px; font-weight: 900; color: #000; margin-bottom: 3px; }
+        .company-subtitle { font-size: 10px; font-weight: 700; color: #555; text-transform: uppercase; margin-bottom: 6px; }
+        .company-info { font-size: 11px; color: #222; line-height: 1.4; }
+        .invoice-title { font-size: 16px; font-weight: 900; color: #000; text-align: right; margin-bottom: 3px; }
+        .invoice-number { font-size: 14px; font-weight: 800; color: #111; text-align: right; margin-bottom: 8px; }
+        .invoice-meta { font-size: 11px; text-align: right; line-height: 1.45; color: #222; }
+        .prov-section { padding: 10px 16px; border-bottom: 1.5px solid #000; background: #fafafa; }
+        .prov-grid { display: grid; grid-template-columns: 3fr 2fr; gap: 6px 20px; font-size: 11px; }
+        .items-table { width: 100%; border-collapse: collapse; }
+        .items-table th { background: #f0f0f0; color: #000; font-size: 10px; font-weight: 800; text-transform: uppercase; padding: 6px 8px; text-align: left; border: 1px solid #000; }
+        .items-table td { padding: 6px 8px; font-size: 11px; border: 1px solid #ccc; color: #111; }
+        .items-table tr:nth-child(even) td { background: #fafafa; }
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .factura-bottom { display: flex; border-top: 1.5px solid #000; background: #fff; }
+        .bottom-left { flex: 1.3; padding: 12px 16px; border-right: 1.5px solid #000; display: flex; flex-direction: column; justify-content: space-between; }
+        .bottom-right { flex: 1; padding: 12px 16px; background: #fafafa; }
+        .totals-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 11.5px; color: #333; }
+        .totals-row.main-total { border-top: 1.5px solid #000; border-bottom: 1.5px solid #000; margin: 5px 0; padding: 6px 0; font-size: 14px; font-weight: 900; color: #000; }
+        .doc-disclaimer { font-size: 8.5px; color: #666; text-align: center; padding: 6px 12px; }
+    </style>
+</head>
+<body>
+    <div class="factura-box">
+        <div class="factura-header">
+            <div class="header-col header-col-left">
+                <div class="company-name">DISTRIBUIDORA PYB</div>
+                <div class="company-subtitle">Distribución Mayorista Integral</div>
+                <div class="company-info">
+                    <strong>Razón Social:</strong> DISTRIBUIDORA PYB S.A.<br>
+                    <strong>CUIT:</strong> 30-71458923-4
+                </div>
+            </div>
+            <div class="header-letter-box">
+                <span class="letter">X</span>
+                <span class="subtext">DOCUMENTO NO VÁLIDO COMO FACTURA</span>
+            </div>
+            <div class="header-col">
+                <div class="invoice-title">ORDEN DE COMPRA</div>
+                <div class="invoice-number">N° ${window.erpSafeHtml.escape(o.numero_orden || ('#ORD-' + o.id_orden))}</div>
+                <div class="invoice-meta">
+                    <strong>Fecha Emisión:</strong> ${fmtFecha(o.fecha_creacion)}<br>
+                    <strong>Entrega Estimada:</strong> ${fmtFecha(o.fecha_entrega_estimada)}<br>
+                    <strong>Estado:</strong> ${estadoLabel}
+                    ${esCierreParcial ? `<br><span style="display:inline-block; margin-top: 3px; padding: 2px 6px; background: #fef2f2; border: 1px solid #ef4444; color: #b91c1c; border-radius: 3px; font-size: 8.5px; font-weight: 900;">CERRADA POR RECEPCIÓN PARCIAL</span>` : ''}
+                </div>
+            </div>
+        </div>
+
+        <div class="prov-section">
+            <div class="prov-grid">
+                <div class="prov-item">
+                    <strong>Proveedor Solicitado:</strong> ${window.erpSafeHtml.escape(o.proveedor || '-')}<br>
+                    <strong>Fecha Envío:</strong> ${fmtFecha(o.fecha_envio)}
+                </div>
+                <div class="prov-item">
+                    <strong>Condición:</strong> Solicitud formal de aprovisionamiento<br>
+                    <strong>Comprobante Interno:</strong> ${window.erpSafeHtml.escape(o.numero_orden || ('#ORD-' + o.id_orden))}
+                </div>
+            </div>
+        </div>
+
+        ${esCierreParcial ? `
+        <div style="margin: 8px 16px; padding: 8px 12px; background: #fffbeb; border: 1.5px dashed #f59e0b; border-radius: 4px; display: flex; align-items: center; justify-content: space-between;">
+            <div>
+                <div style="font-size: 10px; font-weight: 900; color: #b45309; text-transform: uppercase;">
+                    AVISO DE AUDITORÍA: ORDEN CERRADA POR RECEPCIÓN PARCIAL DEFINITIVA
+                </div>
+                <div style="font-size: 9px; color: #78350f; margin-top: 2px; line-height: 1.35;">
+                    Esta orden fue dada por completada con lo efectivamente recibido. El saldo pendiente de entrega fue cancelado de común acuerdo con el proveedor.
+                </div>
+            </div>
+            <div style="margin-left: 14px; border: 2px solid #b45309; color: #b45309; font-weight: 900; font-size: 10px; padding: 4px 8px; border-radius: 4px; text-transform: uppercase; white-space: nowrap; transform: rotate(-2deg); background: #fef3c7;">
+                CERRADA CON RECEPCIÓN PARCIAL
+            </div>
+        </div>
+        ` : ''}
+
+        <table class="items-table">
+            <thead>
+                <tr>
+                    <th style="width: 30px;" class="text-center">#</th>
+                    <th style="width: 85px;">Código</th>
+                    <th>Descripción / Producto</th>
+                    <th style="width: 65px;" class="text-center">Solicitado</th>
+                    <th style="width: 65px;" class="text-center">Recibido</th>
+                    <th style="width: 65px;" class="text-center">Saldo</th>
+                    <th style="width: 90px;" class="text-right">Precio Est.</th>
+                    <th style="width: 100px;" class="text-right">Subtotal</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${detalles.map((d, idx) => {
+                    const sol = Number(d.cantidad_solicitada || 0);
+                    const rec = Number(d.cantidad_recibida ?? d.cantidad_comprada ?? 0);
+                    const pend = Math.max(0, sol - rec);
+                    const sub = Number(d.subtotal || (sol * Number(d.precio_estimado || 0)));
+                    return `
+                    <tr>
+                        <td class="text-center" style="font-weight: bold; color: #555;">${idx + 1}</td>
+                        <td style="font-weight: bold; font-family: monospace;">${window.erpSafeHtml.escape(d.codigo || '-')}</td>
+                        <td><strong style="color: #000;">${window.erpSafeHtml.escape(d.nombre || d.descripcion || ('Producto #' + d.id_producto))}</strong></td>
+                        <td class="text-center" style="font-weight: 800;">${sol}</td>
+                        <td class="text-center" style="font-weight: 800; color: #047857;">${rec}</td>
+                        <td class="text-center" style="font-weight: 800; color: ${pend > 0 && !esCierreParcial ? '#b91c1c' : '#555'};">${esCierreParcial ? 0 : pend}</td>
+                        <td class="text-right">${fmtMonto(d.precio_estimado)}</td>
+                        <td class="text-right" style="font-weight: 800;">${fmtMonto(sub)}</td>
+                    </tr>
+                    `;
+                }).join('')}
+            </tbody>
+        </table>
+
+        <div class="factura-bottom">
+            <div class="bottom-left">
+                <div style="font-size: 9.5px; color: #444; line-height: 1.4;">
+                    <strong>Condiciones de Recepción:</strong> Toda entrega debe acompañarse con remito oficial o factura que detalle número de orden de compra.<br><br>
+                    <div style="display: flex; justify-content: space-between; margin-top: 15px; border-top: 1px dashed #888; padding-top: 6px;">
+                        <span>Firma Autorizada: _____________________</span>
+                        <span>Recibido por Proveedor: _____________________</span>
+                    </div>
+                </div>
+            </div>
+            <div class="bottom-right">
+                <div class="totals-row">
+                    <span>Total Unidades Solicitadas:</span>
+                    <strong>${totSol} u.</strong>
+                </div>
+                <div class="totals-row">
+                    <span>Total Unidades Recibidas:</span>
+                    <strong>${totRec} u.</strong>
+                </div>
+                <div class="totals-row main-total">
+                    <span>TOTAL ESTIMADO:</span>
+                    <span>${fmtMonto(totEst)}</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="doc-disclaimer">
+            Documento de uso interno y control de compras · Sistema ERP Distribuidora PyB · ${new Date().toLocaleDateString('es-AR')} ${new Date().toLocaleTimeString('es-AR')}
         </div>
     </div>
 </body>
@@ -2255,8 +2763,9 @@
                 return `
                     <tr class="${pend <= 0 ? 'opacity-40 bg-slate-100/40' : ''}">
                         <td>
-                            <div class="font-bold text-slate-800">${d.nombre || d.descripcion || `Prod #${d.id_producto}`}</div>
-                            ${d.codigo ? `<div class="text-[11px] text-slate-400 font-bold">${d.codigo}</div>` : ''}
+                            <div class="font-bold text-slate-800">${window.erpSafeHtml.escape(d.nombre || d.descripcion || ('Prod #' + d.id_producto))}</div>
+                            ${d.codigo ? `<div class="text-[11px] text-slate-400 font-bold">${window.erpSafeHtml.escape(d.codigo)}</div>` : ''}
+                            <small>${window.erpSafeHtml.escape(d.presentacion || "Unidad individual")} · ${Number(d.equivalencia_base || 1)} u. base</small>
                             <input type="hidden" id="rec_prod_${idx}" value="${d.id_producto}">
                         </td>
                         <td class="text-center font-bold">${d.cantidad}</td>
@@ -2267,6 +2776,8 @@
                                    oninput="actualizarPreviewRecepcion()" 
                                    ${disabled} class="clay-input w-20 py-1 text-center font-black text-xs">
                         </td>
+                        <td><input id="rec_lote_${idx}" aria-label="Lote del ítem ${idx + 1}" maxlength="100" ${disabled} class="clay-input w-28 text-xs"></td>
+                        <td><input id="rec_expiry_${idx}" aria-label="Vencimiento del lote del ítem ${idx + 1}" type="date" ${disabled} class="clay-input text-xs"></td>
                     </tr>
                 `;
             }).join('');
@@ -2347,8 +2858,14 @@
             const cant = Number(cantInput.value || 0);
             if (cant > 0) {
                 itemsToSend.push({
+                    id_detalle_compra: itemsRecepcionModal[i].id_detalle_compra || itemsRecepcionModal[i].id_detalle,
+                    id_unidad: itemsRecepcionModal[i].id_unidad,
                     id_producto: itemsRecepcionModal[i].id_producto,
-                    cantidad_recibida: cant
+                    cantidad_recibida: cant,
+                    ...((document.getElementById(`rec_lote_${i}`)?.value.trim() || document.getElementById(`rec_expiry_${i}`)?.value) ? {
+                        nro_lote: document.getElementById(`rec_lote_${i}`)?.value.trim() || null,
+                        fecha_vencimiento: document.getElementById(`rec_expiry_${i}`)?.value || null
+                    } : {})
                 });
             }
         }
@@ -2521,20 +3038,44 @@
 
             const total = Number(o.total_estimado || 0).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' });
             const esPendiente = o.estado === 'pendiente';
-            const admiteFacturar = esPendiente || o.estado === 'enviada';
+            const tienePendienteFacturar = o.total_pendiente === undefined ? !o.id_compra : Number(o.total_pendiente) > 0;
+            const admiteFacturar = (esPendiente || o.estado === 'enviada' || o.estado === 'recibida_parcialmente') && tienePendienteFacturar;
+            const comprasVinc = Array.isArray(o.compras_vinculadas) && o.compras_vinculadas.length > 0
+                ? o.compras_vinculadas
+                : (o.id_compra ? [{ id_compra: o.id_compra, numero_compra: o.numero_compra }] : []);
+            const admiteCancelar = (esPendiente || o.estado === 'enviada') && comprasVinc.length === 0;
+            const admiteCerrarParcial = o.estado === 'recibida_parcialmente';
+            const avanceUnidades = (o.total_productos > 0 && (o.total_recibido > 0 || o.total_comprado > 0))
+                ? `<div class="text-[10px] font-bold text-slate-500 mt-0.5">Recibido: ${o.total_recibido || 0}/${o.total_productos} u.</div>`
+                : '';
 
             return `
                 <tr>
-                    <td class="font-black text-slate-800">${o.numero_orden || `#ORD-${o.id_orden}`}</td>
+                    <td>
+                        <div class="font-black text-slate-800">${o.numero_orden || `#ORD-${o.id_orden}`}</div>
+                        ${comprasVinc.length > 0 ? `
+                        <div class="flex flex-wrap gap-1 mt-0.5">
+                            ${comprasVinc.map(cv => `
+                                <button type="button" onclick="abrirModalDetalleCompra(${cv.id_compra})" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-[10px] font-black border border-emerald-200 transition-all" title="Ver Compra registrada desde esta orden">
+                                    <i data-lucide="shopping-bag" class="w-3 h-3"></i>
+                                    <span>${cv.numero_compra || `#CMP-${cv.id_compra}`}</span>
+                                </button>
+                            `).join('')}
+                        </div>
+                        ` : ''}
+                    </td>
                     <td class="font-bold text-slate-800">${o.proveedor || `Proveedor #${o.id_proveedor}`}</td>
-                    <td class="text-xs text-slate-500 font-bold">${o.fecha_creacion ? o.fecha_creacion.substring(0, 10) : '-'}</td>
-                    <td class="text-xs text-slate-600 font-bold">${o.fecha_entrega_estimada ? o.fecha_entrega_estimada.substring(0, 10) : '<span class="text-slate-400 italic">No fijada</span>'}</td>
+                    <td class="text-xs text-slate-500 font-bold">${window.erpSafeHtml.escape(o.fecha_creacion ? o.fecha_creacion.substring(0, 10) : '-')}</td>
+                    <td class="text-xs text-slate-600 font-bold">${window.erpSafeHtml.escape(o.fecha_entrega_estimada ? o.fecha_entrega_estimada.substring(0, 10) : '?')}</td>
                     <td class="text-right font-black text-slate-800">${total}</td>
-                    <td class="text-center"><span class="clay-badge ${badgeClass} uppercase">${o.estado.replace('_', ' ')}</span></td>
+                    <td class="text-center"><span class="clay-badge ${badgeClass} uppercase">${window.erpSafeHtml.escape(o.estado.replace('_', ' '))}</span></td>
                     <td class="text-center">
                         <div class="flex items-center justify-center gap-1.5">
                             <button onclick="abrirModalDetalleOrden(${o.id_orden})" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-all" title="Ver Detalle">
                                 <i data-lucide="eye" class="w-4 h-4"></i>
+                            </button>
+                            <button onclick="imprimirFichaOrden(${o.id_orden})" class="p-1.5 text-slate-600 hover:bg-slate-100 rounded-lg transition-all" title="Imprimir Orden de Compra">
+                                <i data-lucide="printer" class="w-4 h-4"></i>
                             </button>
                             ${esPendiente ? `
                             <button onclick="enviarOrden(${o.id_orden})" class="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all" title="Enviar al Proveedor">
@@ -2543,13 +3084,20 @@
                             <button onclick="abrirModalEditarOrden(${o.id_orden})" class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-all" title="Editar Orden">
                                 <i data-lucide="edit-3" class="w-4 h-4"></i>
                             </button>
-                            <button onclick="cancelarOrden(${o.id_orden})" class="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition-all" title="Cancelar Orden">
-                                <i data-lucide="x-circle" class="w-4 h-4"></i>
-                            </button>
                             ` : ''}
                             ${admiteFacturar ? `
                             <button onclick="convertirOrdenACompra(${o.id_orden})" class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all" title="Registrar Compra desde Orden">
                                 <i data-lucide="file-check" class="w-4 h-4"></i>
+                            </button>
+                            ` : ''}
+                            ${admiteCerrarParcial ? `
+                            <button onclick="cerrarOrdenParcial(${o.id_orden})" class="p-1.5 text-teal-600 hover:bg-teal-50 rounded-lg transition-all" title="Cerrar / Dar por Completada con lo recibido">
+                                <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+                            </button>
+                            ` : ''}
+                            ${admiteCancelar ? `
+                            <button onclick="cancelarOrden(${o.id_orden})" class="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition-all" title="Cancelar Orden">
+                                <i data-lucide="x-circle" class="w-4 h-4"></i>
                             </button>
                             ` : ''}
                         </div>
@@ -2596,7 +3144,7 @@
                 html += '<optgroup label="Productos del Proveedor (Precio Acordado)">';
                 asociados.forEach(a => {
                     const precio = a.precio_acordado !== null ? a.precio_acordado : (a.precio_unitario || 0);
-                    html += `<option value="${a.id_producto}" data-precio="${precio}">★ ${a.codigo} - ${a.nombre} ($${Number(precio).toFixed(2)})</option>`;
+                    html += `<option value="${a.id_producto}" data-precio="${precio}">★ ${window.erpSafeHtml.escape(a.codigo)} - ${window.erpSafeHtml.escape(a.nombre)} ($${Number(precio).toFixed(2)})</option>`;
                 });
                 html += '</optgroup>';
             }
@@ -2605,7 +3153,7 @@
             if (otros.length > 0) {
                 html += '<optgroup label="Otros Productos del Catálogo">';
                 otros.forEach(p => {
-                    html += `<option value="${p.id_producto}" data-precio="${p.precio_unitario || 0}">${p.codigo} - ${p.nombre}</option>`;
+                    html += `<option value="${p.id_producto}" data-precio="${p.precio_unitario || 0}">${window.erpSafeHtml.escape(p.codigo)} - ${window.erpSafeHtml.escape(p.nombre)}</option>`;
                 });
                 html += '</optgroup>';
             }
@@ -2744,7 +3292,7 @@
             total += it.subtotal;
             return `
                 <tr>
-                    <td class="font-bold text-slate-800">${it.nombre}</td>
+                    <td class="font-bold text-slate-800">${window.erpSafeHtml.escape(it.nombre)}</td>
                     <td class="text-center font-black">${it.cantidad_solicitada}</td>
                     <td class="text-right font-black">$${it.precio_estimado.toFixed(2)}</td>
                     <td class="text-right font-black text-indigo-600">$${it.subtotal.toFixed(2)}</td>
@@ -2843,6 +3391,34 @@
         }
     }
 
+    async function cerrarOrdenParcial(id) {
+        if (!confirm('¿Desea cerrar y dar por completada esta orden con la mercadería ya recibida? El saldo pendiente de la orden se anulará y cualquier compra parcial asociada recalculará su deuda a lo efectivamente ingresado.')) return;
+        const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+        try {
+            const res = await fetch(`${API_BASE}/ordenes-compra/${id}/cambiar-estado`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf },
+                body: JSON.stringify({ estado: 'completada', confirmar_cierre_parcial: true })
+            });
+            const data = await res.json();
+            if (data.status === 'success') {
+                mostrarNotificacion('Orden de compra cerrada como completada y deuda recalculada.', 'success');
+                cerrarModalDetalleOrden();
+                await Promise.all([cargarCompras(), cargarOrdenes(), cargarDeudas()]);
+            } else {
+                mostrarNotificacion(data.message || 'Error al cerrar la orden.', 'error');
+            }
+        } catch (e) {
+            mostrarNotificacion('Error de conexión al cerrar la orden.', 'error');
+        }
+    }
+
+    let idOrdenDetalleActual = null;
+    function cerrarOrdenParcialDesdeDetalle() {
+        if (!idOrdenDetalleActual) return;
+        cerrarOrdenParcial(idOrdenDetalleActual);
+    }
+
     // Convertir una orden emitida en una Compra (flujo integral de abastecimiento)
     async function convertirOrdenACompra(idOrden) {
         try {
@@ -2854,34 +3430,76 @@
             }
 
             const o = json.data.orden;
-            abrirModalNuevaCompra();
-            document.getElementById('compraIdOrden').value = idOrden;
-            document.getElementById('modalCompraTitulo').textContent = `Registrar Compra desde Orden #${o.numero_orden || idOrden}`;
-            actualizarInputsDesdeComprobante(`TI-0001-${String(o.numero_orden || idOrden).padStart(8, '0')}`);
-            document.getElementById('compraProveedor').value = o.id_proveedor;
-            await alCambiarProveedorCompra();
 
-            itemsNuevaCompra = (json.data.detalles || []).map(d => ({
-                id_producto: d.id_producto,
-                nombre: d.nombre || d.descripcion || d.codigo || `Prod #${d.id_producto}`,
-                cantidad: d.cantidad_solicitada,
-                precio_unitario: d.precio_estimado,
-                subtotal: d.subtotal
-            }));
+            // Validación de lógica comercial: no registrar compra sobre una orden en borrador sin antes enviarla
+            if (o.estado === 'pendiente') {
+                const nro = o.numero_orden || `#ORD-${idOrden}`;
+                const conf = confirm(`La orden ${window.erpSafeHtml.escape(nro)} se encuentra en estado Pendiente (Borrador interno) y aún no fue enviada al proveedor.\n\n¿Desea marcarla como ENVIADA al proveedor ahora y proceder a registrar la compra?`);
+                if (!conf) return;
+
+                const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+                const resCambio = await fetch(`${API_BASE}/ordenes-compra/${idOrden}/estado`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf },
+                    body: JSON.stringify({ estado: 'enviada' })
+                });
+                const jsonCambio = await resCambio.json();
+                if (jsonCambio.status !== 'success') {
+                    mostrarNotificacion(jsonCambio.message || 'Error al cambiar estado de la orden.', 'error');
+                    return;
+                }
+                o.estado = 'enviada';
+                mostrarNotificacion(`Orden ${window.erpSafeHtml.escape(nro)} marcada como enviada. Abriendo registro de compra...`, 'success');
+                if (typeof cargarOrdenes === 'function') cargarOrdenes();
+            }
+
+            abrirModalNuevaCompra();
+            document.getElementById('modalCompraTitulo').textContent = `Registrar Compra desde Orden #${o.numero_orden || idOrden}`;
+            actualizarInputsDesdeComprobante('');
+            document.getElementById('compraProveedor').value = o.id_proveedor;
+            document.getElementById('compraIdOrden').value = String(idOrden);
+            await alCambiarProveedorCompra();
+            document.getElementById('compraIdOrden').value = String(idOrden);
+
+            const detallesPendientes = (json.data.detalles || []).filter(d => {
+                const pend = Number(d.cantidad_pendiente_base ?? d.cantidad_pendiente ?? d.cantidad_solicitada);
+                return pend > 0;
+            });
+            const listaUsar = detallesPendientes.length > 0 ? detallesPendientes : (json.data.detalles || []);
+
+            itemsNuevaCompra = listaUsar.map(d => {
+                const cant = Number(d.cantidad_pendiente_base ?? d.cantidad_pendiente ?? d.cantidad_solicitada);
+                const precio = Number(d.precio_estimado_base ?? d.precio_estimado ?? 0);
+                return {
+                    id_producto: d.id_producto,
+                    id_unidad: d.id_unidad_compra ?? d.id_unidad,
+                    nombre: d.nombre || d.descripcion || d.codigo || `Prod #${d.id_producto}`,
+                    cantidad: cant,
+                    cantidad_recibida: cant,
+                    precio_unitario: precio,
+                    subtotal: Math.round(cant * precio * 100) / 100
+                };
+            });
 
             renderItemsNuevaCompra();
             cambiarPestanaCompras('compras');
-            mostrarNotificacion('Datos de la orden cargados en la nueva compra.', 'info');
+            mostrarNotificacion('Saldo pendiente de la orden cargado en la nueva compra.', 'info');
         } catch (e) {
             mostrarNotificacion('Error al vincular orden a compra.', 'error');
         }
     }
 
     async function abrirModalDetalleOrden(id) {
+        idOrdenDetalleActual = id;
         document.getElementById('detalleOrdenSubtitulo').textContent = `Orden #${id}`;
         document.getElementById('modalDetalleOrden').classList.remove('hidden');
         const tbody = document.getElementById('detalleOrdenTablaBody');
-        tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-slate-400">Cargando ítems...</td></tr>';
+        const boxCompras = document.getElementById('detalleOrdenComprasBox');
+        const listaCompras = document.getElementById('detalleOrdenComprasLista');
+        const btnCerrarParcial = document.getElementById('btnDetalleOrdenCerrarParcial');
+        if (btnCerrarParcial) btnCerrarParcial.classList.add('hidden');
+        if (boxCompras) boxCompras.classList.add('hidden');
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-slate-400">Cargando ítems...</td></tr>';
         try {
             const res = await fetch(`${API_BASE}/ordenes-compra/${id}`);
             const json = await res.json();
@@ -2889,8 +3507,8 @@
                 tbody.innerHTML = (json.data.detalles || []).map(d => `
                     <tr>
                         <td>
-                            <div class="font-bold text-slate-800">${d.nombre || d.descripcion || `Prod #${d.id_producto}`}</div>
-                            ${d.codigo ? `<div class="text-[11px] text-slate-400 font-bold">${d.codigo}${d.descripcion && d.descripcion !== d.nombre ? ` • ${d.descripcion}` : ''}</div>` : ''}
+                            <div class="font-bold text-slate-800">${window.erpSafeHtml.escape(d.nombre || d.descripcion || ('Prod #' + d.id_producto))}</div>
+                            ${d.codigo ? `<div class="text-[11px] text-slate-400 font-bold">${window.erpSafeHtml.escape(d.codigo)}${d.descripcion && d.descripcion !== d.nombre ? ` • ${window.erpSafeHtml.escape(d.descripcion)}` : ''}</div>` : ''}
                         </td>
                         <td class="text-center font-black">${d.cantidad_solicitada}</td>
                         <td class="text-right font-black">$${Number(d.precio_estimado).toFixed(2)}</td>
@@ -2925,9 +3543,36 @@
     function renderSugerencias() {
         const tbody = document.getElementById('tablaSugerenciasBody');
         const badgeCount = document.getElementById('badgeSugerenciasCount');
+        const selProv = document.getElementById('filtroProveedorSugerencias');
         if (!tbody) return;
 
-        const pendientes = sugerenciasCache.filter(s => s.estado === 'pendiente');
+        // Actualizar opciones del filtro por proveedor conservando la selección actual
+        if (selProv) {
+            const provActual = selProv.value;
+            const mapaProvs = new Map();
+            sugerenciasCache.forEach(s => {
+                const idP = s.id_proveedor ?? s.proveedor?.id;
+                const nomP = s.proveedor?.razon_social || s.proveedor?.nombre || (idP ? `Proveedor #${idP}` : null);
+                if (idP && nomP && !mapaProvs.has(String(idP))) {
+                    mapaProvs.set(String(idP), nomP);
+                }
+            });
+            let optsHtml = '<option value="">Todos los Proveedores</option>';
+            mapaProvs.forEach((nom, id) => {
+                optsHtml += `<option value="${id}">${nom}</option>`;
+            });
+            selProv.innerHTML = optsHtml;
+            if (provActual && mapaProvs.has(String(provActual))) {
+                selProv.value = String(provActual);
+            }
+        }
+
+        const idProvFiltro = selProv?.value || '';
+        const sugerenciasVisibles = idProvFiltro
+            ? sugerenciasCache.filter(s => String(s.id_proveedor ?? s.proveedor?.id) === String(idProvFiltro))
+            : sugerenciasCache;
+
+        const pendientes = sugerenciasVisibles.filter(s => s.estado === 'pendiente');
         if (badgeCount) badgeCount.textContent = `${pendientes.length} sugerencias pendientes`;
 
         // KPIs
@@ -2937,12 +3582,12 @@
         document.getElementById('kpiSugerenciasUnidades').textContent = totUnidades;
         document.getElementById('kpiSugerenciasCosto').textContent = `$${totCosto.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
 
-        if (sugerenciasCache.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8" class="text-center py-6 text-slate-400 font-bold">No hay sugerencias de reposición pendientes. Haga clic en "Escanear y Generar Sugerencias".</td></tr>';
+        if (sugerenciasVisibles.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center py-6 text-slate-400 font-bold">No hay sugerencias de reposición pendientes para el filtro seleccionado. Haga clic en "Escanear y Generar Sugerencias".</td></tr>';
             return;
         }
 
-        tbody.innerHTML = sugerenciasCache.map(s => {
+        tbody.innerHTML = sugerenciasVisibles.map(s => {
             const idSug = s.id_sugerencia ?? s.id;
             const stockAct = s.stock_actual ?? s.producto?.stock ?? 0;
             const stockMin = s.cantidad_minima ?? s.producto?.stock_minimo ?? 0;
@@ -2953,19 +3598,19 @@
             return `
                 <tr>
                     <td>
-                        <div class="font-black text-slate-800">${s.producto?.nombre || `Prod #${s.id_producto ?? s.producto?.id}`}</div>
-                        <div class="text-[11px] text-slate-400 font-bold">${s.producto?.codigo || ''}</div>
+                        <div class="font-black text-slate-800">${window.erpSafeHtml.escape(s.producto?.nombre || ("Prod #" + (s.id_producto ?? s.producto?.id)))}</div>
+                        <div class="text-[11px] text-slate-400 font-bold">${window.erpSafeHtml.escape(s.producto?.codigo || '')}</div>
                     </td>
                     <td class="text-center font-bold">
                         <span class="${stockAct <= stockMin ? 'text-rose-600 font-black' : 'text-slate-700'}">${stockAct}</span>
                         <span class="text-slate-400 text-xs">/ ${stockMin}</span>
                     </td>
                     <td class="text-center font-black text-indigo-700 text-sm">${s.cantidad_sugerida}</td>
-                    <td class="font-bold text-slate-700">${nombreProv}</td>
+                    <td class="font-bold text-slate-700">${window.erpSafeHtml.escape(nombreProv)}</td>
                     <td class="text-right font-black">$${Number(s.precio_unitario || 0).toFixed(2)}</td>
                     <td class="text-right font-black text-emerald-700">$${Number(s.costo_total || 0).toFixed(2)}</td>
                     <td class="text-center">
-                        <span class="text-[11px] font-bold text-slate-600 capitalize">${(s.motivo_generacion || 'stock_minimo').replace('_', ' ')}</span>
+                        <span class="text-[11px] font-bold text-slate-600 capitalize">${window.erpSafeHtml.escape((s.motivo_generacion || 'stock_minimo').replace('_', ' '))}</span>
                     </td>
                     <td class="text-center">
                         ${esPendiente ? `
@@ -2978,7 +3623,7 @@
                             </button>
                         </div>
                         ` : `
-                        <span class="clay-badge ${estadoBadge} uppercase text-[10px]">${s.estado}</span>
+                        <span class="clay-badge ${estadoBadge} uppercase text-[10px]">${window.erpSafeHtml.escape(s.estado)}</span>
                         `}
                     </td>
                 </tr>
@@ -3010,14 +3655,16 @@
 
     async function generarOrdenDesdeSugerencia(idSugerencia) {
         const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+        const agruparProv = Boolean(document.getElementById('chkAgruparSugerenciasProveedor')?.checked);
         try {
             const res = await fetch(`${API_BASE}/sugerencias-reposicion/${idSugerencia}/generar-orden`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf }
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf },
+                body: JSON.stringify({ agrupar_proveedor: agruparProv })
             });
             const data = await res.json();
             if (data.exito) {
-                mostrarNotificacion('Orden de compra generada exitosamente desde la sugerencia.', 'success');
+                mostrarNotificacion(data.mensaje || 'Orden de compra generada exitosamente desde la sugerencia.', 'success');
                 await Promise.all([cargarSugerencias(), cargarOrdenes()]);
                 cambiarPestanaCompras('ordenes');
             } else {
@@ -3107,12 +3754,12 @@
 
             return `
                 <tr>
-                    <td class="font-bold text-slate-800">${c.proveedor || `Proveedor #${c.id_proveedor}`}</td>
+                    <td class="font-bold text-slate-800">${window.erpSafeHtml.escape(c.proveedor || `Proveedor #${c.id_proveedor}`)}</td>
                     <td>
-                        <span class="font-black text-slate-800">${c.numero_compra}</span>
-                        ${c.numero_comprobante ? `<div class="text-[11px] text-slate-400 font-bold">${c.numero_comprobante}</div>` : ''}
+                        <span class="font-black text-slate-800">${window.erpSafeHtml.escape(c.numero_compra)}</span>
+                        ${c.numero_comprobante ? `<div class="text-[11px] text-slate-400 font-bold">${window.erpSafeHtml.escape(c.numero_comprobante)}</div>` : ''}
                     </td>
-                    <td class="text-xs text-slate-600 font-bold">${c.fecha_compra ? c.fecha_compra.substring(0, 10) : '-'}</td>
+                    <td class="text-xs text-slate-600 font-bold">${window.erpSafeHtml.escape(c.fecha_compra ? c.fecha_compra.substring(0, 10) : '-')}</td>
                     <td><span class="clay-badge ${vencBadge} text-[11px] font-extrabold">${vencTexto}</span></td>
                     <td class="text-right font-bold text-slate-700">${Number(c.importe_total).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}</td>
                     <td class="text-right font-bold text-emerald-600">${Number(c.total_pagado).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}</td>

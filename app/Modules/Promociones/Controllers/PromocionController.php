@@ -2,12 +2,13 @@
 
 namespace App\Modules\Promociones\Controllers;
 
-use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
-use App\Modules\Ventas\Contracts\ProductoGateway;
 use App\Modules\Promociones\Models\Promocion;
+use App\Modules\Ventas\Contracts\ProductoGateway;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class PromocionController extends Controller
 {
@@ -23,23 +24,24 @@ class PromocionController extends Controller
 
             $productosArray = $detallesPivot->map(function ($pivot) use ($productos) {
                 $producto = $productos->buscar((int) $pivot->id_producto);
+
                 return [
                     'id_producto' => $pivot->id_producto,
-                    'nombre'      => $producto['nombre'] ?? 'Producto no encontrado',
-                    'cantidad'    => $pivot->cantidad
+                    'nombre' => $producto['nombre'] ?? 'Producto no encontrado',
+                    'cantidad' => $pivot->cantidad,
                 ];
             });
 
             return [
-                'id_promocion'   => $promo->id_promocion,
-                'nombre'         => $promo->nombre,
+                'id_promocion' => $promo->id_promocion,
+                'nombre' => $promo->nombre,
                 'tipo_descuento' => $promo->tipo_descuento,
-                'valor'          => (float) $promo->valor_descuento,
+                'valor' => (float) $promo->valor_descuento,
                 'vigencia_desde' => $promo->vigencia_desde,
                 'vigencia_hasta' => $promo->vigencia_hasta,
-                'condiciones'    => $promo->descripcion,
-                'estado'         => $promo->estado == 1 ? 'activa' : 'inactiva',
-                'productos'      => $productosArray
+                'condiciones' => $promo->descripcion,
+                'estado' => $promo->estado == 1 ? 'activa' : 'inactiva',
+                'productos' => $productosArray,
             ];
         });
 
@@ -53,21 +55,21 @@ class PromocionController extends Controller
         DB::beginTransaction();
         try {
             $promocion = Promocion::create([
-                'nombre'         => $datos['nombre'],
-                'descripcion'    => $datos['descripcion'] ?? '',
-                'total'          => $this->calcularPrecioFinal($datos, $productos),
+                'nombre' => $datos['nombre'],
+                'descripcion' => $datos['descripcion'] ?? '',
+                'total' => $this->calcularPrecioFinal($datos, $productos),
                 'tipo_descuento' => $datos['tipo_descuento'],
                 'valor_descuento' => $datos['valor'],
                 'vigencia_desde' => $datos['vigencia_desde'],
                 'vigencia_hasta' => $datos['vigencia_hasta'],
-                'estado'         => ($datos['estado'] ?? 'activa') === 'activa' ? 1 : 0
+                'estado' => ($datos['estado'] ?? 'activa') === 'activa' ? 1 : 0,
             ]);
 
             foreach ($datos['productos'] as $prod) {
                 DB::table('promocion_producto')->insert([
                     'id_promocion' => $promocion->id_promocion,
-                    'id_producto'  => $prod['id_producto'],
-                    'cantidad'     => $prod['cantidad']
+                    'id_producto' => $prod['id_producto'],
+                    'cantidad' => $prod['cantidad'],
                 ]);
             }
             DB::commit();
@@ -75,6 +77,7 @@ class PromocionController extends Controller
             return response()->json(['mensaje' => 'Promoción guardada (Híbrida)'], 201);
         } catch (\Exception $e) {
             DB::rollBack();
+
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
@@ -83,28 +86,31 @@ class PromocionController extends Controller
     public function show($id, ProductoGateway $productos)
     {
         $promo = Promocion::find($id);
-        if (!$promo) return response()->json(['mensaje' => 'No encontrada'], 404);
+        if (! $promo) {
+            return response()->json(['mensaje' => 'No encontrada'], 404);
+        }
 
         $detallesPivot = DB::table('promocion_producto')->where('id_promocion', $id)->get();
         $productosArray = $detallesPivot->map(function ($pivot) use ($productos) {
             $producto = $productos->buscar((int) $pivot->id_producto);
+
             return [
                 'id_producto' => $pivot->id_producto,
-                'nombre'      => $producto['nombre'] ?? 'Producto no encontrado',
-                'cantidad'    => $pivot->cantidad
+                'nombre' => $producto['nombre'] ?? 'Producto no encontrado',
+                'cantidad' => $pivot->cantidad,
             ];
         });
 
         $respuesta = [
-            'id_promocion'   => $promo->id_promocion,
-            'nombre'         => $promo->nombre,
+            'id_promocion' => $promo->id_promocion,
+            'nombre' => $promo->nombre,
             'tipo_descuento' => $promo->tipo_descuento,
-            'valor'          => (float) $promo->valor_descuento,
+            'valor' => (float) $promo->valor_descuento,
             'vigencia_desde' => $promo->vigencia_desde,
             'vigencia_hasta' => $promo->vigencia_hasta,
-            'condiciones'    => $promo->descripcion,
-            'estado'         => $promo->estado == 1 ? 'activa' : 'inactiva',
-            'productos'      => $productosArray
+            'condiciones' => $promo->descripcion,
+            'estado' => $promo->estado == 1 ? 'activa' : 'inactiva',
+            'productos' => $productosArray,
         ];
 
         return response()->json($respuesta, 200);
@@ -114,20 +120,23 @@ class PromocionController extends Controller
     public function update(Request $request, $id, ProductoGateway $productos)
     {
         $promocion = Promocion::find($id);
-        if (!$promocion) return response()->json(['mensaje' => 'No encontrada'], 404);
+        if (! $promocion) {
+            return response()->json(['mensaje' => 'No encontrada'], 404);
+        }
 
         $datos = $this->validarPromocion($request, $productos);
         DB::beginTransaction();
         try {
+            $promocion = Promocion::query()->whereKey($id)->lockForUpdate()->firstOrFail();
             $promocion->update([
-                'nombre'         => $datos['nombre'],
-                'descripcion'    => $datos['descripcion'] ?? '',
-                'total'          => $this->calcularPrecioFinal($datos, $productos),
+                'nombre' => $datos['nombre'],
+                'descripcion' => $datos['descripcion'] ?? '',
+                'total' => $this->calcularPrecioFinal($datos, $productos),
                 'tipo_descuento' => $datos['tipo_descuento'],
                 'valor_descuento' => $datos['valor'],
                 'vigencia_desde' => $datos['vigencia_desde'],
                 'vigencia_hasta' => $datos['vigencia_hasta'],
-                'estado'         => ($datos['estado'] ?? 'activa') === 'activa' ? 1 : 0
+                'estado' => ($datos['estado'] ?? 'activa') === 'activa' ? 1 : 0,
             ]);
 
             DB::table('promocion_producto')->where('id_promocion', $id)->delete();
@@ -135,15 +144,16 @@ class PromocionController extends Controller
             foreach ($datos['productos'] as $prod) {
                 DB::table('promocion_producto')->insert([
                     'id_promocion' => $promocion->id_promocion,
-                    'id_producto'  => $prod['id_producto'],
-                    'cantidad'     => $prod['cantidad']
+                    'id_producto' => $prod['id_producto'],
+                    'cantidad' => $prod['cantidad'],
                 ]);
             }
             DB::commit();
 
-            return response()->json(['mensaje' => "Promoción actualizada"], 200);
+            return response()->json(['mensaje' => 'Promoción actualizada'], 200);
         } catch (\Exception $e) {
             DB::rollBack();
+
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
@@ -158,23 +168,23 @@ class PromocionController extends Controller
             'vigencia_desde' => ['required', 'date'],
             'vigencia_hasta' => ['required', 'date', 'after_or_equal:vigencia_desde'],
             'tipo_descuento' => ['required', Rule::in(['porcentaje', 'monto_fijo'])],
-            'valor' => ['required', 'numeric', 'min:0'],
+            'valor' => ['required', 'numeric', 'min:0', 'max:9999999999.99', 'decimal:0,2'],
             'estado' => ['sometimes', Rule::in(['activa', 'inactiva'])],
-            'productos' => ['required', 'array', 'min:1'],
+            'productos' => ['required', 'array', 'min:1', 'max:100'],
             // Validamos contra el catálogo elegido por ProductoGateway (mock o HTTP).
-            'productos.*.id_producto' => ['required', 'integer', Rule::in(array_column($todosLosProductos, 'id'))],
+            'productos.*.id_producto' => ['required', 'integer', 'distinct', Rule::in(array_column($todosLosProductos, 'id'))],
             'productos.*.cantidad' => ['required', 'integer', 'min:1', 'max:9999'],
         ]);
 
         if ($datos['tipo_descuento'] === 'porcentaje' && (float) $datos['valor'] > 100) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
+            throw ValidationException::withMessages([
                 'valor' => ['El porcentaje de descuento debe estar entre 0 y 100.'],
             ]);
         }
 
         if ($datos['tipo_descuento'] === 'monto_fijo') {
             $subtotal = 0.0;
-            foreach ($datos['productos'] as $productoPromo) {
+            foreach (collect($datos['productos'])->sortBy('id_producto') as $productoPromo) {
                 $producto = $productos->buscar((int) $productoPromo['id_producto']);
                 if ($producto !== null) {
                     $subtotal += (float) $producto['precioMin'] * (int) $productoPromo['cantidad'];
@@ -182,7 +192,7 @@ class PromocionController extends Controller
             }
 
             if ((float) $datos['valor'] > $subtotal) {
-                throw \Illuminate\Validation\ValidationException::withMessages([
+                throw ValidationException::withMessages([
                     'valor' => ['El descuento no puede ser mayor que el total de los productos.'],
                 ]);
             }
@@ -196,7 +206,7 @@ class PromocionController extends Controller
         $valor = (float) $datos['valor'];
         $lineas = [];
         $subtotal = 0.0;
-        foreach ($datos['productos'] as $productoPromo) {
+        foreach (collect($datos['productos'])->sortBy('id_producto') as $productoPromo) {
             $producto = $productos->buscar((int) $productoPromo['id_producto']);
             if ($producto !== null) {
                 $precio = (float) $producto['precioMin'];
@@ -223,7 +233,7 @@ class PromocionController extends Controller
             $descuentoRestante -= $descuentoAsignado;
 
             $descuentoUnitario = $linea['cantidad'] > 0
-                ? min($linea['precio'], round(($descuentoAsignado / 100) / $linea['cantidad'] * 100) / 100)
+                ? min($linea['precio'], floor($descuentoAsignado / $linea['cantidad']) / 100)
                 : 0;
             $precioConDescuento = max(0, $linea['precio'] - $descuentoUnitario);
             $totalFinal += round($precioConDescuento * $linea['cantidad'] * 100) / 100;
@@ -235,22 +245,21 @@ class PromocionController extends Controller
     // DELETE /api/promociones/{id}
     public function destroy($id)
     {
-        $promocion = Promocion::find($id);
-        if ($promocion) {
-            $promocion->estado = 0;
-            $promocion->save();
-        }
-        return response()->json(['mensaje' => "Promoción dada de baja"], 200);
+        DB::transaction(function () use ($id) {
+            Promocion::query()->whereKey($id)->lockForUpdate()->firstOrFail()->update(['estado' => 0]);
+        });
+
+        return response()->json(['mensaje' => 'Promoción dada de baja'], 200);
     }
 
     // PATCH /api/promociones/{id}/estado
     public function updateEstado(Request $request, $id)
     {
-        $promocion = Promocion::find($id);
-        if ($promocion) {
-            $promocion->estado = $request->input('estado', 'activa') === 'activa' ? 1 : 0;
-            $promocion->save();
-        }
-        return response()->json(['mensaje' => "Estado actualizado"], 200);
+        $datos = $request->validate(['estado' => ['required', 'in:activa,inactiva']]);
+        DB::transaction(function () use ($id, $datos) {
+            Promocion::query()->whereKey($id)->lockForUpdate()->firstOrFail()->update(['estado' => $datos['estado'] === 'activa' ? 1 : 0]);
+        });
+
+        return response()->json(['mensaje' => 'Estado actualizado'], 200);
     }
 }

@@ -14,7 +14,7 @@ class RendicionesEjemploSeeder extends Seeder
             DB::table('clientes')->insert([
                 ['nombre' => 'Almacén', 'apellido_razon_social' => 'Don Pepe S.R.L.', 'dni_cuit' => '30-71234567-9', 'telefono' => '1145678901', 'email' => 'donpepe@gmail.com', 'direccion' => 'Av. San Martín 1234', 'tipo_cliente' => 'minorista', 'estado' => 'activo', 'creado_por' => 1],
                 ['nombre' => 'Supermercado', 'apellido_razon_social' => 'El Triunfo S.A.', 'dni_cuit' => '30-89123456-2', 'telefono' => '1156789012', 'email' => 'eltriunfo@gmail.com', 'direccion' => 'Calle Belgrano 450', 'tipo_cliente' => 'mayorista', 'estado' => 'activo', 'creado_por' => 1],
-                ['nombre' => 'Autoservicio', 'apellido_razon_social' => 'La Esperanza', 'dni_cuit' => '20-33445566-8', 'telefono' => '1167890123', 'email' => 'laesperanza@gmail.com', 'direccion' => 'Rivadavia 890', 'tipo_cliente' => 'minorista', 'estado' => 'activo', 'creado_por' => 1]
+                ['nombre' => 'Autoservicio', 'apellido_razon_social' => 'La Esperanza', 'dni_cuit' => '20-33445566-8', 'telefono' => '1167890123', 'email' => 'laesperanza@gmail.com', 'direccion' => 'Rivadavia 890', 'tipo_cliente' => 'minorista', 'estado' => 'activo', 'creado_por' => 1],
             ]);
         }
 
@@ -24,7 +24,7 @@ class RendicionesEjemploSeeder extends Seeder
             'fecha_salida' => now()->format('Y-m-d'),
             'estado' => 'completada',
             'observaciones' => 'Reparto Zona Norte - Mañana',
-            'id_usuario_creacion' => 1
+            'id_usuario_creacion' => 1,
         ]);
 
         $e2 = DB::table('entrega')->insertGetId([
@@ -32,7 +32,7 @@ class RendicionesEjemploSeeder extends Seeder
             'fecha_salida' => now()->subDay()->format('Y-m-d'),
             'estado' => 'completada',
             'observaciones' => 'Reparto Zona Sur - Tarde',
-            'id_usuario_creacion' => 1
+            'id_usuario_creacion' => 1,
         ]);
 
         $e3 = DB::table('entrega')->insertGetId([
@@ -40,11 +40,11 @@ class RendicionesEjemploSeeder extends Seeder
             'fecha_salida' => now()->subDays(2)->format('Y-m-d'),
             'estado' => 'completada',
             'observaciones' => 'Reparto Centro Express',
-            'id_usuario_creacion' => 1
+            'id_usuario_creacion' => 1,
         ]);
 
         // 1. Rendición PENDIENTE
-        $r1 = DB::table('rendicion')->insertGetId([
+        $r1 = DB::table('RENDICION')->insertGetId([
             'id_repartidor' => 2,
             'id_entrega' => $e1,
             'fecha' => now(),
@@ -53,17 +53,17 @@ class RendicionesEjemploSeeder extends Seeder
             'observaciones' => 'Jornada completada sin incidentes de tránsito. Pendiente de arqueo físico.',
             'id_usuario_validador' => null,
             'fecha_validacion' => null,
-            'motivo_rechazo' => null
+            'motivo_rechazo' => null,
         ]);
 
-        DB::table('rendicion_cobro')->insert([
+        DB::table('RENDICION_COBRO')->insert([
             [
                 'id_rendicion' => $r1,
                 'id_cliente' => 1,
                 'id_factura' => 101,
                 'monto' => 45500.00,
                 'medio_pago' => 'efectivo',
-                'fecha_registro' => now()->subHours(4)
+                'fecha_registro' => now()->subHours(4),
             ],
             [
                 'id_rendicion' => $r1,
@@ -71,12 +71,12 @@ class RendicionesEjemploSeeder extends Seeder
                 'id_factura' => 102,
                 'monto' => 80000.00,
                 'medio_pago' => 'transferencia',
-                'fecha_registro' => now()->subHours(2)
-            ]
+                'fecha_registro' => now()->subHours(2),
+            ],
         ]);
 
         // 2. Rendición APROBADA
-        $r2 = DB::table('rendicion')->insertGetId([
+        $r2 = DB::table('RENDICION')->insertGetId([
             'id_repartidor' => 2,
             'id_entrega' => $e2,
             'fecha' => now()->subDay(),
@@ -85,17 +85,17 @@ class RendicionesEjemploSeeder extends Seeder
             'observaciones' => 'Rendición validada y arqueada con tesorería conforme.',
             'id_usuario_validador' => 1,
             'fecha_validacion' => now()->subDay()->addHours(3),
-            'motivo_rechazo' => null
+            'motivo_rechazo' => null,
         ]);
 
-        DB::table('rendicion_cobro')->insert([
+        DB::table('RENDICION_COBRO')->insert([
             [
                 'id_rendicion' => $r2,
                 'id_cliente' => 2,
                 'id_factura' => 95,
                 'monto' => 150000.00,
                 'medio_pago' => 'transferencia',
-                'fecha_registro' => now()->subDay()->subHours(3)
+                'fecha_registro' => now()->subDay()->subHours(3),
             ],
             [
                 'id_rendicion' => $r2,
@@ -103,12 +103,12 @@ class RendicionesEjemploSeeder extends Seeder
                 'id_factura' => 96,
                 'monto' => 80000.00,
                 'medio_pago' => 'efectivo',
-                'fecha_registro' => now()->subDay()->subHours(1)
-            ]
+                'fecha_registro' => now()->subDay()->subHours(1),
+            ],
         ]);
 
         // 3. Rendición RECHAZADA
-        $r3 = DB::table('rendicion')->insertGetId([
+        $r3 = DB::table('RENDICION')->insertGetId([
             'id_repartidor' => 2,
             'id_entrega' => $e3,
             'fecha' => now()->subDays(2),
@@ -117,17 +117,17 @@ class RendicionesEjemploSeeder extends Seeder
             'observaciones' => 'Faltante de $5.000 en el sobre de billetes respecto al ticket de remito.',
             'id_usuario_validador' => 1,
             'fecha_validacion' => now()->subDays(2)->addHours(4),
-            'motivo_rechazo' => 'Diferencia en caja física sin comprobante de ajuste.'
+            'motivo_rechazo' => 'Diferencia en caja física sin comprobante de ajuste.',
         ]);
 
-        DB::table('rendicion_cobro')->insert([
+        DB::table('RENDICION_COBRO')->insert([
             [
                 'id_rendicion' => $r3,
                 'id_cliente' => 1,
                 'id_factura' => 88,
                 'monto' => 34000.00,
                 'medio_pago' => 'efectivo',
-                'fecha_registro' => now()->subDays(2)->subHours(3)
+                'fecha_registro' => now()->subDays(2)->subHours(3),
             ],
             [
                 'id_rendicion' => $r3,
@@ -135,12 +135,12 @@ class RendicionesEjemploSeeder extends Seeder
                 'id_factura' => 89,
                 'monto' => 20000.00,
                 'medio_pago' => 'cheque',
-                'fecha_registro' => now()->subDays(2)->subHours(2)
-            ]
+                'fecha_registro' => now()->subDays(2)->subHours(2),
+            ],
         ]);
 
         // 4. Rendición PENDIENTE con Cobro Mixto y Cheque
-        $r4 = DB::table('rendicion')->insertGetId([
+        $r4 = DB::table('RENDICION')->insertGetId([
             'id_repartidor' => 2,
             'id_entrega' => null,
             'fecha' => now()->subHours(1),
@@ -149,17 +149,17 @@ class RendicionesEjemploSeeder extends Seeder
             'observaciones' => 'Cobros de clientes directos en reparto express.',
             'id_usuario_validador' => null,
             'fecha_validacion' => null,
-            'motivo_rechazo' => null
+            'motivo_rechazo' => null,
         ]);
 
-        DB::table('rendicion_cobro')->insert([
+        DB::table('RENDICION_COBRO')->insert([
             [
                 'id_rendicion' => $r4,
                 'id_cliente' => 3,
                 'id_factura' => 105,
                 'monto' => 42000.00,
                 'medio_pago' => 'efectivo',
-                'fecha_registro' => now()->subMinutes(45)
+                'fecha_registro' => now()->subMinutes(45),
             ],
             [
                 'id_rendicion' => $r4,
@@ -167,9 +167,8 @@ class RendicionesEjemploSeeder extends Seeder
                 'id_factura' => 106,
                 'monto' => 50000.00,
                 'medio_pago' => 'cheque',
-                'fecha_registro' => now()->subMinutes(30)
-            ]
+                'fecha_registro' => now()->subMinutes(30),
+            ],
         ]);
     }
 }
-

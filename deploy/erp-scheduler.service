@@ -1,0 +1,11 @@
+[Unit]
+Description=ERP Juan23 Laravel Scheduler
+After=network.target
+
+[Service]
+Type=oneshot
+User=www-data
+WorkingDirectory=/var/www/erp
+ExecStart=/usr/bin/php artisan schedule:run --no-interaction
+PrivateTmp=true
+NoNewPrivileges=true

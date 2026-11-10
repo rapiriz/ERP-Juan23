@@ -4,6 +4,7 @@
 
 @section('content')
     @include('reports.partials.navigation')
+    @include('reports.partials.exports', ['report' => 'client-product-reach', 'ready' => $ready && $producto !== null])
     <section class="page-heading">
         <p class="eyebrow">Reportes</p>
         <h1>Clientes por producto</h1>

@@ -1,9 +1,11 @@
 <?php
 
 use App\Http\Middleware\PresentG2Rendiciones;
+use App\Http\Middleware\RedactServerErrors;
 use App\Modules\Login\Middleware\AuthenticateApiRequest;
 use App\Modules\Login\Middleware\EnsureApiAudience;
 use App\Modules\Login\Middleware\EnsureApiUser;
+use App\Modules\Login\Middleware\EnsureApiWriteUser;
 use App\Modules\Login\Middleware\EnsureCurrentSession;
 use App\Modules\Login\Middleware\EnsureRole;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -21,13 +23,15 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->web(append: [PresentG2Rendiciones::class]);
+        $middleware->web(append: [PresentG2Rendiciones::class, RedactServerErrors::class]);
+        $middleware->api(append: [RedactServerErrors::class]);
         $middleware->alias([
             'session.current' => EnsureCurrentSession::class,
             'role' => EnsureRole::class,
             'api.access' => AuthenticateApiRequest::class,
             'api.audience' => EnsureApiAudience::class,
             'api.user' => EnsureApiUser::class,
+            'api.write.user' => EnsureApiWriteUser::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

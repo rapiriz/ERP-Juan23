@@ -1,16 +1,20 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Modules\Compras\Models;
 
 use App\Modules\Productos\Models\Producto;
+use App\Modules\Stock\Models\UnidadMedida;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class DetalleCompra extends Model
 {
-    protected $table = 'DETALLE_COMPRA';
+    protected $table = 'detalle_compra';
+
     protected $primaryKey = 'id_detalle_compra';
+
     public $timestamps = false;
 
     protected $fillable = [
@@ -39,5 +43,10 @@ class DetalleCompra extends Model
     public function producto(): BelongsTo
     {
         return $this->belongsTo(Producto::class, 'id_producto', 'id_producto');
+    }
+
+    public function unidad()
+    {
+        return $this->belongsTo(UnidadMedida::class, 'id_unidad', 'id_unidad');
     }
 }

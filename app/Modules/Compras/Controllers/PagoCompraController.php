@@ -1,9 +1,11 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Modules\Compras\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Compras\Models\PagoProveedor;
 use App\Modules\Compras\Services\PagoCompraService;
 use App\Support\UsuarioActual;
 use Illuminate\Http\JsonResponse;
@@ -19,50 +21,60 @@ use RuntimeException;
  */
 class PagoCompraController extends Controller
 {
-    public function __construct(private PagoCompraService $service)
+    public function destroy(Request $request, int $compra, int $pago): JsonResponse
     {
+        $request->validate(['motivo' => 'sometimes|required|string|min:3|max:1000']);
+        $result = $this->service->anular($compra, $pago, UsuarioActual::id($request),
+            $request->input('motivo', 'Anulación administrativa de pago'));
+        return response()->json(['status' => 'success', 'message' => 'Pago anulado; el original y su auditoría se conservan.', 'data' => $result]);
     }
+    public function __construct(private PagoCompraService $service) {}
 
     /**
      * Registrar un pago de la compra.
      */
     public function store(Request $request, int $compra): JsonResponse
     {
-        if (!$request->has('importe') && $request->has('monto')) {
+        $multiple = $request->has('pagos');
+        if ($multiple && ($request->has('importe') || $request->has('monto') || $request->has('metodo_pago'))) {
+            return response()->json(['status' => 'error', 'message' => 'Enviá pagos o un pago individual, sin mezclar ambos formatos.'], 400);
+        }
+        if ($multiple && is_array($request->input('pagos'))) {
+            $request->merge(['pagos' => array_map(fn ($p) => is_array($p) ? [
+                'metodo_pago' => $p['metodo_pago'] ?? null,
+                'importe' => $p['importe'] ?? $p['monto'] ?? null,
+                'fecha_pago' => $p['fecha_pago'] ?? $p['fecha'] ?? now()->toDateString(),
+            ] : $p, $request->input('pagos'))]);
+        } elseif (! $multiple && ! $request->has('importe') && $request->has('monto')) {
             $request->merge(['importe' => $request->input('monto')]);
         }
-        if ($request->has('pagos') && is_array($request->input('pagos')) && count($request->input('pagos')) > 0 && !$request->has('metodo_pago')) {
-            $primerPago = $request->input('pagos')[0];
-            $request->merge([
-                'metodo_pago' => $primerPago['metodo_pago'] ?? null,
-                'importe' => $primerPago['importe'] ?? ($primerPago['monto'] ?? null),
-                'fecha_pago' => $primerPago['fecha_pago'] ?? ($primerPago['fecha'] ?? null),
-            ]);
-        }
 
-        $validator = Validator::make($request->all(), [
-            'metodo_pago' => 'required|string|in:' . implode(',', \App\Modules\Compras\Models\PagoProveedor::METODOS),
-            'importe' => 'required|numeric|min:0.01',
+        $singleRules = [
+            'metodo_pago' => 'required|string|in:'.implode(',', PagoProveedor::METODOS),
+            'importe' => 'required|numeric|min:0.01|max:9999999999.99|decimal:0,2',
             'fecha_pago' => 'nullable|date|before_or_equal:today',
-        ], [
-            'metodo_pago.required' => 'Debe indicar el método de pago.',
-            'metodo_pago.in' => 'El método de pago no es válido.',
-            'importe.required' => 'Debe indicar el importe del pago.',
-            'importe.numeric' => 'El importe debe ser numérico.',
-            'importe.min' => 'El importe del pago debe ser mayor a cero.',
-            'fecha_pago.before_or_equal' => 'La fecha de pago no puede ser posterior a la fecha actual.',
-        ]);
+        ];
+        $rules = $singleRules;
+        if ($multiple) {
+            $rules = ['pagos' => 'required|array|min:1|max:100', 'pagos.*' => 'required|array'];
+            foreach ($singleRules as $field => $rule) {
+                $rules['pagos.*.'.$field] = $rule;
+            }
+        }
+        $validator = Validator::make($request->all(), $rules);
 
         if ($validator->fails()) {
             return response()->json(['status' => 'error', 'message' => $validator->errors()->first()], 400);
         }
 
         try {
-            $resultado = $this->service->registrar($compra, [
-                'metodo_pago' => $validator->validated()['metodo_pago'],
-                'importe' => $validator->validated()['importe'],
-                'fecha_pago' => $validator->validated()['fecha_pago'] ?? now()->toDateString(),
-            ], UsuarioActual::id($request));
+            $valid = $validator->validated();
+            $resultado = $multiple
+                ? $this->service->registrarMultiples($compra, $valid['pagos'], UsuarioActual::id($request))
+                : $this->service->registrar($compra, [
+                    'metodo_pago' => $valid['metodo_pago'], 'importe' => $valid['importe'],
+                    'fecha_pago' => $valid['fecha_pago'] ?? now()->toDateString(),
+                ], UsuarioActual::id($request));
 
             return response()->json([
                 'status' => 'success',
@@ -74,7 +86,7 @@ class PagoCompraController extends Controller
         } catch (\Throwable $e) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Error al registrar el pago: ' . $e->getMessage(),
+                'message' => 'Error al registrar el pago: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -94,7 +106,7 @@ class PagoCompraController extends Controller
         } catch (\Throwable $e) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Error al consultar los pagos: ' . $e->getMessage(),
+                'message' => 'Error al consultar los pagos: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -123,7 +135,7 @@ class PagoCompraController extends Controller
         } catch (\Throwable $e) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Error al consultar el resumen de pagos: ' . $e->getMessage(),
+                'message' => 'Error al consultar el resumen de pagos: '.$e->getMessage(),
             ], 500);
         }
     }

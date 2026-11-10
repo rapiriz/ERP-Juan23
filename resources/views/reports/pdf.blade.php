@@ -11,11 +11,16 @@
         th, td { border: 1px solid #d7dce2; padding: 7px; text-align: left; }
         tr:nth-child(even) td { background: #f4f7fb; }
         .empty { padding: 18px; border: 1px solid #d7dce2; }
+        .summary { margin-bottom: 16px; }
+        .summary td:first-child { width: 45%; font-weight: bold; }
     </style>
 </head>
 <body>
     <h1>{{ $title }}</h1>
     <p>Generado el {{ now()->format('d/m/Y H:i') }}</p>
+    @if(!empty($summary))
+        <table class="summary"><tbody>@foreach($summary as $label => $value)<tr><td>{{ $label }}</td><td>{{ $value }}</td></tr>@endforeach</tbody></table>
+    @endif
     @if ($rows === [])
         <div class="empty">No hay datos para los filtros seleccionados.</div>
     @else

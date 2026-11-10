@@ -47,7 +47,7 @@
         container.replaceChildren(...rows.map(row => {
             const label = document.createElement('label'); label.className = 'cat-category';
             const input = document.createElement('input'); input.type = 'radio'; input.name = 'categoria'; input.value = row.id; input.checked = row.id === selected;
-            const name = document.createElement('span'); name.textContent = row.nombre;
+            const name = document.createElement('span'); name.textContent = row.nombre; name.setAttribute('style', 'padding-left:' + String(Math.max(0, Math.min(7, Number(row.profundidad) || 0)) * 12) + 'px');
             const count = document.createElement('small'); count.textContent = row.cantidad === null ? 'Todas' : String(row.cantidad);
             label.append(input, name, count); return label;
         }));

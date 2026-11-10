@@ -5,9 +5,9 @@ namespace App\Modules\Clientes\Models;
 use App\Modules\Clientes\Enums\ClientStatus;
 use App\Modules\Clientes\Enums\ClientType;
 use App\Modules\Clientes\Services\ClientFields;
+use App\Modules\ConciliacionBancaria\Repositories\Cobro;
 use App\Modules\Login\Models\User;
 use App\Modules\Reclamos\Models\Reclamo;
-use App\Modules\Ventas\Models\Cobro;
 use App\Modules\Ventas\Models\Venta;
 use Database\Factories\ClienteFactory;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
@@ -40,6 +40,7 @@ class Cliente extends Model
         'zona_id',
         'condicion_iva',
         'saldo',
+        'limite_credito',
     ];
 
     protected static function booted(): void
@@ -83,6 +84,7 @@ class Cliente extends Model
             'tipo_cliente' => ClientType::class,
             'estado' => ClientStatus::class,
             'saldo' => 'decimal:2',
+            'limite_credito' => 'decimal:2',
         ];
     }
 
@@ -103,11 +105,11 @@ class Cliente extends Model
 
     public function ventas(): HasMany
     {
-        return $this->hasMany(Venta::class, 'cliente_id');
+        return $this->hasMany(Venta::class, 'id_cliente');
     }
 
     public function cobros(): HasMany
     {
-        return $this->hasMany(Cobro::class, 'cliente_id');
+        return $this->hasMany(Cobro::class, 'id_cliente');
     }
 }

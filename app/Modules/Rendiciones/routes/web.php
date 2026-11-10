@@ -1,5 +1,6 @@
 <?php
 
+use App\Modules\Rendiciones\Controllers\CollectionOperationsController;
 use App\Modules\Rendiciones\Controllers\RendicionController;
 use App\Modules\Shared\Http\Middleware\G2Access;
 use App\Modules\Shared\Http\Middleware\G2OwnsRecord;
@@ -8,6 +9,11 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'session.current', G2Access::class.':admin,repartidor', G2SchemaReady::class.':rendiciones'])->group(function () {
     Route::view('/rendiciones', 'rendiciones.index')->name('rendiciones.index');
+    Route::get('/cobros', [CollectionOperationsController::class, 'index'])->middleware(G2Access::class.':admin')->name('cobros.index');
+    Route::post('/cobros/declarados/{id}/aplicar', [CollectionOperationsController::class, 'apply'])->whereNumber('id')->middleware(G2Access::class.':admin');
+    Route::post('/cobros/declarados/{id}/cheque', [CollectionOperationsController::class, 'details'])->whereNumber('id')->middleware(G2Access::class.':admin');
+    Route::post('/cobros/{id}/anular', [CollectionOperationsController::class, 'cancel'])->whereNumber('id')->middleware(G2Access::class.':admin');
+    Route::post('/g2/api/cobros/{id}/anular', [CollectionOperationsController::class, 'cancel'])->whereNumber('id')->middleware(G2Access::class.':admin');
     Route::prefix('g2/api/rendiciones')->group(function () {
         Route::get('/', [RendicionController::class, 'index']);
         Route::get('/historial', [RendicionController::class, 'index']);
@@ -22,6 +28,7 @@ Route::middleware(['auth', 'session.current', G2Access::class.':admin,repartidor
         Route::post('/{id}/cobros', [RendicionController::class, 'agregarCobro'])->whereNumber('id')->middleware(G2OwnsRecord::class.':rendicion');
         Route::post('/{id}/devoluciones', [RendicionController::class, 'registrarDevolucion'])->whereNumber('id')->middleware(G2OwnsRecord::class.':rendicion');
         Route::post('/{id}/diferencias', [RendicionController::class, 'registrarDiferencia'])->whereNumber('id')->middleware(G2OwnsRecord::class.':rendicion');
+        Route::patch('/{id}/diferencias/{diferencia}/resolver', [RendicionController::class, 'resolverDiferencia'])->whereNumber(['id', 'diferencia'])->middleware([G2Access::class.':admin', G2OwnsRecord::class.':rendicion']);
         Route::patch('/{id}/cerrar', [RendicionController::class, 'cerrar'])->whereNumber('id')->middleware(G2OwnsRecord::class.':rendicion');
         Route::patch('/{id}/revisar', [RendicionController::class, 'revisar'])->whereNumber('id')->middleware([G2Access::class.':admin', G2OwnsRecord::class.':rendicion']);
     });

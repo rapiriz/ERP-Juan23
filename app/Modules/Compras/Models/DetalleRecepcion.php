@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Modules\Compras\Models;
@@ -9,8 +10,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class DetalleRecepcion extends Model
 {
-    protected $table = 'DETALLE_RECEPCION';
+    protected $table = 'detalle_recepcion';
+
     protected $primaryKey = 'id_det_rec';
+
     public $timestamps = false;
 
     protected $fillable = [

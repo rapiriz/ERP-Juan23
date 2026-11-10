@@ -2,6 +2,7 @@
 
 namespace App\Modules\Entregas\Integraciones;
 
+use App\Services\Integrations\InternalApiClient;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -11,7 +12,7 @@ use UnexpectedValueException;
 /**
  * Cliente HTTP del módulo G2 para consumir la API de Ventas (G4).
  * Diseñado bajo principios de resiliencia y desacoplamiento:
- * - Solo peticiones HTTP (sin acceso a tablas de otros grupos).
+ * - Consume las rutas API: transporte interno o HTTP, sin acceso directo a tablas de Ventas.
  * - Timeouts breves y política de reintentos ante fallas efímeras.
  * - Graceful degradation: captura errores de conexión y 5xx registrando logs.
  */
@@ -29,6 +30,10 @@ class VentasApiClient
 
     public function isConfigured(): bool
     {
+        if (config('g2.transport') === 'internal') {
+            return true;
+        }
+
         try {
             return $this->getBaseUrl() !== '';
         } catch (Throwable) {
@@ -36,8 +41,12 @@ class VentasApiClient
         }
     }
 
-    private function http(): PendingRequest
+    private function http(): PendingRequest|InternalApiClient
     {
+        if (config('g2.transport') === 'internal') {
+            return new InternalApiClient(config('g2.ventas_token') ?: config('services.internal_api.token'));
+        }
+
         $timeout = (int) (config('g2.timeout') ?: 3);
 
         $request = Http::baseUrl($this->getBaseUrl())
@@ -60,13 +69,14 @@ class VentasApiClient
 
         try {
             do {
-                $response = $this->http()->get('ventas', array_filter(['estado' => 'confirmada', 'id_zona' => $idZona, 'page' => $page]));
+                $response = $this->http()->get(config('g2.transport') === 'internal' ? '/api/ventas' : 'ventas', array_filter(['estado' => 'confirmada', 'id_zona' => $idZona, 'page' => $page]));
 
                 if ($response->failed()) {
                     Log::warning("G2 - VentasApiClient: Error al consultar ventas pendientes (HTTP {$response->status()}).", [
                         'status' => $response->status(),
                         'body' => $response->body(),
                     ]);
+
                     return [];
                 }
 
@@ -87,7 +97,8 @@ class VentasApiClient
         } catch (UnexpectedValueException $e) {
             throw $e;
         } catch (Throwable $e) {
-            Log::warning('G2 - VentasApiClient: Excepción al comunicarse con Ventas (G4): ' . $e->getMessage());
+            Log::warning('G2 - VentasApiClient: Excepción al comunicarse con Ventas (G4): '.$e->getMessage());
+
             return [];
         }
 
@@ -108,11 +119,12 @@ class VentasApiClient
     {
         if (! $this->isConfigured()) {
             Log::warning("G2 - VentasApiClient: No se puede obtener venta #{$id} porque la conexión no está configurada.");
+
             return null;
         }
 
         try {
-            $response = $this->http()->get("ventas/{$id}");
+            $response = $this->http()->get(config('g2.transport') === 'internal' ? "/api/ventas/{$id}" : "ventas/{$id}");
 
             if ($response->status() === 404) {
                 return null;
@@ -122,24 +134,28 @@ class VentasApiClient
                 Log::warning("G2 - VentasApiClient: Error HTTP {$response->status()} al consultar venta #{$id}.", [
                     'body' => $response->body(),
                 ]);
+
                 return null;
             }
 
             $body = $response->json();
             if (($body['error'] ?? false) || ! is_array($body['data'] ?? $body)) {
                 Log::warning("G2 - VentasApiClient: Venta #{$id} devuelta con estructura incompatible.");
+
                 return null;
             }
 
             $sale = $this->normalizar($body['data'] ?? $body);
             if ($sale['id_venta'] !== $id) {
                 Log::warning("G2 - VentasApiClient: El ID devuelto ({$sale['id_venta']}) no coincide con el solicitado ({$id}).");
+
                 return null;
             }
 
             return $sale;
         } catch (Throwable $e) {
-            Log::warning("G2 - VentasApiClient: Excepción al obtener venta #{$id}: " . $e->getMessage());
+            Log::warning("G2 - VentasApiClient: Excepción al obtener venta #{$id}: ".$e->getMessage());
+
             return null;
         }
     }
@@ -152,22 +168,25 @@ class VentasApiClient
     {
         if (! $this->isConfigured()) {
             Log::warning("G2 - VentasApiClient: No se pudo actualizar estado de venta #{$id} a '{$estado}': conexión no configurada.");
+
             return false;
         }
 
         try {
-            $response = $this->http()->patch("ventas/{$id}/estado", ['estado' => $estado]);
+            $response = $this->http()->patch(config('g2.transport') === 'internal' ? "/api/ventas/{$id}/estado" : "ventas/{$id}/estado", ['estado' => $estado]);
 
             if ($response->failed() || $response->json('error') === true) {
                 Log::warning("G2 - VentasApiClient: Ventas no aceptó actualizar venta #{$id} a '{$estado}' (HTTP {$response->status()}).", [
                     'body' => $response->body(),
                 ]);
+
                 return false;
             }
 
             return true;
         } catch (Throwable $e) {
-            Log::warning("G2 - VentasApiClient: Excepción al actualizar estado de venta #{$id}: " . $e->getMessage());
+            Log::warning("G2 - VentasApiClient: Excepción al actualizar estado de venta #{$id}: ".$e->getMessage());
+
             return false;
         }
     }

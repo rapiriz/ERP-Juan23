@@ -2,12 +2,11 @@
 
 namespace App\Modules\Ventas\Resources;
 
-use App\Modules\Login\Models\User;
+use App\Modules\Shared\Services\UsuarioService;
 use App\Modules\Ventas\Contracts\ClienteGateway;
 use App\Modules\Ventas\Contracts\ProductoGateway;
 use App\Modules\Ventas\Enums\EstadoVenta;
 use App\Modules\Ventas\Models\VentaHistorial;
-use App\Modules\Shared\Services\UsuarioService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\DB;
@@ -43,15 +42,21 @@ class VentaResource extends JsonResource
         $cliente = app(ClienteGateway::class)->buscar((int) $this->id_cliente);
         $estado = EstadoVenta::desdeTexto($this->estado);
         $acciones = EstadoVenta::accionesPara($this->estado);
+        $delivery = DB::table('entrega_pedido')->where('id_venta', $this->id_venta)->value('id_entrega');
+        $hasReturns = DB::table('g4_devoluciones')->where('venta_id', $this->id_venta)->exists();
 
         return [
+            'stock_estado' => DB::table('g4_stock_operations')->where('venta_id', $this->id_venta)->where('estado', 'pendiente')->exists() ? 'pendiente' : 'sin_pendientes',
             'id' => (int) $this->id_venta,
+            'entrega_asignada' => $delivery ? (int) $delivery : null,
+            'id_zona' => $cliente['zona_id'] ?? null,
             'numero_comprobante' => $this->numFactura,
             'fecha' => substr((string) $this->fecha, 0, 10),
             'cliente' => [
                 'id' => (int) $this->id_cliente,
                 'nombre' => $cliente['nombre'] ?? "Cliente #{$this->id_cliente}",
                 'cuit' => $cliente['cuit'] ?? null,
+                'zona_id' => $cliente['zona_id'] ?? null,
             ],
             'usuario' => [
                 'id' => (int) $this->id_usuario,
@@ -67,9 +72,9 @@ class VentaResource extends JsonResource
             'cantidad_articulos' => (int) $this->detalles->sum('cantidad'),
             'detalles' => $this->detalles->map(fn ($d) => $this->detalle($d))->values()->all(),
             'acciones' => [
-                'puede_modificar' => $acciones['puede_modificar'],
-                'puede_eliminar' => $acciones['puede_eliminar'],
-                'puede_restaurar' => $acciones['puede_restaurar'],
+                'puede_modificar' => ! $delivery && ! $hasReturns && $acciones['puede_modificar'],
+                'puede_eliminar' => ! $delivery && ! $hasReturns && $acciones['puede_eliminar'],
+                'puede_restaurar' => ! $delivery && ! $hasReturns && $acciones['puede_restaurar'],
             ],
             // whenLoaded: el historial solo aparece si se cargó (en el listado no, para que sea liviano).
             'historial' => $this->whenLoaded('historial', fn () => $this->historial->map(fn (VentaHistorial $h) => [
@@ -95,6 +100,8 @@ class VentaResource extends JsonResource
             : null;
 
         return [
+            'id_detalle' => (int) $d->id_detalle,
+            'cantidad_devuelta' => (int) DB::table('g4_devolucion_detalles')->where('detalle_venta_id', $d->id_detalle)->sum('cantidad'),
             'id_producto' => (int) $d->id_producto,
             'id_promocion' => $d->id_promocion ? (int) $d->id_promocion : null,
             'promocion' => $promocion,

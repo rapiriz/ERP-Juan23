@@ -16,8 +16,8 @@
                 try { sessionStorage.setItem(collapsedKey, String(collapsed)); } catch (_) { /* Opcional. */ }
             }
         };
-        let collapsed = false;
-        try { collapsed = sessionStorage.getItem(collapsedKey) === 'true'; } catch (_) { /* Abierto por defecto. */ }
+        let collapsed = typeof window !== 'undefined' && !!window.matchMedia?.('(max-width: 760px)').matches;
+        try { const saved = sessionStorage.getItem(collapsedKey); if (saved !== null) collapsed = saved === 'true'; } catch (_) { /* Abierto por defecto. */ }
         setCollapsed(collapsed);
         toggle.hidden = false;
         toggle.addEventListener('click', () => setCollapsed(!document.body.classList.contains('erp-sidebar-collapsed'), true));

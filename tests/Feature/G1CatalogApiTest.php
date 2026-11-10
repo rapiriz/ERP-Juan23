@@ -6,6 +6,7 @@ use App\Modules\Catalogo\Services\CatalogoGateway;
 use App\Modules\Catalogo\Services\InternalCatalogApi;
 use App\Modules\Login\Models\User;
 use App\Modules\Productos\Controllers\ProductoController;
+use App\Modules\Productos\Middleware\AuthorizeProductInternals;
 use Closure;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Http\Request;
@@ -113,7 +114,7 @@ class G1CatalogApiTest extends TestCase
         $response = app(InternalCatalogApi::class)->get('/api/v1/productos');
         $this->assertSame(403, $response->status(), $response->body());
         $this->assertContains(DenyCatalogApiFixture::class, $route->gatherMiddleware());
-        $this->assertContains(StartSession::class, $route->gatherMiddleware());
+        $this->assertContains(AuthorizeProductInternals::class, $route->gatherMiddleware());
     }
 
     public function test_catalog_consumption_inside_a_private_g1_page_preserves_login_and_request(): void

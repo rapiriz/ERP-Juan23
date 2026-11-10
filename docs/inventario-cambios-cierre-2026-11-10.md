@@ -1,0 +1,113 @@
+# Archivos intervenidos en el cierre del 10/11/2026
+
+Comparación con `codigo-antes.json`/`codigo-antes.privado.zip`, tomados al comenzar esta etapa. No es un diff contra HEAD: había cientos de cambios anteriores que se preservaron. Se excluyen dependencias instaladas, Git, cachés y almacenamiento de ejecución; se incluyen assets compilados y licencias. La fila de este inventario se identifica expresamente porque se genera después de la comparación.
+
+La configuración `.env` conserva la misma huella que al inicio. No se retiraron archivos fuente históricos por mera antigüedad; sólo se archivó fuera del proyecto la imagen generada exclusivamente para QA, sin referencias desde los productos reales. Los archivos privados de evidencia y respaldos están fuera de este paquete.
+
+Ver [causa, corrección, pruebas y reversión](informe-cierre-pendientes-y-revision-2026-11-10.md).
+
+| Estado | Archivo |
+|---|---|
+| modificado | `.github/workflows/validation.yml` |
+| modificado | `.gitignore` |
+| modificado | `README.md` |
+| modificado | `app/Console/Commands/SchemaInventory.php` |
+| modificado | `app/Modules/Caja/Services/CajaService.php` |
+| modificado | `app/Modules/Catalogo/routes/web.php` |
+| modificado | `app/Modules/Compras/Controllers/CompraController.php` |
+| modificado | `app/Modules/Compras/Controllers/PagoCompraController.php` |
+| modificado | `app/Modules/Compras/Controllers/RecepcionController.php` |
+| modificado | `app/Modules/Compras/Models/Compra.php` |
+| modificado | `app/Modules/Compras/Models/PagoProveedor.php` |
+| modificado | `app/Modules/Compras/Repositories/PagoProveedorRepository.php` |
+| modificado | `app/Modules/Compras/Services/PagoCompraService.php` |
+| nuevo | `app/Modules/Compras/Services/PurchaseLifecycle.php` |
+| nuevo | `app/Modules/Compras/database/migrations/2026_11_10_000002_preserve_supplier_payment_reversals.php` |
+| nuevo | `app/Modules/CuentaCorriente/Services/CreditNoteEvidence.php` |
+| modificado | `app/Modules/CuentaCorriente/Services/SalePaymentEvidence.php` |
+| modificado | `app/Modules/PedidosDeCompra/Controllers/OrdenCompraController.php` |
+| modificado | `app/Modules/PedidosDeCompra/Controllers/SugerenciasReposicionController.php` |
+| modificado | `app/Modules/PedidosDeCompra/Models/OrdenCompra.php` |
+| modificado | `app/Modules/PedidosDeCompra/Repositories/SugerenciaCompraRepository.php` |
+| modificado | `app/Modules/PedidosDeCompra/Services/GeneradorSugerenciasReposicionService.php` |
+| modificado | `app/Modules/PedidosDeCompra/Services/PurchaseOrderProgress.php` |
+| modificado | `app/Modules/Productos/Controllers/MarcaController.php` |
+| modificado | `app/Modules/Productos/Controllers/ProductoController.php` |
+| modificado | `app/Modules/Productos/Models/Producto.php` |
+| nuevo | `app/Modules/Productos/database/migrations/2026_11_10_000001_add_cierre_parcial_to_compra_y_orden_table.php` |
+| modificado | `app/Modules/Productos/routes/api.php` |
+| modificado | `app/Modules/Productos/routes/web.php` |
+| modificado | `app/Modules/Proveedores/Controllers/HistorialPrecioController.php` |
+| modificado | `app/Modules/Proveedores/Controllers/ProveedorController.php` |
+| modificado | `app/Modules/Shared/Controllers/OperationsController.php` |
+| modificado | `app/Modules/Shared/Services/FinancialIntegrityReview.php` |
+| nuevo | `app/Modules/Shared/Services/HistoricalSchemaReview.php` |
+| modificado | `app/Modules/Stock/Controllers/AjusteStockController.php` |
+| modificado | `app/Modules/Stock/Controllers/DevolucionController.php` |
+| modificado | `app/Modules/Stock/Controllers/IngresoMercaderiaController.php` |
+| modificado | `app/Modules/Stock/Controllers/StockController.php` |
+| modificado | `app/Modules/Stock/Controllers/UnidadController.php` |
+| modificado | `app/Modules/Stock/Controllers/VentaStockController.php` |
+| modificado | `app/Modules/Ventas/Services/CreditLimitService.php` |
+| modificado | `docs/api-rutas-registradas.md` |
+| modificado | `docs/contrato-api-g1.md` |
+| modificado | `docs/contrato-api-g3.md` |
+| modificado | `docs/indice-informes.md` |
+| nuevo | `docs/informe-cierre-pendientes-y-revision-2026-11-10.md` |
+| modificado | `docs/informe-validacion-preparacion-y-repaso-2026-11-09.md` |
+| nuevo | `docs/revision-issues-y-ramas-2026-11-10.md` |
+| modificado | `docs/validacion-y-despliegue.md` |
+| nuevo | `public/assets/css/erp-theme.css` |
+| nuevo | `public/assets/vendor/bootstrap.bundle.min.js` |
+| nuevo | `public/assets/vendor/chart.umd.js` |
+| nuevo | `public/assets/vendor/fontawesome/css/all.min.css` |
+| nuevo | `public/assets/vendor/fontawesome/webfonts/fa-brands-400.ttf` |
+| nuevo | `public/assets/vendor/fontawesome/webfonts/fa-brands-400.woff2` |
+| nuevo | `public/assets/vendor/fontawesome/webfonts/fa-regular-400.ttf` |
+| nuevo | `public/assets/vendor/fontawesome/webfonts/fa-regular-400.woff2` |
+| nuevo | `public/assets/vendor/fontawesome/webfonts/fa-solid-900.ttf` |
+| nuevo | `public/assets/vendor/fontawesome/webfonts/fa-solid-900.woff2` |
+| nuevo | `public/assets/vendor/fontawesome/webfonts/fa-v4compatibility.ttf` |
+| nuevo | `public/assets/vendor/fontawesome/webfonts/fa-v4compatibility.woff2` |
+| nuevo | `public/assets/vendor/g3-utilities.css` |
+| nuevo | `public/assets/vendor/licenses/bootstrap.txt` |
+| nuevo | `public/assets/vendor/licenses/chart.js.txt` |
+| nuevo | `public/assets/vendor/licenses/fortawesome-fontawesome-free.txt` |
+| nuevo | `public/assets/vendor/licenses/lucide.txt` |
+| nuevo | `public/assets/vendor/licenses/tailwindcss.txt` |
+| nuevo | `public/assets/vendor/lucide.min.js` |
+| nuevo | `public/assets/vendor/manifest.json` |
+| modificado | `resources/views/caja/cierres.blade.php` |
+| modificado | `resources/views/caja/pdf-cierre.blade.php` |
+| modificado | `resources/views/caja/pdf-cierres.blade.php` |
+| modificado | `resources/views/compras/index.blade.php` |
+| modificado | `resources/views/dashboard-reposicion.blade.php` |
+| modificado | `resources/views/layouts/app.blade.php` |
+| modificado | `resources/views/layouts/g3.blade.php` |
+| modificado | `resources/views/operaciones/historicas.blade.php` |
+| modificado | `routes/api.php` |
+| modificado | `routes/web.php` |
+| nuevo | `scripts/audit-routes.php` |
+| modificado | `scripts/audit-source.php` |
+| nuevo | `scripts/compare-test-databases.php` |
+| nuevo | `scripts/migrate-test-database.php` |
+| nuevo | `scripts/package-release.py` |
+| modificado | `scripts/start-browser-qa.py` |
+| nuevo | `tests/Browser/completion.cjs` |
+| modificado | `tests/Browser/package.json` |
+| modificado | `tests/Browser/seed.php` |
+| modificado | `tests/Feature/CatalogLotsAndOrdersMySqlTest.php` |
+| modificado | `tests/Feature/CommercialCompletionMySqlTest.php` |
+| nuevo | `tests/Feature/CorreccionesLogicaComprasDistribuidoraTest.php` |
+| nuevo | `tests/Feature/FinalClosureMySqlTest.php` |
+| modificado | `tests/Feature/G3G4OperationsMySqlTest.php` |
+| modificado | `tests/Feature/OperationsConsistencyMySqlTest.php` |
+| modificado | `tests/Feature/ProductoCostoRecargoTest.php` |
+| nuevo | `tests/Feature/SupplierPaymentReversalMySqlTest.php` |
+| modificado | `tests/Feature/UserStoriesFrontendTest.php` |
+| nuevo | `tools/frontend/build.cjs` |
+| nuevo | `tools/frontend/package-lock.json` |
+| nuevo | `tools/frontend/package.json` |
+| nuevo | `tools/frontend/src/g3.css` |
+| nuevo | `tools/frontend/tailwind.config.cjs` |
+| nuevo | `docs/inventario-cambios-cierre-2026-11-10.md` (este inventario) |

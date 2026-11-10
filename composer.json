@@ -3,7 +3,12 @@
     "name": "g1/erp-juan23",
     "type": "project",
     "description": "ERP comercial migrado a Laravel 12.",
-    "keywords": ["laravel", "erp", "clientes", "reclamos"],
+    "keywords": [
+        "laravel",
+        "erp",
+        "clientes",
+        "reclamos"
+    ],
     "license": "MIT",
     "require": {
         "php": "^8.2",
@@ -35,10 +40,9 @@
     },
     "scripts": {
         "setup": [
-            "composer install",
+            "@composer install --no-interaction",
             "@php -r \"file_exists('.env') || copy('.env.example', '.env');\"",
-            "@php artisan key:generate",
-            "@php artisan migrate --force"
+            "@php erp-install.php"
         ],
         "dev": [
             "Composer\\Config::disableProcessTimeout",
@@ -60,8 +64,7 @@
         ],
         "post-create-project-cmd": [
             "@php artisan key:generate --ansi",
-            "@php -r \"file_exists('database/database.sqlite') || touch('database/database.sqlite');\"",
-            "@php artisan migrate --graceful --ansi"
+            "@php -r \"echo 'Configure MySQL en .env y ejecute composer setup.' . PHP_EOL;\""
         ],
         "pre-package-uninstall": [
             "Illuminate\\Foundation\\ComposerScripts::prePackageUninstall"

@@ -4,164 +4,68 @@ namespace App\Modules\ConciliacionBancaria\Services;
 
 use App\Modules\ConciliacionBancaria\Models\ArchivoImportadoLog;
 use App\Modules\ConciliacionBancaria\Models\MovimientoBancario;
+use App\Modules\Shared\Services\G2OperationAudit;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
-use Exception;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 
 class BankStatementImportService
 {
-    private BankColumnMapper $mapper;
+    public function __construct(private BankColumnMapper $mapper, private BankPeriodService $periods) {}
 
-    public function __construct(BankColumnMapper $mapper)
+    public function importar(UploadedFile $file, int $actor): array
     {
-        $this->mapper = $mapper;
-    }
-
-    /**
-     * Importa un archivo de extracto bancario con cálculo de Hash SHA256 y persistencia inmutable.
-     *
-     * @return array{
-     *   success: bool,
-     *   mensaje: string,
-     *   archivo_id: ?int,
-     *   filas_leidas: int,
-     *   filas_insertadas: int,
-     *   filas_omitidas: int,
-     *   filas_error: int,
-     *   acreditaciones_para_conciliar: int,
-     *   errores_detalle: array<string>
-     * }
-     */
-    public function importar(UploadedFile $archivo, int $idUsuario): array
-    {
-        $extension = strtolower($archivo->getClientOriginalExtension());
-        if (!in_array($extension, ['xls', 'txt'])) {
-            throw new Exception("Formato no permitido (.{$extension}). Únicamente se aceptan archivos .xls y .txt de Banco Provincia.");
+        $this->periods->actor($actor);
+        $extension = strtolower($file->getClientOriginalExtension());
+        if (! in_array($extension, ['xls', 'txt'], true)) {
+            throw ValidationException::withMessages(['archivo' => 'Sólo se aceptan XLS y TXT.']);
         }
-
-        $hashSha256 = hash_file('sha256', $archivo->getRealPath());
-
-        // Criterio de Aceptación 2: Non-Repudiation y rechazo si el hash ya existe
-        $existeHash = ArchivoImportadoLog::where('hash_sha256', $hashSha256)->first();
-        if ($existeHash) {
-            throw new Exception("El archivo ya fue importado anteriormente (Hash SHA-256 coincidente con importación #{$existeHash->id_archivo_importado_log} del {$existeHash->created_at}).");
+        $parsed = $this->mapper->parsear($file->getRealPath(), $extension);
+        if ($parsed['errores']) {
+            throw ValidationException::withMessages(['archivo' => implode(' ', array_slice($parsed['errores'], 0, 20))]);
         }
-
-        // Guardar archivo físico en almacenamiento privado de auditoría sin dependencia externa de finfo
-        $nombreOriginal = $archivo->getClientOriginalName();
-        $targetDir = storage_path('app/extractos_bancarios');
-        if (!is_dir($targetDir)) {
-            @mkdir($targetDir, 0755, true);
-        }
-        $nombreGuardado = date('Ymd_His') . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '_', $nombreOriginal);
-        $rutaFisica = $targetDir . DIRECTORY_SEPARATOR . $nombreGuardado;
-        @copy($archivo->getRealPath(), $rutaFisica);
-        $rutaAlmacenada = 'extractos_bancarios/' . $nombreGuardado;
-
-        // Parsear el archivo con el mapper especializado
-        $resultadoParsing = $this->mapper->parsear($archivo->getRealPath(), $extension);
-        $movimientos = $resultadoParsing['movimientos'];
-        $erroresParsing = $resultadoParsing['errores'];
-
-        $filasLeidas = count($movimientos) + count($erroresParsing);
-        $filasInsertadas = 0;
-        $filasOmitidas = 0;
-        $filasError = count($erroresParsing);
-        $acreditacionesListas = 0;
-
-        // Registrar cabecera del lote de auditoría
-        return DB::transaction(function () use (
-            $nombreOriginal,
-            $rutaAlmacenada,
-            $hashSha256,
-            $extension,
-            $idUsuario,
-            $resultadoParsing,
-            $movimientos,
-            $erroresParsing,
-            $filasLeidas,
-            &$filasInsertadas,
-            &$filasOmitidas,
-            &$filasError,
-            &$acreditacionesListas
-        ) {
-            $log = ArchivoImportadoLog::create([
-                'nombre_original' => $nombreOriginal,
-                'ruta_almacenada' => $rutaAlmacenada,
-                'hash_sha256' => $hashSha256,
-                'formato_extension' => $extension,
-                'cantidad_filas_leidas' => $filasLeidas,
-                'cantidad_filas_insertadas' => 0,
-                'cantidad_filas_omitidas' => 0,
-                'cantidad_filas_error' => $filasError,
-                'id_usuario' => $idUsuario,
-                'saldo_inicial' => $resultadoParsing['saldo_inicial'],
-                'saldo_final' => $resultadoParsing['saldo_final'],
-                'fecha_desde' => $resultadoParsing['fecha_desde'],
-                'fecha_hasta' => $resultadoParsing['fecha_hasta'],
-            ]);
-
-            foreach ($movimientos as $mov) {
-                // Criterio de Aceptación 3: Omitir duplicados por fila (fecha + monto + signo + comprobante + descripcion)
-                $existeFila = MovimientoBancario::where('fecha_operacion', $mov['fecha_operacion'])
-                    ->where('monto', $mov['monto'])
-                    ->where('signo_monto', $mov['signo_monto'])
-                    ->where('nro_comprobante_extraido', $mov['nro_comprobante_extraido'])
-                    ->where('descripcion_normalizada', $mov['descripcion_normalizada'])
-                    ->exists();
-
-                if ($existeFila) {
-                    $filasOmitidas++;
-                    continue;
+        $hash = hash_file('sha256', $file->getRealPath());
+        $stored = null;
+        try {
+            return DB::transaction(function () use ($file, $extension, $parsed, $actor, $hash, &$stored) {
+                DB::table('usuarios')->orderBy('id')->lockForUpdate()->first();
+                abort_if(ArchivoImportadoLog::where('hash_sha256', $hash)->exists(), 409, 'El archivo ya fue importado.');
+                $stored = $file->store('extractos_bancarios', 'local');
+                if (! is_string($stored) || $stored === '') {
+                    throw ValidationException::withMessages(['archivo' => 'No se pudo conservar el extracto privado.']);
                 }
+                $log = ArchivoImportadoLog::create(['nombre_original' => mb_substr(basename($file->getClientOriginalName()), 0, 255), 'ruta_almacenada' => $stored, 'hash_sha256' => $hash,
+                    'formato_extension' => $extension, 'cantidad_filas_leidas' => count($parsed['movimientos']), 'cantidad_filas_insertadas' => 0, 'cantidad_filas_omitidas' => 0, 'cantidad_filas_error' => 0,
+                    'id_usuario' => $actor, 'saldo_inicial' => $parsed['saldo_inicial'], 'saldo_final' => $parsed['saldo_final'], 'fecha_desde' => $parsed['fecha_desde'], 'fecha_hasta' => $parsed['fecha_hasta']]);
+                $inserted = $skipped = $eligible = 0;
+                foreach ($parsed['movimientos'] as $move) {
+                    $period = $this->periods->forDate($move['fecha_operacion'], $actor);
+                    $duplicate = MovimientoBancario::whereDate('fecha_operacion', $move['fecha_operacion'])->where('monto', $move['monto'])->where('signo_monto', $move['signo_monto'])
+                        ->where('nro_comprobante_extraido', $move['nro_comprobante_extraido'])->where('descripcion_normalizada', $move['descripcion_normalizada'])->exists();
+                    if ($duplicate) {
+                        $skipped++;
 
-                try {
-                    MovimientoBancario::create([
-                        'id_archivo_importado_log' => $log->id_archivo_importado_log,
-                        'fecha_operacion' => $mov['fecha_operacion'],
-                        'monto' => $mov['monto'],
-                        'signo_monto' => $mov['signo_monto'],
-                        'descripcion_original' => $mov['descripcion_original'],
-                        'descripcion_normalizada' => $mov['descripcion_normalizada'],
-                        'nro_comprobante_extraido' => $mov['nro_comprobante_extraido'],
-                        'cuit_extraido' => $mov['cuit_extraido'],
-                        'tipo_movimiento' => $mov['tipo_movimiento'],
-                        'estado_conciliacion' => $mov['estado_conciliacion'],
-                    ]);
-
-                    $filasInsertadas++;
-
-                    if ($mov['tipo_movimiento'] === 'cobranza_cliente' && $mov['estado_conciliacion'] === 'pendiente') {
-                        $acreditacionesListas++;
+                        continue;
                     }
-                } catch (\Throwable $e) {
-                    $filasError++;
-                    Log::channel('single')->error("Error insertando fila de extracto bancario: " . $e->getMessage(), [
-                        'fila' => $mov['nro_fila'] ?? null,
-                        'archivo' => $nombreOriginal,
-                    ]);
+                    unset($move['nro_fila']);
+                    MovimientoBancario::create([...$move, 'id_periodo' => $period->id_periodo, 'id_usuario' => $actor, 'id_archivo_importado_log' => $log->id_archivo_importado_log]);
+                    $inserted++;
+                    if ($move['tipo_movimiento'] === 'cobranza_cliente' && $move['estado_conciliacion'] === 'pendiente') {
+                        $eligible++;
+                    }
                 }
+                $log->update(['cantidad_filas_insertadas' => $inserted, 'cantidad_filas_omitidas' => $skipped]);
+                G2OperationAudit::record('bancos', $log->id_archivo_importado_log, 'extracto_importado', $actor, ['hash' => $hash, 'insertadas' => $inserted, 'omitidas' => $skipped]);
+
+                return ['success' => true, 'mensaje' => 'Extracto importado íntegramente.', 'archivo_id' => $log->id_archivo_importado_log, 'filas_leidas' => count($parsed['movimientos']),
+                    'filas_insertadas' => $inserted, 'filas_omitidas' => $skipped, 'filas_error' => 0, 'acreditaciones_para_conciliar' => $eligible, 'errores_detalle' => []];
+            });
+        } catch (\Throwable $error) {
+            if (is_string($stored)) {
+                Storage::disk('local')->delete($stored);
             }
-
-            // Actualizar contadores consolidados en el log
-            $log->update([
-                'cantidad_filas_insertadas' => $filasInsertadas,
-                'cantidad_filas_omitidas' => $filasOmitidas,
-                'cantidad_filas_error' => $filasError,
-            ]);
-
-            return [
-                'success' => true,
-                'mensaje' => "Se procesó el extracto bancario correctamente.",
-                'archivo_id' => $log->id_archivo_importado_log,
-                'filas_leidas' => $filasLeidas,
-                'filas_insertadas' => $filasInsertadas,
-                'filas_omitidas' => $filasOmitidas,
-                'filas_error' => $filasError,
-                'acreditaciones_para_conciliar' => $acreditacionesListas,
-                'errores_detalle' => $erroresParsing,
-            ];
-        });
+            throw $error;
+        }
     }
 }

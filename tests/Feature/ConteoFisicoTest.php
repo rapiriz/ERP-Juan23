@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Tests\Feature;
@@ -7,21 +8,23 @@ use App\Modules\Login\Models\User;
 use App\Modules\Productos\Models\Categoria;
 use App\Modules\Productos\Models\Marca;
 use App\Modules\Productos\Models\Producto;
-use App\Modules\Stock\Models\MovimientoStock;
 use App\Modules\Stock\Models\SesionConteo;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
+use Tests\UsesG3Database;
 
 class ConteoFisicoTest extends TestCase
 {
     use DatabaseTransactions, \Tests\UsesG3Database {
-        \Tests\UsesG3Database::beginDatabaseTransaction insteadof DatabaseTransactions;
+        UsesG3Database::beginDatabaseTransaction insteadof DatabaseTransactions;
     }
 
     private function crearUsuarioTest(string $nombre = 'usuario-conteo'): User
     {
-        $username = $nombre . '-' . uniqid();
+        $username = $nombre.'-'.uniqid();
         $hash = password_hash('secret', PASSWORD_DEFAULT);
 
         $user = User::create([
@@ -32,8 +35,8 @@ class ConteoFisicoTest extends TestCase
             'estado' => 'activo',
         ]);
 
-        if (\Illuminate\Support\Facades\Schema::hasTable('usuario')) {
-            \Illuminate\Support\Facades\DB::table('usuario')->insertOrIgnore([
+        if (Schema::hasTable('usuario')) {
+            DB::table('usuario')->insertOrIgnore([
                 'id_usuario' => $user->id,
                 'usuario' => $username,
                 'password_hash' => $hash,
@@ -43,26 +46,28 @@ class ConteoFisicoTest extends TestCase
             ]);
         }
 
+        $this->signInAs($user);
+
         return $user;
     }
 
     private function crearProductoTest(string $codigo = 'PROD-CONT'): Producto
     {
         $categoria = Categoria::first() ?? Categoria::create([
-            'nombre' => 'Cat Conteo ' . uniqid(),
+            'nombre' => 'Cat Conteo '.uniqid(),
             'activo' => true,
         ]);
 
         $marca = Marca::first() ?? Marca::create([
-            'nombre' => 'Marca Conteo ' . uniqid(),
+            'nombre' => 'Marca Conteo '.uniqid(),
             'activo' => true,
         ]);
 
         $userId = User::first()?->id ?? 1;
 
         return Producto::create([
-            'codigo' => $codigo . '-' . uniqid(),
-            'nombre' => 'Producto Conteo ' . uniqid(),
+            'codigo' => $codigo.'-'.uniqid(),
+            'nombre' => 'Producto Conteo '.uniqid(),
             'descripcion' => 'Producto para prueba de conteo físico',
             'id_categoria' => $categoria->id_categoria,
             'id_marca' => $marca->id_marca,

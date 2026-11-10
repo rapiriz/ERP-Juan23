@@ -68,15 +68,14 @@
                                 <td>${{ number_format($cierre['monto_final'], 2, ',', '.') }}</td>
                                 <td>${{ number_format($cierre['diferencia'], 2, ',', '.') }}</td>
                             @endif
-                            {{-- TODO: mostrar nombre real cuando Login (G1) este integrado --}}
                             <td>
                                 @if (!empty($cierre['cierre_automatico']))
                                     Automático
                                     @if (!$pendiente && !empty($cierre['id_usuario_cierre']))
-                                        (conteo: usuario #{{ $cierre['id_usuario_cierre'] }})
+                                        (conteo: {{ $cierre['nombre_usuario_cierre'] ?? 'Sistema' }})
                                     @endif
                                 @else
-                                    Usuario #{{ $cierre['id_usuario_cierre'] }}
+                                    {{ $cierre['nombre_usuario_cierre'] ?? 'Sistema' }}
                                 @endif
                             </td>
                             <td>

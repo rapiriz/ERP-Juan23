@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Modules\Stock\Models;
@@ -10,8 +11,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class MovimientoStock extends Model
 {
-    protected $table = 'MOVIMIENTO_STOCK';
+    protected $table = 'movimiento_stock';
+
     protected $primaryKey = 'id_movimiento';
+
     public $timestamps = false;
 
     protected $fillable = [

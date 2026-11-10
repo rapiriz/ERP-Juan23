@@ -3,12 +3,23 @@
         var target = form.querySelector('[data-error-for="' + fieldName + '"]');
         if (target) {
             target.textContent = message;
+            target.id ||= (form.id || form.getAttribute('data-validate') || 'form') + '-' + fieldName + '-error';
+            target.setAttribute('aria-live', 'polite');
+            var field = form.elements[fieldName];
+            if (field) {
+                field.setAttribute('aria-invalid', 'true');
+                var described = new Set((field.getAttribute('aria-describedby') || '').split(/\s+/).filter(Boolean));
+                described.add(target.id); field.setAttribute('aria-describedby', [...described].join(' '));
+            }
         }
     }
 
     function clearErrors(form) {
         form.querySelectorAll('.field-error').forEach(function (element) {
             element.textContent = '';
+        });
+        form.querySelectorAll('[aria-invalid="true"]').forEach(function (field) {
+            field.removeAttribute('aria-invalid');
         });
     }
 
@@ -34,6 +45,7 @@
         if (form.hasAttribute('data-client-form')) {
             return; // Clientes tiene validación específica en client-form.js.
         }
+        form.querySelector('[aria-invalid="true"]')?.focus();
         form.addEventListener('submit', function (event) {
             clearErrors(form);
             var valid = true;
@@ -80,6 +92,7 @@
 
             if (!valid) {
                 event.preventDefault();
+                form.querySelector('[aria-invalid="true"]')?.focus();
             }
         });
     });

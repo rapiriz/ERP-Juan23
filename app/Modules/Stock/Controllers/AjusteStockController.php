@@ -1,22 +1,23 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Modules\Stock\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Productos\Models\Producto;
-use App\Modules\Stock\Models\MovimientoStock;
+use App\Modules\Stock\Models\UnidadMedida;
 use App\Modules\Stock\Services\StockService;
 use App\Support\UsuarioActual;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
 class AjusteStockController extends Controller
 {
-    public function __construct(private StockService $stockService)
-    {
-    }
+    public function __construct(private StockService $stockService) {}
 
     /**
      * S06 - Ajuste manual de inventario (rotura, pérdida, correcciones).
@@ -30,7 +31,7 @@ class AjusteStockController extends Controller
             $request->merge(['id_unidad' => null]);
         }
 
-        if (!$request->has('tipo') && $request->has('tipo_ajuste')) {
+        if (! $request->has('tipo') && $request->has('tipo_ajuste')) {
             $alias = match ($request->input('tipo_ajuste')) {
                 'incremento', 'aumentar' => 'aumentar',
                 'decremento', 'disminuir' => 'disminuir',
@@ -41,17 +42,17 @@ class AjusteStockController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'id_producto' => 'required|integer|exists:PRODUCTO,id_producto',
-            'cantidad' => 'required|numeric|min:0',
+            'id_producto' => 'required|integer|exists:producto,id_producto',
+            'cantidad' => 'required|integer|min:0',
             'tipo' => 'required|in:aumentar,disminuir,fijar,establecer',
             'motivo' => 'required|string|max:255',
-            'id_unidad' => 'nullable|integer|exists:UNIDAD_MEDIDA,id_unidad',
+            'id_unidad' => 'nullable|integer|exists:unidad_medida,id_unidad',
             'fecha' => [
                 'nullable',
                 'date',
                 function ($attribute, $value, $fail) {
-                    $fecha = \Carbon\Carbon::parse($value)->startOfDay();
-                    $hoy = \Carbon\Carbon::today();
+                    $fecha = Carbon::parse($value)->startOfDay();
+                    $hoy = Carbon::today();
                     if ($fecha->greaterThan($hoy)) {
                         $fail('La fecha del ajuste no puede ser posterior a la fecha actual.');
                     }
@@ -74,133 +75,135 @@ class AjusteStockController extends Controller
         }
 
         try {
-            $producto = Producto::find((int) $request->input('id_producto'));
+            return DB::transaction(function () use ($request) {
+                $producto = Producto::lockForUpdate()->find((int) $request->input('id_producto'));
 
-            if (!$producto) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Producto no encontrado.',
-                ], 404);
-            }
-
-            if ($producto->estado !== 'activo') {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'No se pueden realizar ajustes de stock sobre productos inactivos.',
-                ], 400);
-            }
-
-            $idUsuario = UsuarioActual::id($request);
-            $idUnidad = ($request->filled('id_unidad') && (int) $request->input('id_unidad') > 0)
-                ? (int) $request->input('id_unidad')
-                : null;
-            $motivoRaw = trim((string) $request->input('motivo'));
-
-            $fechaAjuste = null;
-            if ($request->has('fecha') && $request->input('fecha')) {
-                try {
-                    $fechaAjuste = \Carbon\Carbon::parse($request->input('fecha'));
-                    if (!str_contains((string) $request->input('fecha'), ':')) {
-                        $ahora = \Carbon\Carbon::now();
-                        $fechaAjuste->setTime($ahora->hour, $ahora->minute, $ahora->second);
-                    }
-                } catch (\Throwable $e) {
-                    $fechaAjuste = \Carbon\Carbon::now();
-                }
-            } else {
-                $fechaAjuste = \Carbon\Carbon::now();
-            }
-
-            $cantidad = (int) $request->input('cantidad', 0);
-            $tipo = $request->input('tipo', 'aumentar');
-            $cantidadBase = StockService::cantidadEnUnidadBase($cantidad, $idUnidad);
-
-            $esIncremento = true;
-            $cantFinal = $cantidadBase;
-
-            if ($tipo === 'fijar' || $tipo === 'establecer') {
-                $baseActual = (int) $producto->stock_disponible;
-                $delta = $cantidadBase - $baseActual;
-
-                if ($delta === 0) {
+                if (! $producto) {
                     return response()->json([
-                        'status' => 'success',
-                        'message' => 'La cantidad actual ya coincide con el valor indicado.',
-                        'data' => [
-                            'id_producto' => $producto->id_producto,
-                            'codigo' => $producto->codigo,
-                            'descripcion' => $producto->descripcion,
-                            'stock_disponible' => $producto->stock_disponible,
-                            'diferencia' => 0,
-                        ],
-                    ], 200);
+                        'status' => 'error',
+                        'message' => 'Producto no encontrado.',
+                    ], 404);
                 }
 
-                $esIncremento = ($delta > 0);
-                $cantFinal = abs($delta);
-            } elseif ($tipo === 'disminuir') {
-                $esIncremento = false;
-                $cantFinal = $cantidadBase;
-            } else {
+                if ($producto->estado !== 'activo') {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'No se pueden realizar ajustes de stock sobre productos inactivos.',
+                    ], 400);
+                }
+
+                $idUsuario = UsuarioActual::id($request);
+                $idUnidad = ($request->filled('id_unidad') && (int) $request->input('id_unidad') > 0)
+                    ? (int) $request->input('id_unidad')
+                    : null;
+                $motivoRaw = trim((string) $request->input('motivo'));
+
+                $fechaAjuste = null;
+                if ($request->has('fecha') && $request->input('fecha')) {
+                    try {
+                        $fechaAjuste = Carbon::parse($request->input('fecha'));
+                        if (! str_contains((string) $request->input('fecha'), ':')) {
+                            $ahora = Carbon::now();
+                            $fechaAjuste->setTime($ahora->hour, $ahora->minute, $ahora->second);
+                        }
+                    } catch (\Throwable $e) {
+                        $fechaAjuste = Carbon::now();
+                    }
+                } else {
+                    $fechaAjuste = Carbon::now();
+                }
+
+                $cantidad = (int) $request->input('cantidad', 0);
+                $tipo = $request->input('tipo', 'aumentar');
+                $cantidadBase = $cantidad === 0 ? 0 : StockService::cantidadEnUnidadBase($cantidad, $idUnidad, (int) $producto->id_producto);
+
                 $esIncremento = true;
                 $cantFinal = $cantidadBase;
-            }
 
-            if (!$esIncremento && $producto->stock_disponible < $cantFinal) {
+                if ($tipo === 'fijar' || $tipo === 'establecer') {
+                    $baseActual = (int) $producto->stock_disponible;
+                    $delta = $cantidadBase - $baseActual;
+
+                    if ($delta === 0) {
+                        return response()->json([
+                            'status' => 'success',
+                            'message' => 'La cantidad actual ya coincide con el valor indicado.',
+                            'data' => [
+                                'id_producto' => $producto->id_producto,
+                                'codigo' => $producto->codigo,
+                                'descripcion' => $producto->descripcion,
+                                'stock_disponible' => $producto->stock_disponible,
+                                'diferencia' => 0,
+                            ],
+                        ], 200);
+                    }
+
+                    $esIncremento = ($delta > 0);
+                    $cantFinal = abs($delta);
+                } elseif ($tipo === 'disminuir') {
+                    $esIncremento = false;
+                    $cantFinal = $cantidadBase;
+                } else {
+                    $esIncremento = true;
+                    $cantFinal = $cantidadBase;
+                }
+
+                if (! $esIncremento && $producto->stock_disponible < $cantFinal) {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => "Stock insuficiente en el producto para descontar {$cantFinal} u. Disponible actual: {$producto->stock_disponible} u.",
+                    ], 400);
+                }
+
+                $prefijo = $esIncremento ? 'Ajuste manual (+): ' : 'Ajuste manual (-): ';
+                $motivoFinal = "{$prefijo}{$motivoRaw}";
+
+                $cantMovimiento = in_array($tipo, ['fijar', 'establecer'], true) ? $cantFinal : $cantidad;
+                $unidadMovimiento = in_array($tipo, ['fijar', 'establecer'], true) ? null : $idUnidad;
+
+                $this->stockService->registrarMovimiento(
+                    $producto,
+                    'ajuste',
+                    $cantMovimiento,
+                    $motivoFinal,
+                    $idUsuario,
+                    $unidadMovimiento,
+                    null,
+                    null,
+                    $fechaAjuste,
+                    $esIncremento
+                );
+
+                $producto->refresh();
+                $impactoStr = $esIncremento ? "+{$cantFinal}" : "-{$cantFinal}";
+                $unidadObj = $idUnidad ? UnidadMedida::find($idUnidad) : null;
+                $nombreUnidad = $unidadObj ? $unidadObj->nombre_unidad : 'u.';
+                $equivTexto = ($unidadObj && (float) $unidadObj->equivalencia_base > 1.0)
+                    ? "{$cantidad} {$nombreUnidad} ({$cantFinal} u. individuales)"
+                    : "{$cantFinal} u.";
+                $unidadMsg = ($unidadObj && (float) $unidadObj->equivalencia_base > 1.0) ? " [Equivalencia: {$equivTexto}]" : '';
+
                 return response()->json([
-                    'status' => 'error',
-                    'message' => "Stock insuficiente en el producto para descontar {$cantFinal} u. Disponible actual: {$producto->stock_disponible} u.",
-                ], 400);
-            }
-
-            $prefijo = $esIncremento ? 'Ajuste manual (+): ' : 'Ajuste manual (-): ';
-            $motivoFinal = "{$prefijo}{$motivoRaw}";
-
-            $cantMovimiento = in_array($tipo, ['fijar', 'establecer'], true) ? $cantFinal : $cantidad;
-            $unidadMovimiento = in_array($tipo, ['fijar', 'establecer'], true) ? null : $idUnidad;
-
-            $this->stockService->registrarMovimiento(
-                $producto,
-                'ajuste',
-                $cantMovimiento,
-                $motivoFinal,
-                $idUsuario,
-                $unidadMovimiento,
-                null,
-                null,
-                $fechaAjuste,
-                $esIncremento
-            );
-
-            $producto->refresh();
-            $impactoStr = $esIncremento ? "+{$cantFinal}" : "-{$cantFinal}";
-            $unidadObj = $idUnidad ? \App\Modules\Stock\Models\UnidadMedida::find($idUnidad) : null;
-            $nombreUnidad = $unidadObj ? $unidadObj->nombre_unidad : 'u.';
-            $equivTexto = ($unidadObj && (float) $unidadObj->equivalencia_base > 1.0)
-                ? "{$cantidad} {$nombreUnidad} ({$cantFinal} u. individuales)"
-                : "{$cantFinal} u.";
-            $unidadMsg = ($unidadObj && (float) $unidadObj->equivalencia_base > 1.0) ? " [Equivalencia: {$equivTexto}]" : "";
-
-            return response()->json([
-                'status' => 'success',
-                'message' => "Ajuste de inventario registrado ({$impactoStr} u. aplicadas al stock general){$unidadMsg}.",
-                'data' => [
-                    'id_producto' => $producto->id_producto,
-                    'codigo' => $producto->codigo,
-                    'descripcion' => $producto->descripcion,
-                    'tipo' => $tipo,
-                    'impacto_stock' => $impactoStr,
-                    'cantidad_ajustada' => $cantFinal,
-                    'id_unidad' => $idUnidad,
-                    'nombre_unidad' => $nombreUnidad,
-                    'cantidad_base' => $cantFinal,
-                    'equivalencia_texto' => $equivTexto,
-                    'motivo' => $motivoFinal,
-                    'stock_disponible' => $producto->stock_disponible,
-                    'stock_nuevo' => $producto->stock_disponible,
-                    'estado_alerta' => $producto->estado_alerta,
-                ],
-            ], 201);
+                    'status' => 'success',
+                    'message' => "Ajuste de inventario registrado ({$impactoStr} u. aplicadas al stock general){$unidadMsg}.",
+                    'data' => [
+                        'id_producto' => $producto->id_producto,
+                        'codigo' => $producto->codigo,
+                        'descripcion' => $producto->descripcion,
+                        'tipo' => $tipo,
+                        'impacto_stock' => $impactoStr,
+                        'cantidad_ajustada' => $cantFinal,
+                        'id_unidad' => $idUnidad,
+                        'nombre_unidad' => $nombreUnidad,
+                        'cantidad_base' => $cantFinal,
+                        'equivalencia_texto' => $equivTexto,
+                        'motivo' => $motivoFinal,
+                        'stock_disponible' => $producto->stock_disponible,
+                        'stock_nuevo' => $producto->stock_disponible,
+                        'estado_alerta' => $producto->estado_alerta,
+                    ],
+                ], 201);
+            });
         } catch (\Throwable $e) {
             return response()->json([
                 'status' => 'error',

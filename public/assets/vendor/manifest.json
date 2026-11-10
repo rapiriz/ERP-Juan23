@@ -1,0 +1,16 @@
+{
+  "packages": {
+    "@fortawesome/fontawesome-free": "6.5.1",
+    "bootstrap": "5.3.3",
+    "chart.js": "4.4.1",
+    "lucide": "1.70.0",
+    "tailwindcss": "3.4.19"
+  },
+  "sha256": {
+    "g3-utilities.css": "51b4bd12ec04010408706b178b096602521a8e66ee80011a0c191688eb25a039",
+    "lucide.min.js": "d2e6483c0256fdb7bc4feb41b040717632641beacff7e79791ebcbb31e363344",
+    "bootstrap.bundle.min.js": "0833b2e9c3a26c258476c46266e6877fc75218625162e0460be9a3a098a61c6c",
+    "chart.umd.js": "74401d738dd3e03ee5dfb3b6841210fe2c4ead8a960c4011ca4ba0b78a9fd8f3",
+    "fontawesome/css/all.min.css": "c22cfb6520a7fdbb738632834019acf47c78b1279462c0eb4cb83bae83ecb5a7"
+  }
+}

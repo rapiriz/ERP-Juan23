@@ -57,7 +57,7 @@
                 <tr>
                     <td>{{ \Illuminate\Support\Carbon::parse($cierre['fecha'])->format('d/m/Y') }}</td>
                     <td>#{{ $cierre['id_caja'] }}</td>
-                    <td>Usuario #{{ $cierre['id_usuario'] ?? '—' }}</td>
+                    <td>{{ $cierre['nombre_usuario'] ?? 'Sin usuario verificable' }}</td>
                     <td class="num">{{ $dinero($cierre['monto_inicial'] ?? null) }}</td>
                     <td class="num">{{ $dinero($cierre['monto_esperado'] ?? null) }}</td>
                     <td class="num">{{ $pendiente ? 'Pendiente de conteo' : $dinero($cierre['monto_final'] ?? null) }}</td>
@@ -66,7 +66,7 @@
                         @if (!empty($cierre['cierre_automatico']))
                             Automático
                         @else
-                            Manual (usuario #{{ $cierre['id_usuario_cierre'] ?? '—' }})
+                            Manual ({{ $cierre['nombre_usuario_cierre'] ?? 'Sistema' }})
                         @endif
                     </td>
                 </tr>

@@ -21,11 +21,12 @@ class ReportsTest extends TestCase
         Http::preventStrayRequests();
     }
 
-    public function test_general_sales_and_stock_report_routes_remain_unavailable(): void
+    public function test_general_sales_and_stock_reports_explain_when_the_source_is_unavailable(): void
     {
         $admin = User::factory()->create(['rol' => UserRole::ADMINISTRATIVO]);
-        $this->signInAs($admin)->get('/reportes/ventas-diarias')->assertNotFound();
-        $this->get('/reportes/stock-bajo')->assertNotFound();
+        config(['services.sales.url' => null, 'services.catalog.url' => null]);
+        $this->signInAs($admin)->get('/reportes/ventas-diarias')->assertOk()->assertSeeText('Sin datos disponibles');
+        $this->get('/reportes/stock-bajo')->assertOk()->assertSeeText('Sin datos disponibles');
     }
 
     public function test_unconfigured_integrations_never_present_local_sales_or_products_as_external_data(): void
@@ -80,10 +81,10 @@ class ReportsTest extends TestCase
         $this->configureSales();
         config()->set('services.catalog.url', 'https://catalogo.example.test');
         Http::fake([
-            'catalogo.example.test/api/v1/productos' => Http::response(['status' => 'success', 'data' => [[
+            'catalogo.example.test/api/v1/productos*' => Http::response(['status' => 'success', 'data' => [[
                 'id_producto' => 42, 'codigo' => 'P-42', 'nombre' => 'Yerba 1kg', 'descripcion' => 'Yerba 1kg',
             ]]]),
-            'ventas.example.test/api/v1/reportes/productos/42/compradores' => Http::response(['data' => [
+            'ventas.example.test/api/v1/reportes/productos/42/compradores*' => Http::response(['data' => [
                 ['cliente_id' => $first->id], ['cliente_id' => $second->id],
             ]]),
         ]);
@@ -102,7 +103,7 @@ class ReportsTest extends TestCase
         $admin = User::factory()->create(['rol' => UserRole::ADMINISTRATIVO]);
         $this->configureSales();
         config()->set('services.catalog.url', 'https://catalogo.example.test');
-        Http::fake(['catalogo.example.test/api/v1/productos' => Http::response(['data' => []])]);
+        Http::fake(['catalogo.example.test/api/v1/productos*' => Http::response(['data' => []])]);
 
         $this->signInAs($admin)->get(route('reports.client-product-reach'))
             ->assertOk()->assertSeeText('No hay productos registrados.');
@@ -115,10 +116,10 @@ class ReportsTest extends TestCase
         $this->configureSales();
         config()->set('services.catalog.url', 'https://catalogo.example.test');
         Http::fake([
-            'catalogo.example.test/api/v1/productos' => Http::response(['data' => [[
+            'catalogo.example.test/api/v1/productos*' => Http::response(['data' => [[
                 'id_producto' => 42, 'codigo' => 'P-42', 'nombre' => 'Yerba', 'descripcion' => 'Yerba',
             ]]]),
-            'ventas.example.test/api/v1/reportes/productos/42/compradores' => Http::response(['data' => [['wrong' => 1]]]),
+            'ventas.example.test/api/v1/reportes/productos/42/compradores*' => Http::response(['data' => [['wrong' => 1]]]),
         ]);
         $this->signInAs($admin)->get(route('reports.client-product-reach', ['producto_id' => 42]))->assertStatus(502);
     }
@@ -127,7 +128,7 @@ class ReportsTest extends TestCase
     {
         $admin = User::factory()->create(['rol' => UserRole::ADMINISTRATIVO]);
         config()->set('services.catalog.url', 'https://catalogo.example.test');
-        Http::fake(['catalogo.example.test/api/v1/productos' => Http::response(['data' => [[
+        Http::fake(['catalogo.example.test/api/v1/productos*' => Http::response(['data' => [[
             'id_producto' => 42, 'codigo' => 'P-42', 'descripcion' => 'Yerba 1kg',
         ]]])]);
         $this->signInAs($admin)->get(route('reports.client-product-reach'))
@@ -138,10 +139,10 @@ class ReportsTest extends TestCase
         $this->configureSales();
         Http::swap((new Factory)->preventStrayRequests());
         Http::fake([
-            'catalogo.example.test/api/v1/productos' => Http::response(['data' => [[
+            'catalogo.example.test/api/v1/productos*' => Http::response(['data' => [[
                 'id_producto' => 42, 'codigo' => 'P-42', 'nombre' => null, 'descripcion' => 'Yerba 1kg',
             ]]]),
-            'ventas.example.test/api/v1/reportes/productos/42/compradores' => Http::response(['data' => $clients->map(fn (Cliente $client) => ['cliente_id' => $client->id])->all(),
+            'ventas.example.test/api/v1/reportes/productos/42/compradores*' => Http::response(['data' => $clients->map(fn (Cliente $client) => ['cliente_id' => $client->id])->all(),
             ]),
         ]);
 
