@@ -49,6 +49,56 @@ class VentasApiClient
         return config('g2.ventas_token') ? $request->withToken(config('g2.ventas_token')) : $request;
     }
 
+    private function request(string $method, string $path, array $data = []): ?\Illuminate\Http\Client\Response
+    {
+        $url = $this->getBaseUrl();
+        $isLocalLoop = str_starts_with($url, 'http://127.0.0.1:') || str_starts_with($url, 'http://localhost:');
+
+        // Si apunta a localhost/127.0.0.1 dentro de este mismo entorno monolithic,
+        // resolvemos la petición a través del kernel/router de Laravel para evitar el deadlock
+        // de single-process de PHP built-in server (php artisan serve).
+        if ($isLocalLoop) {
+            $parsedUrl = parse_url($url);
+            $basePath = rtrim($parsedUrl['path'] ?? '', '/');
+            $fullPath = $basePath . '/' . ltrim($path, '/');
+
+            $queryString = ($method === 'GET' && !empty($data)) ? '?' . http_build_query($data) : '';
+            $subRequest = \Illuminate\Http\Request::create($fullPath . $queryString, $method, $method === 'GET' ? [] : $data);
+            $subRequest->headers->set('Accept', 'application/json');
+            if (config('g2.ventas_token')) {
+                $subRequest->headers->set('Authorization', 'Bearer ' . config('g2.ventas_token'));
+            }
+
+            try {
+                $laravelResponse = app()->handle($subRequest);
+                $psrResponse = new \GuzzleHttp\Psr7\Response(
+                    $laravelResponse->getStatusCode(),
+                    $laravelResponse->headers->all(),
+                    $laravelResponse->getContent()
+                );
+                return new \Illuminate\Http\Client\Response($psrResponse);
+            } catch (Throwable $e) {
+                Log::warning("G2 - VentasApiClient: Excepción en llamada interna a Ventas: " . $e->getMessage());
+                return null;
+            }
+        }
+
+        // Si apunta a un servidor remoto / puerto diferente separado, usa HTTP normal:
+        try {
+            $http = $this->http();
+            return match (strtoupper($method)) {
+                'GET' => $http->get($path, $data),
+                'POST' => $http->post($path, $data),
+                'PATCH' => $http->patch($path, $data),
+                'PUT' => $http->put($path, $data),
+                default => null,
+            };
+        } catch (Throwable $e) {
+            Log::warning("G2 - VentasApiClient: Excepción al comunicarse con Ventas (G4): " . $e->getMessage());
+            return null;
+        }
+    }
+
     /**
      * Obtiene ventas con estado confirmada listas para ser despachadas.
      * Retorna array vacío o lanza excepción si la URL no está configurada según contrato.
@@ -60,13 +110,10 @@ class VentasApiClient
 
         try {
             do {
-                $response = $this->http()->get('ventas', array_filter(['estado' => 'pendiente', 'id_zona' => $idZona, 'page' => $page]));
+                $response = $this->request('GET', 'ventas', array_filter(['estado' => 'pendiente', 'id_zona' => $idZona, 'page' => $page]));
 
-                if ($response->failed()) {
-                    Log::warning("G2 - VentasApiClient: Error al consultar ventas pendientes (HTTP {$response->status()}).", [
-                        'status' => $response->status(),
-                        'body' => $response->body(),
-                    ]);
+                if (! $response || $response->failed()) {
+                    Log::warning("G2 - VentasApiClient: Error al consultar ventas pendientes" . ($response ? " (HTTP {$response->status()})" : ""));
                     return [];
                 }
 
@@ -112,7 +159,11 @@ class VentasApiClient
         }
 
         try {
-            $response = $this->http()->get("ventas/{$id}");
+            $response = $this->request('GET', "ventas/{$id}");
+
+            if (! $response) {
+                return null;
+            }
 
             if ($response->status() === 404) {
                 return null;
@@ -156,11 +207,11 @@ class VentasApiClient
         }
 
         try {
-            $response = $this->http()->patch("ventas/{$id}/estado", ['estado' => $estado]);
+            $response = $this->request('PATCH', "ventas/{$id}/estado", ['estado' => $estado]);
 
-            if ($response->failed() || $response->json('error') === true) {
-                Log::warning("G2 - VentasApiClient: Ventas no aceptó actualizar venta #{$id} a '{$estado}' (HTTP {$response->status()}).", [
-                    'body' => $response->body(),
+            if (! $response || $response->failed() || $response->json('error') === true) {
+                Log::warning("G2 - VentasApiClient: Ventas no aceptó actualizar venta #{$id} a '{$estado}'" . ($response ? " (HTTP {$response->status()})" : ""), [
+                    'body' => $response?->body(),
                 ]);
                 return false;
             }
