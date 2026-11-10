@@ -6,6 +6,8 @@ Esta carpeta reúne la documentación técnica y operativa del sistema ERP.
 
 ### Guías de Operación y Usuario
 - [Manual de Usuario y Guía Operativa](./manual-usuario.md)
+- [Módulo Compras y Pedidos de Compra](./modulo-compras-y-pedidos-de-compra.md)
+- [Análisis: Cierre Parcial con Pago Total](./analisis-cierre-parcial-con-pago-total.md)
 - [Guía de Solución de Problemas y FAQ](./troubleshooting.md)
 - [Guía de Defensa y Presentación del Proyecto (Pitch Guide)](./guia-defensa-proyecto.md)
 

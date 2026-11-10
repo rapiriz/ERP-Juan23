@@ -386,6 +386,65 @@ paths:
         '200':
           description: Estado de la orden actualizado exitosamente
 
+  /ordenes-compra/{id}/cancelar:
+    patch:
+      summary: Cancelar orden de compra (PC05)
+      description: Cancela una orden en estado pendiente o enviada siempre que no tenga compras o recepciones asociadas.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                motivo: { type: string, example: "Proveedor sin stock de reposición" }
+      responses:
+        '200':
+          description: Orden de compra cancelada exitosamente
+        '400':
+          description: La orden ya posee compras registradas o no puede cancelarse
+
+  /compras/{id}/cerrar-parcial:
+    patch:
+      summary: Dar por completada compra con recepción parcial definitiva (C03)
+      description: |
+        Permite cerrar de forma definitiva una compra recibida parcialmente cuando el proveedor no enviará
+        las unidades restantes. Ajusta la deuda al importe neto efectivamente entregado.
+        Si el total de pagos ya registrados supera el valor de lo recibido, la operación se bloquea
+        para prevenir saldos contables negativos.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Compra cerrada parcialmente con deuda recalculada
+        '422':
+          description: Pago en exceso detectado; no se puede cerrar sin antes ajustar los pagos
+
+  /compras/{compra}/pagos/{pago}:
+    delete:
+      summary: Anular y revertir pago registrado a proveedor (C07)
+      description: Elimina el registro de pago y restituye automáticamente el saldo pendiente de la compra.
+      parameters:
+        - name: compra
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: pago
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Pago revertido y saldo exigible actualizado
+
   /sugerencias-reposicion:
     get:
       summary: Obtener sugerencias automáticas de compra basadas en stock mínimo (PC07)

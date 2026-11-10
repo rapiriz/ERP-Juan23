@@ -154,8 +154,9 @@ Registro histórico de variaciones de cotizaciones de compra (PV06).
 * **`fecha_emision`** (DATE, NOT NULL): Fecha de creación del pedido.
 * **`fecha_entrega_esperada`** (DATE, NULL): Plazo estimado de arribo.
 * **`estado`** (ENUM('pendiente', 'enviada', 'recibida_parcialmente', 'completada', 'cancelada')).
+* **`cierre_parcial`** (TINYINT(1), NOT NULL, DEFAULT 0): 1 si la orden se cerró anticipadamente con cumplimiento parcial definitivo (el proveedor no enviará el remanente).
 * **`total`** (DECIMAL(12,2), NOT NULL): Importe consolidado de la orden.
-* **`observaciones`** (TEXT, NULL): Especificaciones adicionales.
+* **`observaciones`** (TEXT, NULL): Especificaciones adicionales o motivo de cierre parcial/cancelación.
 
 ### Tabla: `detalle_orden`
 Renglones o artículos incluidos en la orden de compra.
@@ -175,6 +176,8 @@ Registro formal y fiscal de compra mercadería ingresada (C01 – C05).
 * **`nro_comprobante`** (VARCHAR(20), NOT NULL): Número estricto del comprobante.
 * **`total`** (DECIMAL(12,2), NOT NULL): Monto total liquidado.
 * **`estado_pago`** (ENUM('pendiente', 'pagado_parcial', 'pagado_total')): Estado financiero.
+* **`cierre_parcial`** (TINYINT(1), NOT NULL, DEFAULT 0): 1 si la compra se cerró de forma definitiva con recepción parcial, ajustando el saldo exigible al valor real recibido.
+* **`observaciones`** (TEXT, NULL): Notas de auditoría, justificación de cierre o detalles fiscales.
 
 ### Tabla: `pago_proveedor`
 Liquidación financiera de deudas con proveedores (C07 / C08).
@@ -184,6 +187,7 @@ Liquidación financiera de deudas con proveedores (C07 / C08).
 * **`metodo_pago`** (ENUM('efectivo', 'transferencia', 'cheque', 'echeq')): Vía de pago.
 * **`nro_comprobante`** (VARCHAR(50), NULL): Número de transacción bancaria o cheque.
 * **`fecha_pago`** (DATE, NOT NULL): Fecha de cancelación o cobro diferido.
+* **`anulado`** / reversión: Si un pago es anulado, se elimina o revierte restableciendo de inmediato el saldo exigible de la compra vinculada.
 
 ---
 

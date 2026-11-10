@@ -124,8 +124,14 @@ Desde el módulo **Vencimientos**:
 1. **Creación:** Cree la orden indicando ítems, cantidades y fecha de entrega pactada. Nace en estado `pendiente`.
 2. **Envío al Proveedor:** Presione **`Marcar como Enviada`**. El estado avanza a `enviada` en la línea de tiempo.
 3. **Recepción en Depósito:** Al llegar el camión, presione **`Recepcionar Mercadería`**:
-   - Puede recepcionarse el total o marcar una recepción parcial.
+   - Puede recepcionarse el total o marcar una recepción parcial ítem por ítem.
    - El sistema solicita el número de factura/remito del proveedor y el lote/vencimiento.
    - Al guardar, el stock físico se incrementa de inmediato en el Kardex y la orden pasa a `recibida_parcialmente` o `completada`.
    - Si el proveedor es el proveedor principal del producto y el precio facturado difiere del anterior, el sistema actualiza de forma automática el costo de reposición y recalcula el precio unitario de venta.
-4. **Cancelación:** Si el proveedor no dispone de stock, la orden puede cancelarse ingresando el motivo de auditoría correspondiente.
+4. **Cierre Parcial Definitivo de Orden:** Si una orden queda en `recibida_parcialmente` y el proveedor confirma que no enviará el remanente, presione **`Cerrar Parcial`**. La orden pasa a `completada` con indicador de cierre parcial, liberando las expectativas de entrega del depósito.
+5. **Cancelación de Orden:** Una orden en estado `pendiente` o `enviada` puede cancelarse mediante **`Cancelar Orden`** siempre que no posea compras o recepciones de mercadería asociadas.
+
+### 5.3. Cierre Parcial de Compras y Reversión de Pagos (C03 / C07)
+- **Cierre Parcial de Compra con Recálculo de Deuda:** Cuando una compra con remito o factura no recibirá más entregas, presione **`Dar por Completada (Cierre Parcial)`**. El sistema recalcula la deuda exigible en base al valor real de lo efectivamente entregado.
+- **Validación Antifraude / Protección de Sobrepago:** Si los pagos ya registrados a la compra superan el importe de la mercadería efectivamente recibida, el sistema **bloquea el cierre parcial** (error 422), evitando inconsistencias y saldos contables negativos.
+- **Anulación y Reversión de Pagos a Proveedores:** En el panel de pagos de la compra, cada comprobante registrado dispone de la acción **`Anular Pago`**. Al confirmarla, el sistema elimina o revierte el pago y reconstituye de forma inmediata el saldo deudor pendiente.

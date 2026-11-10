@@ -254,6 +254,8 @@ La documentación técnica y operativa del proyecto está organizada en `docs/` 
 
 ### Guías de Operación y Exposición
 - [Manual de Usuario y Guía Operativa](docs/manual-usuario.md)
+- [Módulo Compras y Pedidos de Compra](docs/modulo-compras-y-pedidos-de-compra.md)
+- [Análisis: Cierre Parcial con Pago Total](docs/analisis-cierre-parcial-con-pago-total.md)
 - [Guía de Solución de Problemas y FAQ (Troubleshooting)](docs/troubleshooting.md)
 - [Guía de Defensa y Presentación del Proyecto (Pitch Guide)](docs/guia-defensa-proyecto.md)
 - [Diagramas de Flujo, Estados y Secuencia en Mermaid](docs/diagramas-flujo.md)
