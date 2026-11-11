@@ -365,6 +365,27 @@ class RendicionService
         } elseif ($accion === 'rechazar') {
             $motivo = $datos['motivo_rechazo'] ?? '';
             $rendicion->rechazar($idUsuarioValidador, $motivo);
+
+            // Reversión auditada en Caja si alguno de los cobros en efectivo ya había impactado en Caja
+            if ($rendicion->cobros && count($rendicion->cobros) > 0) {
+                foreach ($rendicion->cobros as $cobroItem) {
+                    if (strtolower(trim($cobroItem->medio_pago ?? '')) === 'efectivo') {
+                        try {
+                            $cajaService = app(\App\Modules\Caja\Services\CajaService::class);
+                            $cajaService->registrarReversionDeCobro(
+                                $idUsuarioValidador,
+                                \App\Modules\Caja\Models\Caja::ROL_ADMIN,
+                                (float) $cobroItem->monto,
+                                "Reversión por rechazo de Rendición #{$rendicion->id_rendicion} (Cobro #{$cobroItem->id_rendicion_cobro})",
+                                (int) $cobroItem->id_rendicion_cobro,
+                                \App\Modules\Caja\Models\CajaMovimiento::MEDIO_EFECTIVO
+                            );
+                        } catch (\Throwable $e) {
+                            Log::info("No se requirió reversión inmediata en caja para cobro #{$cobroItem->id_rendicion_cobro}: " . $e->getMessage());
+                        }
+                    }
+                }
+            }
         } else {
             throw new InvalidArgumentException(
                 "La acción '{$accion}' no es válida. Opciones permitidas: aprobar, rechazar."

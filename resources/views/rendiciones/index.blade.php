@@ -399,7 +399,15 @@
                 </div>
             </div>
 
-            <div class="modal-footer">
+            <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
+                <button type="button" class="clay-btn clay-btn-secondary" onclick="imprimirRendicionActual()" title="Imprimir comprobante físico de la rendición">
+                    <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true">
+                        <polyline points="6 9 6 2 18 2 18 9"/>
+                        <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+                        <rect x="6" y="14" width="12" height="8"/>
+                    </svg>
+                    <span>Imprimir Comprobante</span>
+                </button>
                 <button class="clay-btn clay-btn-ghost" onclick="cerrarModalDetalle()">Cerrar</button>
             </div>
         </div>

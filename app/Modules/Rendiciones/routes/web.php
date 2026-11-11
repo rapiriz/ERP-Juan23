@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'session.current', G2Access::class.':admin,repartidor', G2SchemaReady::class.':rendiciones'])->group(function () {
     Route::view('/rendiciones', 'rendiciones.index')->name('rendiciones.index');
+    Route::get('/rendiciones/{id}/imprimir', [RendicionController::class, 'imprimir'])->whereNumber('id')->middleware(G2OwnsRecord::class.':rendicion')->name('rendiciones.imprimir');
     Route::prefix('g2/api/rendiciones')->group(function () {
         Route::get('/', [RendicionController::class, 'index']);
         Route::get('/historial', [RendicionController::class, 'index']);

@@ -251,21 +251,45 @@ async function buscarClientesApi(termino = '') {
 }
 
 function alEscribirCliente(valor) {
-    const valTrim = valor.trim();
-    const clienteMatch = _clientesCache.find(c => c.etiqueta === valTrim);
+    const valTrim = (valor || '').trim().toLowerCase();
     const hiddenId = document.getElementById('formClienteId');
+
+    // 1. Coincidencia directa con lo que ya está cargado en caché
+    const clienteMatch = _clientesCache.find(c => 
+        c.etiqueta.toLowerCase() === valTrim || 
+        c.nombre.toLowerCase() === valTrim ||
+        (c.cuit && c.cuit.includes(valTrim))
+    );
+
     if (clienteMatch) {
         hiddenId.value = clienteMatch.id;
     } else {
-        // Intentar buscar id si empieza por #
-        const matchNum = valTrim.match(/^#?(\d+)/);
-        hiddenId.value = matchNum ? matchNum[1] : '';
+        const parcialMatch = _clientesCache.find(c => 
+            c.nombre.toLowerCase().includes(valTrim) || 
+            c.etiqueta.toLowerCase().includes(valTrim)
+        );
+        if (parcialMatch && valTrim.length >= 2) {
+            hiddenId.value = parcialMatch.id;
+        } else {
+            const matchNum = valTrim.match(/^#?(\d+)/);
+            hiddenId.value = matchNum ? matchNum[1] : '';
+        }
     }
 
     clearTimeout(_debounceBusquedaCliente);
-    _debounceBusquedaCliente = setTimeout(() => {
-        buscarClientesApi(valTrim);
-    }, 250);
+    _debounceBusquedaCliente = setTimeout(async () => {
+        await buscarClientesApi(valTrim);
+        // Si aún no tenía ID y con los nuevos datos coincide, lo asigna
+        if (!hiddenId.value && valTrim.length >= 2) {
+            const recheck = _clientesCache.find(c =>
+                c.nombre.toLowerCase().includes(valTrim) ||
+                c.etiqueta.toLowerCase().includes(valTrim)
+            );
+            if (recheck) {
+                hiddenId.value = recheck.id;
+            }
+        }
+    }, 200);
 }
 
 /* ==========================================================
@@ -429,8 +453,12 @@ async function guardarNuevaRendicion(e) {
         let idCliente      = parseInt(hiddenId ? hiddenId.value : 0);
 
         if (!idCliente && inputCliente) {
-            const val = inputCliente.value.trim();
-            const clienteMatch = _clientesCache.find(c => c.etiqueta === val);
+            const val = inputCliente.value.trim().toLowerCase();
+            const clienteMatch = _clientesCache.find(c => 
+                c.etiqueta.toLowerCase() === val || 
+                c.nombre.toLowerCase() === val ||
+                c.etiqueta.toLowerCase().includes(val)
+            );
             if (clienteMatch) {
                 idCliente = clienteMatch.id;
             } else {
@@ -580,6 +608,11 @@ async function verDetalleRendicion(idRendicion) {
 function cerrarModalDetalle() {
     document.getElementById('modalDetalleRendicion').classList.remove('active');
     rendicionSeleccionadaId = null;
+}
+
+function imprimirRendicionActual() {
+    if (!rendicionSeleccionadaId) return;
+    window.open(`/rendiciones/${rendicionSeleccionadaId}/imprimir`, '_blank');
 }
 
 /* ==========================================================

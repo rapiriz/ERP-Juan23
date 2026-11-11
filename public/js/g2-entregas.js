@@ -427,6 +427,13 @@ async function abrirModalHojaRuta(idEntrega) {
             });
         }
 
+        // Mostrar botón para iniciar rendición si todos los pedidos ya fueron entregados
+        const todosEntregados = pedidos.length > 0 && pedidos.every(p => p.estado_pedido_entrega === 'entregado');
+        const btnRendicion = document.getElementById('btnIrARendicion');
+        if (btnRendicion) {
+            btnRendicion.style.display = todosEntregados ? 'inline-flex' : 'none';
+        }
+
         document.getElementById('modalHojaRuta').style.display = 'flex';
 
     } catch (err) {
@@ -436,6 +443,11 @@ async function abrirModalHojaRuta(idEntrega) {
 }
 
 let entregaActualId = null;
+
+function irARendirEntrega() {
+    if (!entregaActualId) return;
+    window.location.href = `/rendiciones?id_entrega=${entregaActualId}`;
+}
 
 function cerrarModalHojaRuta() {
     document.getElementById('modalHojaRuta').style.display = 'none';
