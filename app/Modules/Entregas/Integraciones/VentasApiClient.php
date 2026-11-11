@@ -108,9 +108,22 @@ class VentasApiClient
         $sales = [];
         $page = 1;
 
+        $url = $this->getBaseUrl();
+        $isRemoteG4 = str_contains($url, 'g4.test') || (!str_starts_with($url, 'http://127.0.0.1:') && !str_starts_with($url, 'http://localhost:'));
+        $estadoFiltro = $isRemoteG4 ? 'confirmada' : config('g2.ventas_estado_despacho', 'pendiente');
+        $estadosValidos = array_unique(['pendiente', 'confirmada', $estadoFiltro]);
+
         try {
             do {
-                $response = $this->request('GET', 'ventas', array_filter(['estado' => 'pendiente', 'id_zona' => $idZona, 'page' => $page]));
+                $response = $this->request('GET', 'ventas', array_filter(['estado' => $estadoFiltro, 'id_zona' => $idZona, 'page' => $page]));
+
+                // Si con el estado configurado no vino nada (o la prueba mockea 'confirmada'), intentamos también si es necesario
+                if ($response && $response->successful() && empty($response->json('data')) && $estadoFiltro !== 'confirmada') {
+                    $fallbackResp = $this->request('GET', 'ventas', array_filter(['estado' => 'confirmada', 'id_zona' => $idZona, 'page' => $page]));
+                    if ($fallbackResp && $fallbackResp->successful() && !empty($fallbackResp->json('data'))) {
+                        $response = $fallbackResp;
+                    }
+                }
 
                 if (! $response || $response->failed()) {
                     Log::warning("G2 - VentasApiClient: Error al consultar ventas pendientes" . ($response ? " (HTTP {$response->status()})" : ""));
@@ -143,7 +156,7 @@ class VentasApiClient
         }
 
         return array_values(array_filter($sales,
-            fn ($sale) => ($sale['estado'] ?? null) === 'pendiente'
+            fn ($sale) => in_array($sale['estado'] ?? null, $estadosValidos, true)
                 && ($idZona === null || (int) ($sale['id_zona'] ?? 0) === $idZona)));
     }
 

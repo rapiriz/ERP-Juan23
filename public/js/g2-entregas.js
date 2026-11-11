@@ -257,7 +257,7 @@ async function armarEntrega(event) {
     event.preventDefault();
 
     if (seleccionados.size === 0) {
-        alert('Por favor seleccioná al menos un pedido de la lista de pendientes.');
+        showToast('Por favor seleccioná al menos un pedido de la lista de pendientes.', 'warning');
         return;
     }
 
@@ -266,7 +266,7 @@ async function armarEntrega(event) {
     const observaciones = document.getElementById('observacionesEntrega').value;
 
     if (!repartidorId) {
-        alert('Por favor asigná un repartidor/chofer para el viaje.');
+        showToast('Por favor asigná un repartidor/chofer para el viaje.', 'warning');
         return;
     }
 
@@ -287,11 +287,11 @@ async function armarEntrega(event) {
         const json = await res.json();
 
         if (json.error) {
-            alert('Error al armar la entrega: ' + json.mensaje);
+            showToast('Error al armar la entrega: ' + json.mensaje, 'error');
             return;
         }
 
-        alert(json.mensaje);
+        showToast(json.mensaje, 'success');
 
         // Recargar pedidos pendientes y lista de entregas
         if (g2Admin) cargarPedidosPendientes();
@@ -306,7 +306,7 @@ async function armarEntrega(event) {
 
     } catch (err) {
         console.error(err);
-        alert('Error de comunicación con el servidor.');
+        showToast('Error de comunicación con el servidor.', 'error');
     }
 }
 
@@ -522,7 +522,7 @@ async function verDetalleEntrega(idEntrega) {
                 if (primerRemito) {
                     verRemito(primerRemito.id_remito);
                 } else {
-                    alert(`Entrega #${idEntrega} no tiene remitos asociados.`);
+                    showToast(`Entrega #${idEntrega} no tiene remitos asociados.`, 'warning');
                 }
             }
         }
