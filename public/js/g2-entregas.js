@@ -166,20 +166,20 @@ function abrirModalArticulos(idVenta) {
 
     (pedido.items || []).forEach(item => {
         const tr = document.createElement('tr');
-        const bultos = parseInt(item.bultos || 0);
-        const sueltos = parseInt(item.unidades_sueltas || 0);
+        const cantidad = parseInt(item.cantidad || 0);
+        const bultos = item.bultos !== undefined ? parseInt(item.bultos) : Math.floor(cantidad / 6);
 
         tr.innerHTML = `
             <td style="font-weight: 700;">${item.codigo || '-'}</td>
             <td>
-                <strong>${item.producto_nombre}</strong><br>
-                <small style="color: var(--text-muted);">${item.producto_descripcion || ''}</small>
+                <strong>${item.producto_nombre || item.producto || 'Artículo'}</strong>
+                ${item.producto_descripcion ? `<br><small style="color: var(--text-muted);">${item.producto_descripcion}</small>` : ''}
+            </td>
+            <td style="text-align: center; font-weight: 700; color: #1E3A8A;">
+                ${cantidad} un.
             </td>
             <td style="text-align: center;">
-                ${bultos > 0 ? `<span class="badge-bultos">${bultos} bulto(s)</span>` : '<span style="color: var(--text-muted);">-</span>'}
-            </td>
-            <td style="text-align: center;">
-                ${sueltos > 0 ? `<span class="badge-sueltos">+${sueltos} sueltas</span>` : '<span style="color: var(--text-muted);">-</span>'}
+                ${bultos > 0 ? `<span class="badge-bultos">${bultos} bulto(s)</span>` : '<span style="color: var(--text-muted);">Suelto</span>'}
             </td>
         `;
         tbody.appendChild(tr);
@@ -257,7 +257,7 @@ async function armarEntrega(event) {
     event.preventDefault();
 
     if (seleccionados.size === 0) {
-        alert('Por favor seleccioná al menos un pedido de la lista de pendientes.');
+        showToast('Por favor seleccioná al menos un pedido de la lista de pendientes.', 'warning');
         return;
     }
 
@@ -266,7 +266,7 @@ async function armarEntrega(event) {
     const observaciones = document.getElementById('observacionesEntrega').value;
 
     if (!repartidorId) {
-        alert('Por favor asigná un repartidor/chofer para el viaje.');
+        showToast('Por favor asigná un repartidor/chofer para el viaje.', 'warning');
         return;
     }
 
@@ -287,11 +287,11 @@ async function armarEntrega(event) {
         const json = await res.json();
 
         if (json.error) {
-            alert('Error al armar la entrega: ' + json.mensaje);
+            showToast('Error al armar la entrega: ' + json.mensaje, 'error');
             return;
         }
 
-        alert(json.mensaje);
+        showToast(json.mensaje, 'success');
 
         // Recargar pedidos pendientes y lista de entregas
         if (g2Admin) cargarPedidosPendientes();
@@ -306,7 +306,7 @@ async function armarEntrega(event) {
 
     } catch (err) {
         console.error(err);
-        alert('Error de comunicación con el servidor.');
+        showToast('Error de comunicación con el servidor.', 'error');
     }
 }
 
@@ -427,6 +427,13 @@ async function abrirModalHojaRuta(idEntrega) {
             });
         }
 
+        // Mostrar botón para iniciar rendición si todos los pedidos ya fueron entregados
+        const todosEntregados = pedidos.length > 0 && pedidos.every(p => p.estado_pedido_entrega === 'entregado');
+        const btnRendicion = document.getElementById('btnIrARendicion');
+        if (btnRendicion) {
+            btnRendicion.style.display = todosEntregados ? 'inline-flex' : 'none';
+        }
+
         document.getElementById('modalHojaRuta').style.display = 'flex';
 
     } catch (err) {
@@ -436,6 +443,11 @@ async function abrirModalHojaRuta(idEntrega) {
 }
 
 let entregaActualId = null;
+
+function irARendirEntrega() {
+    if (!entregaActualId) return;
+    window.location.href = `/rendiciones?id_entrega=${entregaActualId}`;
+}
 
 function cerrarModalHojaRuta() {
     document.getElementById('modalHojaRuta').style.display = 'none';
@@ -522,7 +534,7 @@ async function verDetalleEntrega(idEntrega) {
                 if (primerRemito) {
                     verRemito(primerRemito.id_remito);
                 } else {
-                    alert(`Entrega #${idEntrega} no tiene remitos asociados.`);
+                    showToast(`Entrega #${idEntrega} no tiene remitos asociados.`, 'warning');
                 }
             }
         }

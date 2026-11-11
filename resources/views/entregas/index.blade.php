@@ -242,8 +242,8 @@
                         <tr>
                             <th>Código</th>
                             <th>Producto</th>
-                            <th style="text-align: center;">Bultos Cerrados</th>
-                            <th style="text-align: center;">Art. Sueltos</th>
+                            <th style="text-align: center;">Cantidad</th>
+                            <th style="text-align: center;">Bultos</th>
                         </tr>
                     </thead>
                     <tbody id="articulosDetalleBody"></tbody>
@@ -379,11 +379,19 @@
                 </table>
             </div>
 
-            <div class="modal-footer" style="margin-top: 1.25rem; display: flex; justify-content: space-between; align-items: center;">
-                <span style="font-size: 0.85rem; color: var(--success); font-weight: 600;">
+            <div class="modal-footer" style="margin-top: 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+                <span id="hrMensajeFooter" style="font-size: 0.85rem; color: var(--success); font-weight: 600;">
                     Los pedidos entregados se precargan automáticamente en Rendiciones para la administración.
                 </span>
-                <button class="clay-btn clay-btn-primary" onclick="cerrarModalHojaRuta()">Cerrar</button>
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                    <button id="btnIrARendicion" class="clay-btn clay-btn-success" style="display: none;" onclick="irARendirEntrega()">
+                        <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                        </svg>
+                        <span>Iniciar Rendición de este Viaje →</span>
+                    </button>
+                    <button class="clay-btn clay-btn-primary" onclick="cerrarModalHojaRuta()">Cerrar</button>
+                </div>
             </div>
         </div>
     </div>

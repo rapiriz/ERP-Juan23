@@ -36,6 +36,20 @@ class RendicionController extends Controller
     {
     }
 
+    /**
+     * GET /rendiciones/{id}/imprimir
+     * Vista de comprobante físico para firma y archivo de la rendición.
+     */
+    public function imprimir(int $id)
+    {
+        try {
+            $rendicion = $this->service->obtenerDetalle($id);
+            return view('rendiciones.imprimir', compact('rendicion'));
+        } catch (Throwable $e) {
+            abort(404, 'Rendición no encontrada');
+        }
+    }
+
     // -------------------------------------------------------------------------
     // GET /api/v1/rendiciones
     // H.U.: Consultar historial de rendiciones
@@ -364,34 +378,7 @@ class RendicionController extends Controller
     {
         try {
             $q = trim((string) $request->input('q', ''));
-            $query = DB::table('clientes')
-                ->select(['id', 'nombre', 'apellido_razon_social', 'dni_cuit']);
-
-            if ($q !== '') {
-                $query->where(function ($sub) use ($q) {
-                    $pattern = '%' . $q . '%';
-                    $sub->where('nombre', 'like', $pattern)
-                        ->orWhere('apellido_razon_social', 'like', $pattern)
-                        ->orWhere('dni_cuit', 'like', $pattern);
-                });
-            }
-
-            $clientes = $query->orderBy('apellido_razon_social')
-                ->orderBy('nombre')
-                ->limit(20)
-                ->get()
-                ->map(function ($c) {
-                    $nombreCompleto = trim("{$c->apellido_razon_social} {$c->nombre}");
-                    if (empty($nombreCompleto)) {
-                        $nombreCompleto = $c->nombre ?: $c->apellido_razon_social;
-                    }
-                    return [
-                        'id' => (int) $c->id,
-                        'nombre' => $nombreCompleto,
-                        'cuit' => $c->dni_cuit,
-                        'etiqueta' => "#{$c->id} - {$nombreCompleto}" . ($c->dni_cuit ? " ({$c->dni_cuit})" : '')
-                    ];
-                });
+            $clientes = \App\Modules\Shared\Services\ClienteService::buscarClientes($q, 20);
 
             return Response::json($clientes, 200, "Clientes obtenidos.");
         } catch (Throwable $e) {
