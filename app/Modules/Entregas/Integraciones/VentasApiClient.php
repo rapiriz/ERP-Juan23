@@ -176,23 +176,23 @@ class VentasApiClient
      * Normaliza la estructura devuelta por G4 (VentaResource o array plano).
      */
     private function normalizar(array $sale): array
-    {
-        $sale['id_venta'] = (int) ($sale['id_venta'] ?? $sale['id'] ?? 0);
-        $sale['id_cliente'] = (int) ($sale['id_cliente'] ?? $sale['cliente']['id'] ?? 0);
-
-        // Equivalencias documentadas por VentaResource de G4
-        $estado = is_array($sale['estado'] ?? null) ? ($sale['estado']['valor'] ?? null) : ($sale['estado'] ?? null);
-        $sale['estado'] = is_string($estado) ? strtolower(trim($estado)) : null;
-
-        $sale['cliente_nombre'] = $sale['cliente_nombre'] ?? $sale['cliente']['nombre'] ?? null;
-        $sale['items'] = $sale['items'] ?? array_map(fn ($item) => [
-            ...$item, 'producto_nombre' => $item['producto'] ?? null,
-        ], $sale['detalles'] ?? []);
-
-        if ($sale['id_venta'] <= 0 || $sale['id_cliente'] <= 0 || ! is_numeric($sale['total'] ?? null)) {
-            throw new UnexpectedValueException('Faltan identificadores o el total real en la respuesta de Ventas.');
-        }
-
-        return $sale;
+{
+    $sale['id_venta'] = (int) ($sale['id_venta'] ?? $sale['id'] ?? 0);
+    $sale['id_cliente'] = (int) ($sale['id_cliente'] ?? $sale['cliente']['id'] ?? 0);
+    // Equivalencias documentadas por VentaResource de G4
+    $estado = is_array($sale['estado'] ?? null) ? ($sale['estado']['valor'] ?? null) : ($sale['estado'] ?? null);
+    $sale['estado'] = is_string($estado) ? strtolower(trim($estado)) : null;
+    $sale['cliente_nombre'] = $sale['cliente_nombre'] ?? $sale['cliente']['nombre'] ?? null;
+    $sale['items'] = $sale['items'] ?? array_map(fn ($item) => [
+        ...$item, 'producto_nombre' => $item['producto'] ?? null,
+    ], $sale['detalles'] ?? []);
+    // LÍNEAS PARA COHERENCIA CON REMITOS Y VIAJES 
+    $sale['direccion']   = $sale['direccion'] ?? $sale['cliente']['domicilio'] ?? 'Domicilio comercial';
+    $sale['localidad']   = $sale['localidad'] ?? $sale['cliente']['localidad'] ?? 'Pigüé';
+    $sale['zona_nombre'] = $sale['zona_nombre'] ?? $sale['cliente']['zona'] ?? 'Ruta Saavedra';
+    if ($sale['id_venta'] <= 0 || $sale['id_cliente'] <= 0 || ! is_numeric($sale['total'] ?? null)) {
+        throw new UnexpectedValueException('Faltan identificadores o el total real en la respuesta de Ventas.');
     }
+    return $sale;
+}
 }
