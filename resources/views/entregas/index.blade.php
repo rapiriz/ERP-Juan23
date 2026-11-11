@@ -242,8 +242,8 @@
                         <tr>
                             <th>Código</th>
                             <th>Producto</th>
-                            <th style="text-align: center;">Bultos Cerrados</th>
-                            <th style="text-align: center;">Art. Sueltos</th>
+                            <th style="text-align: center;">Cantidad</th>
+                            <th style="text-align: center;">Bultos</th>
                         </tr>
                     </thead>
                     <tbody id="articulosDetalleBody"></tbody>

@@ -166,20 +166,20 @@ function abrirModalArticulos(idVenta) {
 
     (pedido.items || []).forEach(item => {
         const tr = document.createElement('tr');
-        const bultos = parseInt(item.bultos || 0);
-        const sueltos = parseInt(item.unidades_sueltas || 0);
+        const cantidad = parseInt(item.cantidad || 0);
+        const bultos = item.bultos !== undefined ? parseInt(item.bultos) : Math.floor(cantidad / 6);
 
         tr.innerHTML = `
             <td style="font-weight: 700;">${item.codigo || '-'}</td>
             <td>
-                <strong>${item.producto_nombre}</strong><br>
-                <small style="color: var(--text-muted);">${item.producto_descripcion || ''}</small>
+                <strong>${item.producto_nombre || item.producto || 'Artículo'}</strong>
+                ${item.producto_descripcion ? `<br><small style="color: var(--text-muted);">${item.producto_descripcion}</small>` : ''}
+            </td>
+            <td style="text-align: center; font-weight: 700; color: #1E3A8A;">
+                ${cantidad} un.
             </td>
             <td style="text-align: center;">
-                ${bultos > 0 ? `<span class="badge-bultos">${bultos} bulto(s)</span>` : '<span style="color: var(--text-muted);">-</span>'}
-            </td>
-            <td style="text-align: center;">
-                ${sueltos > 0 ? `<span class="badge-sueltos">+${sueltos} sueltas</span>` : '<span style="color: var(--text-muted);">-</span>'}
+                ${bultos > 0 ? `<span class="badge-bultos">${bultos} bulto(s)</span>` : '<span style="color: var(--text-muted);">Suelto</span>'}
             </td>
         `;
         tbody.appendChild(tr);
