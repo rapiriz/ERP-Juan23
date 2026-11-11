@@ -63,11 +63,13 @@ class OrdenCompraController extends Controller
 
         $totalPendienteFacturar = 0;
         $totalPendienteRecibir = 0;
-        foreach ($detallesOrden as $do) {
-            $idP = (int) $do->id_producto;
-            $sol = (int) $do->cantidad_solicitada;
-            $totalPendienteFacturar += max(0, $sol - ($compradoPorProd[$idP] ?? 0));
-            $totalPendienteRecibir += max(0, $sol - ($recibidoPorProd[$idP] ?? 0));
+        if ($o->estado !== 'completada') {
+            foreach ($detallesOrden as $do) {
+                $idP = (int) $do->id_producto;
+                $sol = (int) $do->cantidad_solicitada;
+                $totalPendienteFacturar += max(0, $sol - ($compradoPorProd[$idP] ?? 0));
+                $totalPendienteRecibir += max(0, $sol - ($recibidoPorProd[$idP] ?? 0));
+            }
         }
 
         return [
@@ -77,6 +79,8 @@ class OrdenCompraController extends Controller
             'proveedor' => $o->proveedor?->razon_social,
             'total_estimado' => (float) $o->total_estimado,
             'estado' => $o->estado,
+            'cierre_parcial' => (bool) ($o->cierre_parcial ?? false),
+            'observaciones' => $o->observaciones ?? null,
             'fecha_creacion' => $o->fecha_creacion ? $o->fecha_creacion->format('Y-m-d') : null,
             'fecha_entrega_estimada' => $o->fecha_entrega_estimada ? $o->fecha_entrega_estimada->format('Y-m-d') : null,
             'fecha_modificacion' => $o->fecha_modificacion ? $o->fecha_modificacion->format('Y-m-d') : null,
@@ -331,7 +335,8 @@ class OrdenCompraController extends Controller
             }
         }
 
-        $detalles = $orden->detalles->map(function (DetalleOrden $d) use ($compradoPorProd, $recibidoPorProd, $ultimoPrecioFacturado) {
+        $esCompletada = $orden->estado === 'completada';
+        $detalles = $orden->detalles->map(function (DetalleOrden $d) use ($compradoPorProd, $recibidoPorProd, $ultimoPrecioFacturado, $esCompletada) {
             $idP = (int) $d->id_producto;
             $solicitada = (int) $d->cantidad_solicitada;
             $comprada = $compradoPorProd[$idP] ?? 0;
@@ -346,8 +351,8 @@ class OrdenCompraController extends Controller
                 'cantidad_solicitada' => $solicitada,
                 'cantidad_comprada' => $comprada,
                 'cantidad_recibida' => $recibida,
-                'cantidad_pendiente' => max(0, $solicitada - $comprada),
-                'falta_recibir' => max(0, $solicitada - $recibida),
+                'cantidad_pendiente' => $esCompletada ? 0 : max(0, $solicitada - $comprada),
+                'falta_recibir' => $esCompletada ? 0 : max(0, $solicitada - $recibida),
                 'precio_estimado' => (float) $d->precio_estimado,
                 'precio_facturado' => $ultimoPrecioFacturado[$idP] ?? null,
                 'subtotal' => (float) $d->subtotal,
@@ -366,6 +371,7 @@ class OrdenCompraController extends Controller
                 'total_comprado' => $formatoOrden['total_comprado'],
                 'total_recibido' => $formatoOrden['total_recibido'],
                 'total_pendiente' => $formatoOrden['total_pendiente'],
+                'total_falta_recibir' => $formatoOrden['total_falta_recibir'],
                 'detalles' => $detalles,
                 'compras' => $formatoOrden['compras_vinculadas'],
             ],
@@ -583,9 +589,57 @@ class OrdenCompraController extends Controller
         }
 
         $nuevoEstado = $request->input('estado');
-        $orden->estado = $nuevoEstado;
-        $orden->fecha_modificacion = Carbon::now()->toDateString();
-        $orden->save();
+
+        if ($nuevoEstado === 'completada') {
+            $orden->load('compras.detalles', 'compras.pagos');
+            foreach ($orden->compras->where('estado', 'parcialmente_recibida') as $compraParcial) {
+                $valorRecibido = 0.0;
+                foreach ($compraParcial->detalles as $d) {
+                    $valorRecibido += (int) $d->cantidad_recibida * (float) $d->precio_unitario;
+                }
+                $valorRecibido = round($valorRecibido, 2);
+                $totalPagado = (float) $compraParcial->totalPagado();
+                if ($totalPagado > $valorRecibido) {
+                    $exceso = round($totalPagado - $valorRecibido, 2);
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => "No se puede dar por completada la orden: la compra vinculada {$compraParcial->numero_compra} registra pagos ($" . number_format($totalPagado, 2, ',', '.') . ") que superan el valor de lo efectivamente recibido ($" . number_format($valorRecibido, 2, ',', '.') . ") en $" . number_format($exceso, 2, ',', '.') . ". Al no gestionarse notas de crédito en el sistema, debe regularizar o revertir el pago excedente antes de cerrar la orden.",
+                    ], 400);
+                }
+            }
+        }
+
+        DB::transaction(function () use ($orden, $nuevoEstado) {
+            $orden->estado = $nuevoEstado;
+            $orden->fecha_modificacion = Carbon::now()->toDateString();
+            $orden->save();
+
+            if ($nuevoEstado === 'completada') {
+                $orden->cierre_parcial = true;
+                $orden->observaciones = trim(($orden->observaciones ? $orden->observaciones . "\n" : '') . 'Orden de compra cerrada por recepción parcial definitiva.');
+                $orden->save();
+
+                $orden->load('compras.detalles');
+                foreach ($orden->compras->where('estado', 'parcialmente_recibida') as $compraParcial) {
+                    foreach ($compraParcial->detalles as $det) {
+                        $rec = (int) $det->cantidad_recibida;
+                        $det->cantidad = $rec;
+                        $det->subtotal = round($rec * (float) $det->precio_unitario, 2);
+                        $det->save();
+                    }
+                    $nuevoTotal = round((float) $compraParcial->detalles()->sum('subtotal'), 2);
+                    $compraParcial->importe_total = $nuevoTotal;
+                    $compraParcial->saldo_pendiente = 0.0;
+                    $compraParcial->estado = 'completada';
+                    $compraParcial->cierre_parcial = true;
+                    $compraParcial->observaciones = trim(($compraParcial->observaciones ? $compraParcial->observaciones . "\n" : '') . 'Comprobante cerrado por recepción parcial definitiva. Saldo no entregado por el proveedor cancelado.');
+                    $compraParcial->fecha_modificacion = Carbon::now()->toDateString();
+                    $compraParcial->save();
+                }
+            }
+        });
+
+        $orden->refresh()->load(['proveedor', 'detalles', 'compras.detalles']);
 
         return response()->json([
             'status' => 'success',

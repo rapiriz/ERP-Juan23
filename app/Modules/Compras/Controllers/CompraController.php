@@ -72,6 +72,8 @@ class CompraController extends Controller
             'saldo_a_pagar' => $saldoAPagar,
             'estado_pago' => $estadoPago,
             'estado' => $c->estado,
+            'cierre_parcial' => (bool) ($c->cierre_parcial ?? false),
+            'observaciones' => $c->observaciones ?? null,
             'fecha_compra' => $c->fecha_compra ? $c->fecha_compra->format('Y-m-d') : null,
             'fecha_vencimiento' => $c->fecha_vencimiento ? $c->fecha_vencimiento->format('Y-m-d') : null,
             'fecha_cancelacion' => $c->fecha_cancelacion ? $c->fecha_cancelacion->format('Y-m-d') : null,
@@ -102,6 +104,15 @@ class CompraController extends Controller
             }
             if (!isset($item['precio_unitario']) || (float) $item['precio_unitario'] < 0) {
                 return ['status' => 'error', 'message' => 'Cada ítem debe indicar un precio unitario válido.', 'code' => 400];
+            }
+            if (isset($item['cantidad_recibida'])) {
+                $rec = (int) $item['cantidad_recibida'];
+                if ($rec < 0) {
+                    return ['status' => 'error', 'message' => 'La cantidad a recibir no puede ser negativa.', 'code' => 400];
+                }
+                if ($rec > (int) $item['cantidad']) {
+                    return ['status' => 'error', 'message' => 'La cantidad a recibir no puede superar la cantidad facturada.', 'code' => 400];
+                }
             }
         }
         return null;
@@ -162,20 +173,53 @@ class CompraController extends Controller
         $idOrden = $request->filled('id_orden') ? (int) $request->input('id_orden') : null;
         $recibirAhora = $request->boolean('recibir_ahora', false);
 
+        if ($idOrden) {
+            $ordenCheck = \App\Modules\PedidosDeCompra\Models\OrdenCompra::find($idOrden);
+            if (!$ordenCheck) {
+                return response()->json(['status' => 'error', 'message' => 'La orden de compra vinculada no existe.'], 404);
+            }
+            if ((int) $ordenCheck->id_proveedor !== (int) $proveedor->id_proveedor) {
+                return response()->json(['status' => 'error', 'message' => 'La orden de compra vinculada pertenece a otro proveedor.'], 400);
+            }
+            if ($ordenCheck->estado === 'cancelada') {
+                return response()->json(['status' => 'error', 'message' => 'No se puede vincular una orden de compra cancelada.'], 400);
+            }
+            if ($ordenCheck->estado === 'completada') {
+                return response()->json(['status' => 'error', 'message' => 'No se puede vincular una orden de compra que ya ha sido completada.'], 400);
+            }
+            if ($ordenCheck->estado === 'borrador') {
+                return response()->json(['status' => 'error', 'message' => 'No se puede vincular una orden de compra en estado borrador.'], 400);
+            }
+        }
+
         try {
             $compra = DB::transaction(function () use ($request, $proveedor, $items, $idUsuario, $fecha, $idOrden, $recibirAhora) {
                 $importeTotal = 0;
                 $detalles = [];
+                $totalComprado = 0;
+                $totalRecibido = 0;
 
                 foreach ($items as $item) {
                     $cantidad = (int) $item['cantidad'];
                     $precio = (float) $item['precio_unitario'];
                     $subtotal = round($cantidad * $precio, 2);
                     $importeTotal += $subtotal;
+
+                    $cantRecibir = 0;
+                    if ($recibirAhora) {
+                        $cantRecibir = isset($item['cantidad_recibida'])
+                            ? min($cantidad, max(0, (int) $item['cantidad_recibida']))
+                            : $cantidad;
+                    }
+
+                    $totalComprado += $cantidad;
+                    $totalRecibido += $cantRecibir;
+
                     $detalles[] = [
                         'id_producto' => (int) $item['id_producto'],
                         'id_unidad' => $this->unidadDelItem($item),
                         'cantidad' => $cantidad,
+                        'cantidad_recibida' => $cantRecibir,
                         'precio_unitario' => $precio,
                         'subtotal' => $subtotal,
                     ];
@@ -184,22 +228,39 @@ class CompraController extends Controller
                 $importeTotal = round($importeTotal, 2);
                 $fechaVenc = $request->input('fecha_vencimiento') ?: Carbon::parse($fecha)->addDays(30)->toDateString();
 
+                if (!$recibirAhora || $totalRecibido === 0) {
+                    $estadoCompra = 'pendiente';
+                    $saldoPendiente = $importeTotal;
+                } elseif ($totalRecibido >= $totalComprado) {
+                    $estadoCompra = 'completada';
+                    $saldoPendiente = 0.0;
+                } else {
+                    $estadoCompra = 'parcialmente_recibida';
+                    $saldoPendiente = 0.0;
+                    foreach ($detalles as $det) {
+                        $pendItem = max(0, (int) $det['cantidad'] - (int) $det['cantidad_recibida']);
+                        $saldoPendiente += $pendItem * (float) $det['precio_unitario'];
+                    }
+                    $saldoPendiente = round($saldoPendiente, 2);
+                }
+
                 $compra = Compra::create([
                     'numero_compra' => $this->generarComprobante(),
                     'numero_comprobante' => $request->input('numero_comprobante') ?: null,
                     'id_proveedor' => $proveedor->id_proveedor,
                     'id_orden' => $idOrden,
                     'importe_total' => $importeTotal,
-                    'saldo_pendiente' => $recibirAhora ? 0.0 : $importeTotal,
-                    'estado' => $recibirAhora ? 'completada' : 'pendiente',
+                    'saldo_pendiente' => $saldoPendiente,
+                    'estado' => $estadoCompra,
+                    'cierre_parcial' => false,
                     'fecha_compra' => $fecha,
                     'fecha_vencimiento' => $fechaVenc,
                     'id_usuario' => $idUsuario,
                 ]);
 
                 $recepcion = null;
-                $stockService = $recibirAhora ? app(StockService::class) : null;
-                if ($recibirAhora) {
+                $stockService = ($totalRecibido > 0) ? app(StockService::class) : null;
+                if ($totalRecibido > 0) {
                     $recepcion = Recepcion::create([
                         'id_compra' => $compra->id_compra,
                         'id_proveedor' => $proveedor->id_proveedor,
@@ -214,17 +275,17 @@ class CompraController extends Controller
                         'id_producto' => $d['id_producto'],
                         'id_unidad' => $d['id_unidad'],
                         'cantidad' => $d['cantidad'],
-                        'cantidad_recibida' => $recibirAhora ? $d['cantidad'] : 0,
+                        'cantidad_recibida' => $d['cantidad_recibida'],
                         'precio_unitario' => $d['precio_unitario'],
                         'subtotal' => $d['subtotal'],
                     ]);
 
-                    if ($recibirAhora && $recepcion && $stockService) {
+                    if ($d['cantidad_recibida'] > 0 && $recepcion && $stockService) {
                         DetalleRecepcion::create([
                             'id_recepcion' => $recepcion->id_recepcion,
                             'id_producto' => $d['id_producto'],
                             'id_unidad' => $d['id_unidad'],
-                            'cantidad_recibida' => $d['cantidad'],
+                            'cantidad_recibida' => $d['cantidad_recibida'],
                         ]);
 
                         $prodStock = Producto::find($d['id_producto']);
@@ -232,7 +293,7 @@ class CompraController extends Controller
                             $stockService->registrarMovimiento(
                                 $prodStock,
                                 'ingreso',
-                                (int) $d['cantidad'],
+                                (int) $d['cantidad_recibida'],
                                 'Ingreso directo por compra ' . $compra->numero_compra,
                                 $idUsuario,
                                 $d['id_unidad'],
@@ -302,6 +363,11 @@ class CompraController extends Controller
                 if ($idOrden) {
                     $ordenVinculada = \App\Modules\PedidosDeCompra\Models\OrdenCompra::find($idOrden);
                     if ($ordenVinculada) {
+                        if ($ordenVinculada->estado === 'pendiente') {
+                            $ordenVinculada->estado = 'enviada';
+                            $ordenVinculada->fecha_envio = Carbon::now()->toDateString();
+                            $ordenVinculada->save();
+                        }
                         $ordenVinculada->sincronizarEstadoRecepcion();
                     }
                 }
@@ -667,6 +733,12 @@ class CompraController extends Controller
                     'cantidad_pagos' => (int) $r->cantidad_pagos,
                     'total' => round((float) $r->total, 2),
                 ]),
+            'lista' => $compra->pagos()
+                ->orderBy('fecha_pago', 'asc')
+                ->orderBy('id_pago', 'asc')
+                ->get()
+                ->map(fn ($p) => \App\Modules\Compras\Services\PagoCompraService::formatear($p))
+                ->toArray(),
         ];
     }
 
@@ -817,7 +889,7 @@ class CompraController extends Controller
      */
     public function cancelar(Request $request, int $id): JsonResponse
     {
-        $compra = Compra::with('detalles')->find($id);
+        $compra = Compra::with(['detalles', 'pagos'])->find($id);
         if (!$compra) {
             return response()->json(['status' => 'error', 'message' => 'La compra no existe.'], 404);
         }
@@ -829,43 +901,156 @@ class CompraController extends Controller
             ], 400);
         }
 
-        $idUsuario = UsuarioActual::id($request);
+        $totalPagado = (float) $compra->totalPagado();
+        if ($totalPagado > 0) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'No se puede cancelar una compra que ya registra pagos ($' . number_format($totalPagado, 2, ',', '.') . '). Debe gestionar primero la reversión de los pagos.',
+            ], 400);
+        }
 
-        DB::transaction(function () use ($compra, $idUsuario) {
-            $stockService = app(StockService::class);
-            $hoy = Carbon::now()->toDateString();
-
-            foreach ($compra->detalles as $detalle) {
-                $recibido = (int) $detalle->cantidad_recibida;
-                if ($recibido > 0) {
-                    $producto = Producto::find($detalle->id_producto);
-                    if ($producto) {
-                        $stockService->registrarMovimiento(
-                            $producto,
-                            'ajuste',
-                            $recibido,
-                            'Reversión de stock por anulación de compra ' . ($compra->numero_compra ?: '#' . $compra->id_compra),
-                            $idUsuario,
-                            $detalle->id_unidad,
-                            null,
-                            null,
-                            $hoy,
-                            false
-                        );
+        // Validar previamente que el stock actual en depósito alcance para revertir lo recibido
+        foreach ($compra->detalles as $detalle) {
+            $recibido = (int) $detalle->cantidad_recibida;
+            if ($recibido > 0) {
+                $producto = Producto::find($detalle->id_producto);
+                if ($producto) {
+                    $stockActual = (int) ($producto->stock_disponible ?? $producto->stock ?? 0);
+                    if ($stockActual < $recibido) {
+                        return response()->json([
+                            'status' => 'error',
+                            'message' => "No se puede cancelar la compra: el producto '{$producto->descripcion}' tiene un stock actual de {$stockActual}, insuficiente para revertir las {$recibido} unidades recibidas (posible stock ya vendido o consumido).",
+                        ], 400);
                     }
-                    $detalle->cantidad_recibida = 0;
-                    $detalle->save();
                 }
             }
+        }
 
-            $compra->estado = 'cancelada';
-            $compra->fecha_cancelacion = $hoy;
+        $idUsuario = UsuarioActual::id($request);
+
+        try {
+            DB::transaction(function () use ($compra, $idUsuario) {
+                $stockService = app(StockService::class);
+                $hoy = Carbon::now()->toDateString();
+
+                foreach ($compra->detalles as $detalle) {
+                    $recibido = (int) $detalle->cantidad_recibida;
+                    if ($recibido > 0) {
+                        $producto = Producto::find($detalle->id_producto);
+                        if ($producto) {
+                            $stockService->registrarMovimiento(
+                                $producto,
+                                'ajuste',
+                                $recibido,
+                                'Reversión de stock por anulación de compra ' . ($compra->numero_compra ?: '#' . $compra->id_compra),
+                                $idUsuario,
+                                $detalle->id_unidad,
+                                null,
+                                null,
+                                $hoy,
+                                false
+                            );
+                        }
+                        $detalle->cantidad_recibida = 0;
+                        $detalle->save();
+                    }
+                }
+
+                $compra->estado = 'cancelada';
+                $compra->fecha_cancelacion = $hoy;
+                $compra->save();
+
+                if ($compra->id_orden) {
+                    $orden = \App\Modules\PedidosDeCompra\Models\OrdenCompra::find($compra->id_orden);
+                    if ($orden) {
+                        $orden->sincronizarEstadoRecepcion();
+                    }
+                }
+            });
+        } catch (\Throwable $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Error al cancelar la compra: ' . $e->getMessage(),
+            ], 400);
+        }
+
+        $compra->refresh()->load(['proveedor', 'orden', 'pagos']);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Compra cancelada exitosamente. Se conserva el historial.',
+            'data' => $this->formato($compra),
+        ], 200);
+    }
+
+    /**
+     * Cierra y da por completada una compra parcialmente recibida ajustando
+     * las cantidades e importe total facturado a lo efectivamente ingresado a stock,
+     * recalculando la deuda y el saldo pendiente.
+     */
+    public function cerrarParcial(int $id): JsonResponse
+    {
+        $compra = Compra::with(['detalles', 'pagos', 'orden'])->find($id);
+        if (!$compra) {
+            return response()->json(['status' => 'error', 'message' => 'La compra no existe.'], 404);
+        }
+
+        if ($compra->estado === 'cancelada') {
+            return response()->json(['status' => 'error', 'message' => 'La compra ya se encuentra cancelada.'], 400);
+        }
+
+        if ($compra->estado === 'completada') {
+            return response()->json(['status' => 'error', 'message' => 'La compra ya se encuentra completada.'], 400);
+        }
+
+        $totalRecibido = (int) $compra->detalles->sum('cantidad_recibida');
+        if ($totalRecibido <= 0) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'No se puede dar por completada una compra sin mercadería recibida. Si no va a ingresar stock, cancele la compra.',
+            ], 400);
+        }
+
+        $valorRecibido = 0.0;
+        foreach ($compra->detalles as $d) {
+            $valorRecibido += (int) $d->cantidad_recibida * (float) $d->precio_unitario;
+        }
+        $valorRecibido = round($valorRecibido, 2);
+
+        $totalPagado = (float) $compra->totalPagado();
+        if ($totalPagado > $valorRecibido) {
+            $exceso = round($totalPagado - $valorRecibido, 2);
+            return response()->json([
+                'status' => 'error',
+                'message' => "No se puede dar por completada la compra: el importe ya pagado ($" . number_format($totalPagado, 2, ',', '.') . ") supera el valor de lo efectivamente recibido ($" . number_format($valorRecibido, 2, ',', '.') . ") en $" . number_format($exceso, 2, ',', '.') . ". Al no gestionarse notas de crédito en el sistema, debe regularizar o revertir el pago excedente antes de cerrar la compra.",
+            ], 400);
+        }
+
+        DB::transaction(function () use ($compra) {
+            foreach ($compra->detalles as $d) {
+                $rec = (int) $d->cantidad_recibida;
+                $d->cantidad = $rec;
+                $d->subtotal = round($rec * (float) $d->precio_unitario, 2);
+                $d->save();
+            }
+
+            $nuevoTotal = round((float) $compra->detalles()->sum('subtotal'), 2);
+            $compra->importe_total = $nuevoTotal;
+            $compra->saldo_pendiente = 0.0;
+            $compra->estado = 'completada';
+            $compra->cierre_parcial = true;
+            $compra->observaciones = trim(($compra->observaciones ? $compra->observaciones . "\n" : '') . 'Comprobante cerrado por recepción parcial definitiva. Saldo no entregado cancelado.');
+            $compra->fecha_modificacion = Carbon::now()->toDateString();
             $compra->save();
 
             if ($compra->id_orden) {
                 $orden = \App\Modules\PedidosDeCompra\Models\OrdenCompra::find($compra->id_orden);
                 if ($orden) {
-                    $orden->sincronizarEstadoRecepcion();
+                    $orden->estado = 'completada';
+                    $orden->cierre_parcial = true;
+                    $orden->observaciones = trim(($orden->observaciones ? $orden->observaciones . "\n" : '') . 'Orden de compra cerrada por recepción parcial definitiva.');
+                    $orden->fecha_modificacion = Carbon::now()->toDateString();
+                    $orden->save();
                 }
             }
         });
@@ -874,7 +1059,7 @@ class CompraController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Compra cancelada exitosamente. Se conserva el historial.',
+            'message' => 'Compra cerrada y dada por completada con lo efectivamente recibido. La deuda y el saldo fueron recalculados.',
             'data' => $this->formato($compra),
         ], 200);
     }

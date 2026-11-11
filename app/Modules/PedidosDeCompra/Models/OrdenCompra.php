@@ -19,6 +19,8 @@ class OrdenCompra extends Model
         'id_proveedor',
         'total_estimado',
         'estado',
+        'cierre_parcial',
+        'observaciones',
         'fecha_creacion',
         'fecha_modificacion',
         'fecha_envio',
@@ -29,6 +31,7 @@ class OrdenCompra extends Model
 
     protected $casts = [
         'id_orden' => 'integer',
+        'cierre_parcial' => 'boolean',
         'total_estimado' => 'float',
         'fecha_creacion' => 'date:Y-m-d',
         'fecha_modificacion' => 'date:Y-m-d',
@@ -105,10 +108,12 @@ class OrdenCompra extends Model
 
         if ($todosCumplidos && $totalRecibidoGeneral > 0) {
             $nuevoEstado = 'completada';
+        } elseif ($this->cierre_parcial && $totalRecibidoGeneral > 0) {
+            $nuevoEstado = 'completada';
         } elseif ($totalRecibidoGeneral > 0) {
             $nuevoEstado = 'recibida_parcialmente';
         } else {
-            $nuevoEstado = 'enviada';
+            $nuevoEstado = $this->fecha_envio ? 'enviada' : 'pendiente';
         }
 
         $this->estado = $nuevoEstado;
