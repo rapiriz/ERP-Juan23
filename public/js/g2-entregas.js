@@ -115,29 +115,30 @@ async function cargarPedidosPendientes() {
                 cargaHtml += ` <span class="badge-sueltos">+${sueltos} sueltas</span>`;
             }
 
+            const obs = p.observaciones
+                ? `<span class="col-obs-entrega" title="${p.observaciones}">${p.observaciones}</span>`
+                : `<span style="color: var(--text-light); font-size: 0.8rem;">—</span>`;
+
             tr.innerHTML = `
                 <td style="text-align: center;">
                     <input type="checkbox" class="custom-checkbox pedido-checkbox" value="${p.id_venta}" data-bultos="${bultos}" data-sueltos="${sueltos}" onchange="togglePedido(this)">
                 </td>
-                <td><strong>#PED-${p.id_venta.toString().padStart(4, '0')}</strong></td>
+                <td><strong style="color: var(--primary);">#PED-${p.id_venta.toString().padStart(4, '0')}</strong></td>
                 <td>
-                    <strong>${p.cliente_nombre}</strong><br>
-                    <small style="color: var(--text-muted);">${p.razon_social || ''}</small>
+                    <strong>${p.cliente_nombre}</strong>${p.razon_social ? `<br><small style="color: var(--text-muted);">${p.razon_social}</small>` : ''}
                 </td>
                 <td><span class="badge-zona">${p.zona_nombre}</span></td>
                 <td>${p.direccion}, ${p.localidad}</td>
                 <td style="text-align: center;">${cargaHtml}</td>
                 <td style="text-align: center;">
-                    <button class="clay-btn clay-btn-secondary" style="min-height: 36px; padding: 0.35rem 0.85rem; font-size: 0.92rem;" onclick="abrirModalArticulos(${p.id_venta})">
-                        Ver Items (${itemsCount})
+                    <button class="clay-btn clay-btn-secondary clay-btn-xs" style="padding: 0.25rem 0.6rem; font-size: 0.82rem;" onclick="abrirModalArticulos(${p.id_venta})" title="Ver artículos de este pedido">
+                        Ver (${itemsCount})
                     </button>
                 </td>
-                <td style="text-align: right; font-weight: 800; color: #1E3A8A;">
+                <td style="text-align: right; font-weight: 800; color: #1E3A8A; white-space: nowrap;">
                     $${Number(p.total).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                 </td>
-                <td>
-                    <small style="color: var(--text-muted);">${p.observaciones || 'Sin observaciones'}</small>
-                </td>
+                <td>${obs}</td>
             `;
             tbody.appendChild(tr);
         });
@@ -333,20 +334,20 @@ async function cargarEntregas() {
                     ? ` <span class="badge-sueltos">+${e.total_sueltos} sueltas</span>`
                     : '';
                 const cantPedidos = parseInt(e.cantidad_pedidos || 0);
-                const textoBtnRemito = cantPedidos > 1 ? `Ver Remitos (${cantPedidos})` : 'Ver Remito';
+                const textoBtnRemito = cantPedidos > 1 ? `Remitos (${cantPedidos})` : 'Remito';
                 tr.innerHTML = `
-                    <td><strong>#ENT-${e.id_entrega.toString().padStart(4, '0')}</strong></td>
-                    <td>${e.fecha_salida || e.fecha_creacion}</td>
+                    <td><strong style="color: var(--primary);">#ENT-${e.id_entrega.toString().padStart(4, '0')}</strong></td>
+                    <td style="color: var(--text-muted); font-size: 0.82rem; white-space: nowrap;">${e.fecha_salida || e.fecha_creacion}</td>
                     <td><strong>${e.repartidor_nombre}</strong></td>
-                    <td>${e.cantidad_pedidos} pedidos</td>
-                    <td><span class="badge-bultos">${e.total_bultos} bultos</span>${sueltosHtml}</td>
-                    <td><span class="badge badge-${e.estado}">${e.estado.replace('_', ' ').toUpperCase()}</span></td>
-                    <td>
-                        <div style="display: flex; gap: 0.4rem; justify-content: center; flex-wrap: wrap;">
-                            <button class="clay-btn clay-btn-primary" style="min-height: 36px; padding: 0.35rem 0.85rem; font-size: 0.92rem;" onclick="abrirModalHojaRuta(${e.id_entrega})" title="Ver hoja de ruta y confirmar entregas">
+                    <td style="text-align: center;">${e.cantidad_pedidos} pedidos</td>
+                    <td style="text-align: center;"><span class="badge-bultos">${e.total_bultos} bultos</span>${sueltosHtml}</td>
+                    <td style="text-align: center;"><span class="badge badge-${e.estado}">${e.estado.replace('_', ' ').toUpperCase()}</span></td>
+                    <td style="text-align: center;">
+                        <div class="acciones-btn-group">
+                            <button class="clay-btn clay-btn-primary clay-btn-xs" style="padding: 0.25rem 0.65rem; font-size: 0.82rem;" onclick="abrirModalHojaRuta(${e.id_entrega})" title="Ver hoja de ruta y confirmar entregas">
                                 Hoja de Ruta
                             </button>
-                            <button class="clay-btn clay-btn-secondary" style="min-height: 36px; padding: 0.35rem 0.85rem; font-size: 0.92rem;" onclick="verDetalleEntrega(${e.id_entrega})" title="Ver comprobantes de remito">
+                            <button class="clay-btn clay-btn-secondary clay-btn-xs" style="padding: 0.25rem 0.65rem; font-size: 0.82rem;" onclick="verDetalleEntrega(${e.id_entrega})" title="Ver comprobantes de remito">
                                 ${textoBtnRemito}
                             </button>
                         </div>
@@ -507,8 +508,44 @@ async function consultarVentasGrupo4() {
 /**
  * HU #3 (Issue #124): Confirmar pedido entregado por el chofer (con medio de pago y monto cobrado/parcial)
  */
-function confirmarEntregaPedido(idEntrega, idVenta) {
-    const p = (window._pedidosHojaRuta && window._pedidosHojaRuta[`${idEntrega}_${idVenta}`]) || null;
+async function confirmarEntregaPedido(idEntrega, idVenta) {
+    if (!window._pedidosHojaRuta) {
+        window._pedidosHojaRuta = {};
+    }
+
+    let p = window._pedidosHojaRuta[`${idEntrega}_${idVenta}`] || null;
+
+    // Si no está cargado en memoria (ej: se abrió desde Ver Remito directamente), lo buscamos
+    if (!p) {
+        // Intentar obtenerlo de los pedidos pendientes en memoria
+        if (Array.isArray(pedidosGlobales)) {
+            const pedPend = pedidosGlobales.find(item => parseInt(item.id_venta) === parseInt(idVenta));
+            if (pedPend) {
+                p = {
+                    id_venta: pedPend.id_venta,
+                    total: pedPend.total,
+                    cliente_nombre: pedPend.cliente_nombre
+                };
+            }
+        }
+
+        // Si aún no se tiene, consultar la API de entregas para obtener el viaje y sus pedidos
+        if (!p && idEntrega) {
+            try {
+                const res = await g2Fetch(`${API_BASE}/entregas/${idEntrega}`);
+                const json = await res.json();
+                if (!json.error && json.data && Array.isArray(json.data.pedidos)) {
+                    json.data.pedidos.forEach(item => {
+                        window._pedidosHojaRuta[`${idEntrega}_${item.id_venta}`] = item;
+                    });
+                    p = window._pedidosHojaRuta[`${idEntrega}_${idVenta}`] || null;
+                }
+            } catch (e) {
+                console.warn('No se pudo precargar el pedido para la entrega:', e);
+            }
+        }
+    }
+
     const total = p ? Number(p.total || 0) : 0;
     const cliente = p ? (p.cliente_nombre || `Pedido #${idVenta}`) : `Pedido #${idVenta}`;
 

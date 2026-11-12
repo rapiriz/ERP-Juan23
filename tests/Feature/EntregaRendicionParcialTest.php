@@ -197,7 +197,7 @@ class EntregaRendicionParcialTest extends TestCase
         $this->assertEquals(3, (int) $cobrosR2[0]->id_factura);
     }
 
-    public function test_precargar_en_rendicion_pendiente_conserva_cobros_existentes_y_agrega_los_nuevos(): void
+    public function test_precargar_en_rendicion_crea_rendiciones_individuales_por_pedido(): void
     {
         $ventasMock = $this->mockVentasClient();
         $service = new RendicionService(new RendicionRepository(), $ventasMock);
@@ -208,26 +208,25 @@ class EntregaRendicionParcialTest extends TestCase
             ->update(['estado_pedido_entrega' => 'entregado']);
 
         $r1 = $service->precargarOActualizarRendicionDesdeEntrega(3);
-        $cobroInicial = DB::table('RENDICION_COBRO')->where('id_rendicion', $r1['id_rendicion'])->first();
+        $this->assertEquals(3900.00, $r1['total_rendido']);
 
         DB::table('entrega_pedido')
             ->where('id_entrega', 3)
             ->where('id_venta', 3)
             ->update(['estado_pedido_entrega' => 'entregado']);
 
-        $r1Actualizada = $service->precargarOActualizarRendicionDesdeEntrega(3);
-        $this->assertEquals($r1['id_rendicion'], $r1Actualizada['id_rendicion']);
-        $this->assertEquals(6400.00, $r1Actualizada['total_rendido']);
+        $r2 = $service->precargarOActualizarRendicionDesdeEntrega(3);
+        $this->assertNotEquals($r1['id_rendicion'], $r2['id_rendicion']);
+        $this->assertEquals(2500.00, $r2['total_rendido']);
 
-        $cobros = DB::table('RENDICION_COBRO')
-            ->where('id_rendicion', $r1['id_rendicion'])
-            ->orderBy('id_rendicion_cobro')
-            ->get();
+        // Cada rendición tiene su propio cobro individual
+        $cobrosR1 = DB::table('RENDICION_COBRO')->where('id_rendicion', $r1['id_rendicion'])->get();
+        $this->assertCount(1, $cobrosR1);
+        $this->assertEquals(4, (int) $cobrosR1[0]->id_factura);
 
-        $this->assertCount(2, $cobros);
-        $this->assertEquals($cobroInicial->id_rendicion_cobro, $cobros[0]->id_rendicion_cobro);
-        $this->assertEquals(4, (int) $cobros[0]->id_factura);
-        $this->assertEquals(3, (int) $cobros[1]->id_factura);
+        $cobrosR2 = DB::table('RENDICION_COBRO')->where('id_rendicion', $r2['id_rendicion'])->get();
+        $this->assertCount(1, $cobrosR2);
+        $this->assertEquals(3, (int) $cobrosR2[0]->id_factura);
     }
 
     public function test_confirmar_pedido_entregado_notifica_una_sola_vez_a_ventas_g4(): void
