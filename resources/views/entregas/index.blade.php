@@ -3,6 +3,69 @@
 @push('styles')
 <link rel="stylesheet" href="{{ asset('css/g2.css') }}">
 <link rel="stylesheet" href="{{ asset('css/pigue-claymorphism.css') }}">
+<style>
+    /* Asegurar que el contenedor principal aproveche el ancho disponible sin scroll horizontal */
+    .layout:has(.g2-page),
+    main.layout:has(.g2-page) {
+        width: calc(100% - 32px) !important;
+        max-width: 1560px !important;
+        padding-top: 24px !important;
+    }
+
+    .g2-page {
+        padding: 1rem 1.25rem !important;
+    }
+
+    .g2-page .clay-card {
+        padding: 1.25rem !important;
+    }
+
+    /* Tablas fluidas y bien proporcionadas */
+    .g2-page table.clay-table {
+        table-layout: auto;
+        width: 100%;
+        min-width: 100%;
+        font-size: 0.84rem;
+    }
+
+    .g2-page table.clay-table th {
+        padding: 0.55rem 0.55rem;
+        font-size: 0.72rem;
+        letter-spacing: 0.02em;
+    }
+
+    .g2-page table.clay-table td {
+        padding: 0.55rem 0.55rem;
+        font-size: 0.84rem;
+    }
+
+    .g2-page .table-responsive {
+        box-shadow: none;
+        border: 1px solid var(--border-light, #E2E8F0);
+        overflow-x: auto;
+    }
+
+    .col-obs-entrega {
+        max-width: 160px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: inline-block;
+        vertical-align: middle;
+    }
+    .acciones-btn-group {
+        display: inline-flex;
+        gap: 0.4rem;
+        align-items: center;
+        justify-content: center;
+        flex-wrap: nowrap;
+    }
+
+    .acciones-btn-group .clay-btn {
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+</style>
 @endpush
 @section('content')
 <div class="g2-page" data-g2-role="{{ \App\Modules\Shared\Auth\G2Identity::role() }}">
@@ -74,18 +137,19 @@
                                 <input type="checkbox" id="selectAll" class="custom-checkbox"
                                     onchange="toggleSelectAll(this)" title="Seleccionar todos" aria-label="Seleccionar todos los pedidos">
                             </th>
-                            <th>Nº Pedido</th>
+                            <th style="width: 105px;">Nº Pedido</th>
                             <th>Cliente / Razón Social</th>
-                            <th>Zona</th>
+                            <th style="width: 110px;">Zona</th>
                             <th>Dirección de Entrega</th>
-                            <th style="text-align: center;">Carga Física</th>
-                            <th style="text-align: right;">Total $</th>
+                            <th style="text-align: center; width: 130px;">Carga Física</th>
+                            <th style="text-align: center; width: 115px;">Artículos</th>
+                            <th style="text-align: right; width: 110px;">Total $</th>
                             <th>Obs.</th>
                         </tr>
                     </thead>
                     <tbody id="tablaPedidosBody">
                         <tr>
-                            <td colspan="8">
+                            <td colspan="9">
                                 <div class="table-empty">
                                     <span class="table-empty-icon">
                                         <svg class="icon-svg icon-svg-lg" viewBox="0 0 24 24" aria-hidden="true" style="stroke: var(--text-muted); width: 28px; height: 28px;">
@@ -186,13 +250,13 @@
                 <table class="clay-table">
                     <thead>
                         <tr>
-                            <th>Nº Entrega</th>
-                            <th>Fecha Salida</th>
+                            <th style="width: 105px;">Nº Entrega</th>
+                            <th style="width: 100px;">Fecha Salida</th>
                             <th>Chofer</th>
-                            <th style="text-align: center;">Pedidos</th>
-                            <th style="text-align: center;">Total Bultos</th>
-                            <th style="text-align: center;">Estado</th>
-                            <th style="text-align: center;">Acciones</th>
+                            <th style="text-align: center; width: 100px;">Pedidos</th>
+                            <th style="text-align: center; width: 130px;">Total Bultos</th>
+                            <th style="text-align: center; width: 110px;">Estado</th>
+                            <th style="text-align: center; width: 195px; white-space: nowrap;">Acciones</th>
                         </tr>
                     </thead>
                     <tbody id="tablaEntregasBody">

@@ -13,12 +13,6 @@ let _todasLasRendiciones = [];
 document.addEventListener('DOMContentLoaded', () => {
     cargarContadoresGlobales();
     cargarListadoRendiciones();
-    // Fecha hoy por defecto en filtro de fecha
-    const filtroFecha = document.getElementById('filtroFecha');
-    if (filtroFecha) {
-        const hoy = new Date().toISOString().split('T')[0];
-        filtroFecha.value = hoy;
-    }
 
     // Si viene redirigido desde Entregas con ?id_entrega=X, abrir modal precargada
     const urlParams = new URLSearchParams(window.location.search);
@@ -81,19 +75,21 @@ function showToast(mensaje, tipo = 'info') {
    ========================================================== */
 async function cargarListadoRendiciones() {
     const repartidorId = document.getElementById('filtroRepartidor')?.value || '';
+    const fecha = document.getElementById('filtroFecha')?.value || '';
     const tbody = document.getElementById('tablaRendicionesBody');
-    tbody.innerHTML = `<tr><td colspan="8"><div class="table-empty">Cargando rendiciones…</div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9"><div class="table-empty">Cargando rendiciones…</div></td></tr>`;
 
     let url = `${API_BASE}/rendiciones?1=1`;
     if (estadoFiltroActual) url += `&estado=${estadoFiltroActual}`;
     if (repartidorId)       url += `&id_repartidor=${repartidorId}`;
+    if (fecha)              url += `&fecha=${fecha}`;
 
     try {
         const res = await g2Fetch(url);
         const json = await res.json();
 
         if (json.error) {
-            tbody.innerHTML = `<tr><td colspan="8"><div class="table-empty" style="color:var(--danger);">${json.mensaje}</div></td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="9"><div class="table-empty" style="color:var(--danger);">${json.mensaje}</div></td></tr>`;
             return;
         }
 
@@ -105,7 +101,7 @@ async function cargarListadoRendiciones() {
 
     } catch (err) {
         console.error('Error al cargar rendiciones:', err);
-        tbody.innerHTML = `<tr><td colspan="8"><div class="table-empty" style="color:var(--danger);">Error de conexión con el servidor.</div></td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9"><div class="table-empty" style="color:var(--danger);">Error de conexión con el servidor.</div></td></tr>`;
     }
 }
 
@@ -113,13 +109,22 @@ function renderizarTabla(rendiciones) {
     const tbody = document.getElementById('tablaRendicionesBody');
 
     if (rendiciones.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8"><div class="table-empty">No se encontraron rendiciones para los filtros seleccionados.</div></td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9"><div class="table-empty">No se encontraron rendiciones para los filtros seleccionados.</div></td></tr>`;
         return;
     }
 
     tbody.innerHTML = '';
     rendiciones.forEach(r => {
         const tr = document.createElement('tr');
+        tr.style.cursor = 'pointer';
+        tr.title = 'Hacé clic para ver el detalle completo de esta rendición';
+        tr.onclick = (evt) => {
+            // Evitar que el clic en los botones de acción dispare también el modal de detalle
+            if (evt.target.closest('button') || evt.target.closest('a')) {
+                return;
+            }
+            verDetalleRendicion(r.id_rendicion);
+        };
 
         let badgeClass = 'badge-pendiente';
         let estadoTexto = 'Pendiente';
@@ -140,36 +145,58 @@ function renderizarTabla(rendiciones) {
             ? `<span class="badge badge-zona">Reparto #${r.id_entrega}</span>`
             : `<span style="color: var(--text-light); font-size: 0.8rem;">—</span>`;
 
+        // Extraer pedidos y clientes asociados a los cobros de esta rendición
+        const cobros = Array.isArray(r.cobros) ? r.cobros : [];
+        let pedidoClienteHtml = '';
+        if (cobros.length > 0) {
+            pedidoClienteHtml = cobros.map(c => {
+                const pedNum = c.id_factura ? `#PED-${c.id_factura.toString().padStart(4, '0')}` : 'Cobro';
+                const clienteNom = c.cliente_nombre || (c.cliente ? c.cliente.nombre : null) || '';
+                return `<div><strong style="color: var(--primary);">${pedNum}</strong>${clienteNom ? ` <small style="color: var(--text-muted);">(${clienteNom})</small>` : ''}</div>`;
+            }).join('');
+        } else {
+            // Si vino precargada y tiene el pedido en la observación (ej: "Pedido #PED-0012")
+            const matchPedido = (r.observaciones || '').match(/#PED-\d+/i);
+            pedidoClienteHtml = matchPedido
+                ? `<strong style="color: var(--primary);">${matchPedido[0]}</strong>`
+                : `<span style="color: var(--text-light); font-size: 0.8rem;">—</span>`;
+        }
+
         const totalFormateado = Number(r.total_rendido).toLocaleString('es-AR', { minimumFractionDigits: 2 });
         const obs = r.observaciones
-            ? `<span title="${r.observaciones}" style="max-width: 160px; display: inline-block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${r.observaciones}</span>`
+            ? `<span class="col-obs" title="${r.observaciones}">${r.observaciones}</span>`
             : `<span style="color: var(--text-light); font-size: 0.8rem;">—</span>`;
+
+        // Acciones: si está pendiente y es admin muestra Aprobar y Rechazar; si ya fue resuelta muestra estado o guión
+        let accionesHtml = '<span style="color: var(--text-light); font-size: 0.82rem;">—</span>';
+        if (g2Admin && r.estado === 'pendiente') {
+            accionesHtml = `
+                <div style="display: flex; gap: 0.4rem; justify-content: center; flex-wrap: wrap;">
+                    <button class="clay-btn clay-btn-xs" style="background: var(--success); color: white;" onclick="aprobarRapido(${r.id_rendicion})" title="Aprobar rendición y liquidar cobro">
+                        Aprobar
+                    </button>
+                    <button class="clay-btn clay-btn-xs" style="background: var(--danger); color: white;" onclick="rechazarRapido(${r.id_rendicion})" title="Rechazar rendición">
+                        Rechazar
+                    </button>
+                </div>
+            `;
+        }
 
         tr.innerHTML = `
             <td><strong style="color: var(--primary); font-family: monospace;">#REND-${r.id_rendicion.toString().padStart(4, '0')}</strong></td>
-            <td style="color: var(--text-muted); font-size: 0.875rem;">${fechaFormat}</td>
+            <td style="color: var(--text-muted); font-size: 0.82rem; white-space: nowrap;">${fechaFormat}</td>
             <td><strong>${nombreRepartidor}</strong></td>
-            <td>${entregaTag}</td>
-            <td style="text-align: right; font-weight: 800; color: var(--text-main); font-variant-numeric: tabular-nums;">
+            <td>${pedidoClienteHtml}</td>
+            <td style="text-align: center;">${entregaTag}</td>
+            <td style="text-align: right; font-weight: 800; color: var(--text-main); font-variant-numeric: tabular-nums; white-space: nowrap;">
                 $${totalFormateado}
             </td>
             <td style="text-align: center;">
                 <span class="badge ${badgeClass}">${estadoTexto}</span>
             </td>
-            <td style="font-size: 0.875rem;">${obs}</td>
+            <td>${obs}</td>
             <td style="text-align: center;">
-                <div style="display: flex; gap: 0.4rem; justify-content: center; flex-wrap: wrap;">
-                    <button class="clay-btn clay-btn-secondary clay-btn-xs" onclick="verDetalleRendicion(${r.id_rendicion})" title="Ver detalle y validar">
-                        Ver
-                    </button>
-                    ${g2Admin && r.estado === 'pendiente' ? `
-                    <button class="clay-btn clay-btn-xs" style="background: var(--success); color: white;" onclick="aprobarRapido(${r.id_rendicion})" title="Aprobar directamente">
-                        Aprobar
-                    </button>
-                    <button class="clay-btn clay-btn-xs" style="background: var(--danger); color: white;" onclick="rechazarRapido(${r.id_rendicion})" title="Rechazar">
-                        Rechazar
-                    </button>` : ''}
-                </div>
+                ${accionesHtml}
             </td>
         `;
         tbody.appendChild(tr);
@@ -193,7 +220,55 @@ function filtrarEstadoTab(estado) {
         activeTab.setAttribute('aria-selected', 'true');
     }
 
+    // Al seleccionar "Todas", también limpiamos el filtro de fecha para volver a ver el histórico completo
+    if (estado === '') {
+        const inputFecha = document.getElementById('filtroFecha');
+        if (inputFecha) inputFecha.value = '';
+    }
+
+    // Sincronizar indicador visual activo en los KPIs superiores
+    document.querySelectorAll('.kpi-card.kpi-card-clickable').forEach(card => card.classList.remove('active'));
+    if (estado === 'pendiente') {
+        document.getElementById('kpiCardPendiente')?.classList.add('active');
+    } else if (estado === 'aprobada') {
+        document.getElementById('kpiCardAprobada')?.classList.add('active');
+    } else if (estado === 'rechazada') {
+        document.getElementById('kpiCardRechazada')?.classList.add('active');
+    }
+
     cargarListadoRendiciones();
+}
+
+/**
+ * Permite filtrar la tabla al hacer clic en los bloques de estadísticas (KPI cards).
+ */
+function filtrarDesdeKpi(tipo) {
+    if (tipo === 'hoy') {
+        const inputFecha = document.getElementById('filtroFecha');
+        const hoy = new Date().toISOString().split('T')[0];
+        if (inputFecha) inputFecha.value = hoy;
+
+        // Limpiar tabs de estado para mostrar todas las de hoy
+        estadoFiltroActual = '';
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.remove('active');
+            btn.setAttribute('aria-selected', 'false');
+        });
+        const tabTodas = document.getElementById('tabTodas');
+        if (tabTodas) {
+            tabTodas.classList.add('active');
+            tabTodas.setAttribute('aria-selected', 'true');
+        }
+
+        document.querySelectorAll('.kpi-card.kpi-card-clickable').forEach(card => card.classList.remove('active'));
+        document.getElementById('kpiCardHoy')?.classList.add('active');
+
+        cargarListadoRendiciones();
+        return;
+    }
+
+    // Si es pendiente, aprobada o rechazada, delegamos a filtrarEstadoTab
+    filtrarEstadoTab(tipo);
 }
 
 function actualizarKPIs(rendiciones) {
@@ -785,5 +860,6 @@ document.querySelectorAll('.modal-overlay').forEach(overlay => {
 function limpiarFiltros() {
     document.getElementById('filtroRepartidor').value = '';
     document.getElementById('filtroFecha').value = '';
+    document.querySelectorAll('.kpi-card.kpi-card-clickable').forEach(card => card.classList.remove('active'));
     filtrarEstadoTab('');
 }

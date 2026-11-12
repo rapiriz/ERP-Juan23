@@ -592,82 +592,76 @@ class RendicionService
         }
 
         return DB::transaction(function () use ($idEntrega, $datos, $pedidosEntregados) {
-            // 1. Buscar si existe una rendición PENDIENTE para esta entrega.
-            // Si las anteriores ya fueron aprobadas o rechazadas, se crea una nueva pendiente para los nuevos pedidos.
-            $rendicionPendiente = DB::table('RENDICION')
-                ->where('id_entrega', $idEntrega)
-                ->where('estado', Rendicion::ESTADO_PENDIENTE)
-                ->orderByDesc('id_rendicion')
-                ->first();
+            // Se genera una rendición individual por cada pedido confirmado para que
+            // en administración se pueda aprobar o rechazar de manera independiente.
+            $ultimaRendicion = null;
 
-            if ($rendicionPendiente) {
-                $idRendicion = (int) $rendicionPendiente->id_rendicion;
-                $facturasExistentes = DB::table('RENDICION_COBRO')
-                    ->where('id_rendicion', $idRendicion)
-                    ->pluck('id_factura')
-                    ->map(fn ($id) => (int) $id)
-                    ->all();
+            // Facturas que ya tienen alguna rendición (en cualquier estado o pendiente)
+            $facturasConRendicion = DB::table('RENDICION_COBRO')
+                ->join('RENDICION', 'RENDICION.id_rendicion', '=', 'RENDICION_COBRO.id_rendicion')
+                ->where('RENDICION.id_entrega', $idEntrega)
+                ->pluck('RENDICION_COBRO.id_factura')
+                ->map(fn ($id) => (int) $id)
+                ->all();
 
-                foreach ($pedidosEntregados as $p) {
-                    if (in_array((int) $p['id_factura'], $facturasExistentes, true)) {
-                        continue;
-                    }
-
-                    DB::table('RENDICION_COBRO')->insert([
-                        'id_rendicion'   => $idRendicion,
-                        'id_cliente'     => $p['id_cliente'],
-                        'id_factura'     => $p['id_factura'],
-                        'monto'          => $p['monto'],
-                        'medio_pago'     => $p['medio_pago'] ?? 'efectivo',
-                        'fecha_registro' => now(),
-                    ]);
+            foreach ($pedidosEntregados as $p) {
+                $idFactura = (int) $p['id_factura'];
+                if (in_array($idFactura, $facturasConRendicion, true)) {
+                    continue;
                 }
 
-                $totalCalculado = (float) DB::table('RENDICION_COBRO')
-                    ->where('id_rendicion', $idRendicion)
-                    ->sum('monto');
-
-                DB::table('RENDICION')
-                    ->where('id_rendicion', $idRendicion)
-                    ->update([
-                        'total_rendido' => $totalCalculado,
-                        'fecha'         => now(),
-                        'observaciones' => "Rendición precargada automáticamente desde Entrega #{$idEntrega}."
-                    ]);
-            } else {
-                $totalCalculado = 0.0;
-                foreach ($pedidosEntregados as $p) {
-                    $totalCalculado += (float) $p['monto'];
-                }
+                $montoPedido = (float) $p['monto'];
+                $pedidoPad = str_pad((string) $idFactura, 4, '0', STR_PAD_LEFT);
+                $obs = "Rendición de reparto #{$idEntrega} (Pedido #PED-{$pedidoPad})";
 
                 $idRendicion = (int) DB::table('RENDICION')->insertGetId([
                     'id_repartidor' => $datos['id_repartidor'],
                     'id_entrega'    => $idEntrega,
                     'fecha'         => now(),
-                    'total_rendido' => $totalCalculado,
+                    'total_rendido' => $montoPedido,
                     'estado'        => Rendicion::ESTADO_PENDIENTE,
-                    'observaciones' => "Rendición precargada automáticamente al confirmar reparto #{$idEntrega}."
+                    'observaciones' => $obs,
                 ]);
 
-                foreach ($pedidosEntregados as $p) {
-                    DB::table('RENDICION_COBRO')->insert([
-                        'id_rendicion'   => $idRendicion,
-                        'id_cliente'     => $p['id_cliente'],
-                        'id_factura'     => $p['id_factura'],
-                        'monto'          => $p['monto'],
-                        'medio_pago'     => $p['medio_pago'] ?? 'efectivo',
-                        'fecha_registro' => now(),
-                    ]);
+                DB::table('RENDICION_COBRO')->insert([
+                    'id_rendicion'   => $idRendicion,
+                    'id_cliente'     => $p['id_cliente'],
+                    'id_factura'     => $idFactura,
+                    'monto'          => $montoPedido,
+                    'medio_pago'     => $p['medio_pago'] ?? 'efectivo',
+                    'fecha_registro' => now(),
+                ]);
+
+                $facturasConRendicion[] = $idFactura;
+
+                $ultimaRendicion = [
+                    'id_rendicion'   => $idRendicion,
+                    'id_entrega'     => $idEntrega,
+                    'total_rendido'  => $montoPedido,
+                    'estado'         => Rendicion::ESTADO_PENDIENTE,
+                    'pedidos_count'  => 1
+                ];
+            }
+
+            // Si todos ya tenían rendición, retornar la última registrada
+            if (!$ultimaRendicion) {
+                $ultima = DB::table('RENDICION')
+                    ->where('id_entrega', $idEntrega)
+                    ->orderByDesc('id_rendicion')
+                    ->first();
+
+                if ($ultima) {
+                    $ultimaRendicion = [
+                        'id_rendicion'   => (int) $ultima->id_rendicion,
+                        'id_entrega'     => $idEntrega,
+                        'total_rendido'  => (float) $ultima->total_rendido,
+                        'estado'         => $ultima->estado,
+                        'pedidos_count'  => 1
+                    ];
                 }
             }
 
-            return [
-                'id_rendicion'   => $idRendicion,
-                'id_entrega'     => $idEntrega,
-                'total_rendido'  => $totalCalculado,
-                'estado'         => Rendicion::ESTADO_PENDIENTE,
-                'pedidos_count'  => count($pedidosEntregados)
-            ];
+            return $ultimaRendicion;
         });
     }
 }

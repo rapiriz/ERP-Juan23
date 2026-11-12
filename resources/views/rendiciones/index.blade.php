@@ -3,6 +3,94 @@
 @push('styles')
 <link rel="stylesheet" href="{{ asset('css/g2.css') }}">
 <link rel="stylesheet" href="{{ asset('css/pigue-claymorphism.css') }}">
+<style>
+    /* Asegurar que el contenedor principal aproveche el ancho disponible sin scroll innecesario */
+    .layout:has(.g2-page),
+    main.layout:has(.g2-page) {
+        width: calc(100% - 32px) !important;
+        max-width: 1560px !important;
+        padding-top: 24px !important;
+    }
+
+    .g2-page {
+        padding: 1rem 1.25rem !important;
+    }
+
+    .g2-page .clay-card {
+        padding: 1.25rem !important;
+    }
+
+    /* Tabla fluida y compacta para que todas las columnas encajen en pantalla */
+    .g2-page table.clay-table {
+        table-layout: auto;
+        width: 100%;
+        min-width: 100%;
+        font-size: 0.84rem;
+    }
+
+    .g2-page table.clay-table th {
+        padding: 0.55rem 0.5rem;
+        font-size: 0.72rem;
+        letter-spacing: 0.02em;
+    }
+
+    .g2-page table.clay-table td {
+        padding: 0.55rem 0.5rem;
+        font-size: 0.84rem;
+    }
+
+    .g2-page .table-responsive {
+        box-shadow: none;
+        border: 1px solid var(--border-light, #E2E8F0);
+        overflow-x: auto;
+    }
+
+    .col-obs {
+        max-width: 180px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: inline-block;
+        vertical-align: middle;
+    }
+
+    /* Filas clickeables con feedback visual */
+    .g2-page table.clay-table tbody tr {
+        cursor: pointer;
+        transition: background-color 0.15s ease;
+    }
+
+    .g2-page table.clay-table tbody tr:hover {
+        background-color: #F1F5F9 !important;
+    }
+
+    .g2-page table.clay-table tbody tr:hover td strong {
+        color: var(--primary-strong, #1D4ED8);
+    }
+
+    /* KPI Cards clickeables como filtros rápidos */
+    .g2-page .kpi-card.kpi-card-clickable {
+        cursor: pointer;
+        user-select: none;
+        position: relative;
+        transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+    }
+
+    .g2-page .kpi-card.kpi-card-clickable:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 22px rgba(148, 163, 184, 0.4), -4px -4px 10px rgba(255, 255, 255, 0.9);
+    }
+
+    .g2-page .kpi-card.kpi-card-clickable:active {
+        transform: translateY(0);
+    }
+
+    .g2-page .kpi-card.kpi-card-clickable.active {
+        border: 2px solid var(--primary, #0D6EFD);
+        background: #F0F7FF;
+        box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.2);
+    }
+</style>
 @endpush
 @section('content')
 <div class="g2-page" data-g2-role="{{ \App\Modules\Shared\Auth\G2Identity::role() }}">
@@ -48,7 +136,7 @@
 
         <!-- KPI SUMMARY -->
         <div class="kpi-grid" role="region" aria-label="Indicadores clave">
-            <div class="kpi-card">
+            <div class="kpi-card kpi-card-clickable" id="kpiCardHoy" onclick="filtrarDesdeKpi('hoy')" title="Filtrar rendiciones creadas hoy">
                 <div class="kpi-icon" style="background: linear-gradient(135deg, #DBEAFE, #BFDBFE);">
                     <svg class="icon-svg icon-svg-lg" viewBox="0 0 24 24" aria-hidden="true" style="stroke: #1D4ED8;">
                         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -63,7 +151,7 @@
                     <div class="kpi-value" id="kpiTotalRendiciones">—</div>
                 </div>
             </div>
-            <div class="kpi-card">
+            <div class="kpi-card kpi-card-clickable" id="kpiCardPendiente" onclick="filtrarDesdeKpi('pendiente')" title="Filtrar por rendiciones pendientes de revisión">
                 <div class="kpi-icon" style="background: linear-gradient(135deg, #FEF3C7, #FDE68A);">
                     <svg class="icon-svg icon-svg-lg" viewBox="0 0 24 24" aria-hidden="true" style="stroke: #B45309;">
                         <circle cx="12" cy="12" r="10"/>
@@ -75,7 +163,7 @@
                     <div class="kpi-value" id="kpiPendientes" style="color: var(--warning);">—</div>
                 </div>
             </div>
-            <div class="kpi-card">
+            <div class="kpi-card kpi-card-clickable" id="kpiCardAprobada" onclick="filtrarDesdeKpi('aprobada')" title="Filtrar por rendiciones aprobadas (cobros liquidados)">
                 <div class="kpi-icon" style="background: linear-gradient(135deg, #D1FAE5, #6EE7B7);">
                     <svg class="icon-svg icon-svg-lg" viewBox="0 0 24 24" aria-hidden="true" style="stroke: #047857;">
                         <line x1="12" y1="1" x2="12" y2="23"/>
@@ -87,7 +175,7 @@
                     <div class="kpi-value" id="kpiTotalDinero" style="color: var(--success);">—</div>
                 </div>
             </div>
-            <div class="kpi-card">
+            <div class="kpi-card kpi-card-clickable" id="kpiCardRechazada" onclick="filtrarDesdeKpi('rechazada')" title="Filtrar por rendiciones rechazadas">
                 <div class="kpi-icon" style="background: linear-gradient(135deg, #FEE2E2, #FCA5A5);">
                     <svg class="icon-svg icon-svg-lg" viewBox="0 0 24 24" aria-hidden="true" style="stroke: #B91C1C;">
                         <circle cx="12" cy="12" r="10"/>
@@ -174,19 +262,20 @@
                 <table class="clay-table" aria-live="polite">
                     <thead>
                         <tr>
-                            <th style="width: 110px;">Nº Rendición</th>
-                            <th style="width: 100px;">Fecha</th>
-                            <th>Chofer / Repartidor</th>
-                            <th>Entrega</th>
-                            <th style="text-align: right; width: 130px;">Total $</th>
-                            <th style="text-align: center; width: 110px;">Estado</th>
+                            <th style="width: 105px;">Nº Rend.</th>
+                            <th style="width: 90px;">Fecha</th>
+                            <th>Repartidor</th>
+                            <th>Pedido / Cliente</th>
+                            <th style="width: 105px; text-align: center;">Reparto</th>
+                            <th style="text-align: right; width: 110px;">Total $</th>
+                            <th style="text-align: center; width: 100px;">Estado</th>
                             <th>Observaciones</th>
-                            <th style="text-align: center; width: 120px;">Acciones</th>
+                            <th style="text-align: center; width: 130px;">Acciones</th>
                         </tr>
                     </thead>
                     <tbody id="tablaRendicionesBody">
                         <tr>
-                            <td colspan="8">
+                            <td colspan="9">
                                 <div class="table-empty">
                                     <span class="table-empty-icon">
                                         <svg class="icon-svg icon-svg-lg" viewBox="0 0 24 24" aria-hidden="true" style="stroke: var(--text-muted); width: 28px; height: 28px;">
