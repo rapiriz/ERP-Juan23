@@ -257,7 +257,7 @@
     </div>
 
     <!-- MODAL: REMITO OFICIAL -->
-    <div id="modalRemito" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modalRemitoTitulo">
+    <div id="modalRemito" class="modal-overlay" style="z-index: 2100;" role="dialog" aria-modal="true" aria-labelledby="modalRemitoTitulo">
         <div class="modal-content" style="max-width: 780px;">
             <div class="modal-header no-print">
                 <h3 class="modal-title" id="modalRemitoTitulo">
@@ -276,6 +276,14 @@
                 </div>
             </div>
 
+            <!-- SELECTOR DE REMITOS CUANDO EL VIAJE TIENE MÚLTIPLES PEDIDOS -->
+            <div id="remitoSelectorContainer" class="no-print" style="display: none; margin-bottom: 1rem; padding: 0.75rem 1rem; background: #EFF6FF; border: 1.5px solid #BFDBFE; border-radius: 10px;">
+                <div style="font-size: 0.82rem; font-weight: 700; color: #1E40AF; margin-bottom: 0.5rem;">
+                    Remitos emitidos en este viaje (seleccione cada pedido para ver o imprimir su remito específico):
+                </div>
+                <div id="remitoSelectorButtons" style="display: flex; gap: 0.5rem; flex-wrap: wrap;"></div>
+            </div>
+
             <!-- COMPROBANTE IMPRIMIBLE -->
             <div class="remito-box" id="remitoImprimible">
                 <div class="remito-header">
@@ -290,6 +298,7 @@
                     </div>
                     <div style="text-align: right;">
                         <h3 id="remitoNumero" style="font-size: 1.25rem; color: var(--primary); font-weight: 800;">R-0001-00000001</h3>
+                        <p><strong>Pedido:</strong> <span id="remitoPedidoNumero" style="font-weight: 700; color: #1E3A8A;">#PED-0000</span></p>
                         <p><strong>Fecha:</strong> <span id="remitoFecha">--/--/----</span></p>
                         <p><strong>Chofer:</strong> <span id="remitoChofer">--</span></p>
                     </div>

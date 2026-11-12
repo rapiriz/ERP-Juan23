@@ -173,10 +173,24 @@ class EntregaRepository
         $stmt->execute($params);
         $entregas = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        // Enriquecer con nombres de repartidores mediante el servicio desacoplado
+        // Enriquecer con nombres de repartidores y carga real desde remitos (Tablas propias G2)
+        $stmtCarga = $this->db->prepare("
+            SELECT 
+                COALESCE(SUM(dr.bultos), 0) AS total_bultos,
+                COALESCE(SUM(dr.cantidad), 0) AS total_unidades
+            FROM remito r
+            INNER JOIN detalle_remito dr ON dr.id_remito = r.id_remito
+            WHERE r.id_entrega = :id_entrega
+        ");
+
         foreach ($entregas as &$ent) {
             $ent['repartidor_nombre'] = UsuarioService::obtenerNombre((int)$ent['id_repartidor']);
-            $ent['total_bultos'] = (int)($ent['cantidad_pedidos'] ?? 1) * 2;
+            $stmtCarga->execute([':id_entrega' => $ent['id_entrega']]);
+            $carga = $stmtCarga->fetch(PDO::FETCH_ASSOC) ?: [];
+            $bultos = (int)($carga['total_bultos'] ?? 0);
+            $unidades = (int)($carga['total_unidades'] ?? 0);
+            $ent['total_bultos'] = $bultos;
+            $ent['total_sueltos'] = max(0, $unidades - ($bultos * 6));
             $ent['total_dinero'] = 0.0;
         }
 
@@ -228,7 +242,7 @@ class EntregaRepository
                 'id_venta' => (int)$p['id_venta'],
                 'fecha_venta' => $venta['fecha'] ?? date('Y-m-d H:i:s'),
                 'total' => (float)($venta['total'] ?? $venta['monto_total'] ?? 0.00),
-                'total_bultos' => (int)($venta['total_bultos'] ?? 1),
+                'total_bultos' => (int)($venta['total_bultos'] ?? 0),
                 'total_sueltos' => (int)($venta['total_sueltos'] ?? 0),
                 'observaciones_venta' => $venta['observaciones'] ?? '',
                 'estado_pedido_entrega' => $p['estado_pedido_entrega'],

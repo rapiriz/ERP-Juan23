@@ -17,6 +17,12 @@ use UnexpectedValueException;
  */
 class VentasApiClient
 {
+    /** @var array<int, array<string, mixed>|null> */
+    private array $clientesCache = [];
+
+    /** @var array<int, string>|null */
+    private ?array $zonasCache = null;
+
     public function getBaseUrl(): string
     {
         $url = rtrim((string) config('g2.ventas_url'), '/');
@@ -46,7 +52,9 @@ class VentasApiClient
             ->timeout($timeout)
             ->retry(2, 100, throw: false);
 
-        return config('g2.ventas_token') ? $request->withToken(config('g2.ventas_token')) : $request;
+        $token = config('g2.ventas_token') ?: config('services.internal_api.token');
+
+        return $token ? $request->withToken($token) : $request;
     }
 
     private function request(string $method, string $path, array $data = []): ?\Illuminate\Http\Client\Response
@@ -65,10 +73,12 @@ class VentasApiClient
             $queryString = ($method === 'GET' && !empty($data)) ? '?' . http_build_query($data) : '';
             $subRequest = \Illuminate\Http\Request::create($fullPath . $queryString, $method, $method === 'GET' ? [] : $data);
             $subRequest->headers->set('Accept', 'application/json');
-            if (config('g2.ventas_token')) {
-                $subRequest->headers->set('Authorization', 'Bearer ' . config('g2.ventas_token'));
+            $token = config('g2.ventas_token') ?: config('services.internal_api.token');
+            if ($token) {
+                $subRequest->headers->set('Authorization', 'Bearer ' . $token);
             }
 
+            $originalRequest = app()->bound('request') ? app('request') : null;
             try {
                 $laravelResponse = app()->handle($subRequest);
                 $psrResponse = new \GuzzleHttp\Psr7\Response(
@@ -80,6 +90,10 @@ class VentasApiClient
             } catch (Throwable $e) {
                 Log::warning("G2 - VentasApiClient: Excepción en llamada interna a Ventas: " . $e->getMessage());
                 return null;
+            } finally {
+                if ($originalRequest) {
+                    app()->instance('request', $originalRequest);
+                }
             }
         }
 
@@ -237,26 +251,204 @@ class VentasApiClient
     }
 
     /**
+     * Notifica a la API de Cuenta Corriente (G4) la aprobación de un cobro de rendición
+     * para que impacte directamente en el saldo del cliente (POST /api/cuenta-corriente/cobros).
+     */
+    public function registrarCobroCuentaCorriente(int $idRendicionCobro): bool
+    {
+        if (! $this->isConfigured()) {
+            Log::warning("G2 - VentasApiClient: No se pudo imputar cobro #{$idRendicionCobro} en cuenta corriente: conexión no configurada.");
+            return false;
+        }
+
+        try {
+            $response = $this->request('POST', 'cuenta-corriente/cobros', ['id' => $idRendicionCobro]);
+
+            if (! $response || $response->failed() || $response->json('error') === true) {
+                Log::warning("G2 - VentasApiClient: Cuenta Corriente no aceptó el cobro #{$idRendicionCobro}" . ($response ? " (HTTP {$response->status()})" : ""), [
+                    'body' => $response?->body(),
+                ]);
+                return false;
+            }
+
+            return true;
+        } catch (Throwable $e) {
+            Log::warning("G2 - VentasApiClient: Excepción al imputar cobro #{$idRendicionCobro} en cuenta corriente: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
      * Normaliza la estructura devuelta por G4 (VentaResource o array plano).
      */
     private function normalizar(array $sale): array
-{
-    $sale['id_venta'] = (int) ($sale['id_venta'] ?? $sale['id'] ?? 0);
-    $sale['id_cliente'] = (int) ($sale['id_cliente'] ?? $sale['cliente']['id'] ?? 0);
-    // Equivalencias documentadas por VentaResource de G4
-    $estado = is_array($sale['estado'] ?? null) ? ($sale['estado']['valor'] ?? null) : ($sale['estado'] ?? null);
-    $sale['estado'] = is_string($estado) ? strtolower(trim($estado)) : null;
-    $sale['cliente_nombre'] = $sale['cliente_nombre'] ?? $sale['cliente']['nombre'] ?? null;
-    $sale['items'] = $sale['items'] ?? array_map(fn ($item) => [
-        ...$item, 'producto_nombre' => $item['producto'] ?? null,
-    ], $sale['detalles'] ?? []);
-    // LÍNEAS PARA COHERENCIA CON REMITOS Y VIAJES 
-    $sale['direccion']   = $sale['direccion'] ?? $sale['cliente']['domicilio'] ?? 'Domicilio comercial';
-    $sale['localidad']   = $sale['localidad'] ?? $sale['cliente']['localidad'] ?? 'Pigüé';
-    $sale['zona_nombre'] = $sale['zona_nombre'] ?? $sale['cliente']['zona'] ?? 'Ruta Saavedra';
-    if ($sale['id_venta'] <= 0 || $sale['id_cliente'] <= 0 || ! is_numeric($sale['total'] ?? null)) {
-        throw new UnexpectedValueException('Faltan identificadores o el total real en la respuesta de Ventas.');
+    {
+        $sale['id_venta'] = (int) ($sale['id_venta'] ?? $sale['id'] ?? 0);
+        $sale['id_cliente'] = (int) ($sale['id_cliente'] ?? $sale['cliente']['id'] ?? 0);
+        // Equivalencias documentadas por VentaResource de G4
+        $estado = is_array($sale['estado'] ?? null) ? ($sale['estado']['valor'] ?? null) : ($sale['estado'] ?? null);
+        $sale['estado'] = is_string($estado) ? strtolower(trim($estado)) : null;
+        $sale['cliente_nombre'] = $sale['cliente_nombre'] ?? $sale['cliente']['nombre'] ?? null;
+        $rawItems = $sale['items'] ?? array_map(fn ($item) => [
+            ...$item, 'producto_nombre' => $item['producto'] ?? null,
+        ], $sale['detalles'] ?? []);
+
+        $totalBultos = 0;
+        $totalSueltos = 0;
+        $sale['items'] = array_map(function (array $item) use (&$totalBultos, &$totalSueltos): array {
+            $cantidad = max(0, (int) ($item['cantidad'] ?? 0));
+            $bultos = isset($item['bultos']) ? (int) $item['bultos'] : intdiv($cantidad, 6);
+            $sueltos = isset($item['unidades_sueltas']) ? (int) $item['unidades_sueltas'] : ($cantidad % 6);
+
+            $totalBultos += $bultos;
+            $totalSueltos += $sueltos;
+
+            return [
+                ...$item,
+                'cantidad' => $cantidad,
+                'bultos' => $bultos,
+                'unidades_sueltas' => $sueltos,
+            ];
+        }, $rawItems);
+
+        $sale['total_bultos'] = isset($sale['total_bultos']) ? (int) $sale['total_bultos'] : $totalBultos;
+        $sale['total_sueltos'] = isset($sale['total_sueltos']) ? (int) $sale['total_sueltos'] : $totalSueltos;
+
+        $datosCliente = $sale['id_cliente'] > 0 ? $this->obtenerDatosCliente($sale['id_cliente']) : null;
+
+        // LÍNEAS PARA COHERENCIA CON REMITOS Y VIAJES
+        $sale['direccion'] = $sale['direccion']
+            ?? $sale['cliente']['domicilio']
+            ?? $sale['cliente']['direccion']
+            ?? $datosCliente['direccion']
+            ?? 'Domicilio comercial';
+
+        $sale['localidad'] = $sale['localidad']
+            ?? $sale['cliente']['localidad']
+            ?? $datosCliente['localidad']
+            ?? 'Pigüé';
+
+        $sale['telefono'] = $sale['telefono']
+            ?? $sale['cliente']['telefono']
+            ?? $datosCliente['telefono']
+            ?? '';
+
+        $sale['cuit'] = $sale['cuit']
+            ?? $sale['cliente']['cuit']
+            ?? $datosCliente['cuit']
+            ?? '';
+
+        $sale['razon_social'] = $sale['razon_social']
+            ?? $datosCliente['razon_social']
+            ?? '';
+
+        if (! isset($sale['id_zona']) && isset($datosCliente['id_zona'])) {
+            $sale['id_zona'] = $datosCliente['id_zona'];
+        }
+
+        $sale['zona_nombre'] = $sale['zona_nombre']
+            ?? $sale['cliente']['zona']
+            ?? $datosCliente['zona_nombre']
+            ?? 'Ruta Saavedra';
+
+        if ($sale['id_venta'] <= 0 || $sale['id_cliente'] <= 0 || ! is_numeric($sale['total'] ?? null)) {
+            throw new UnexpectedValueException('Faltan identificadores o el total real en la respuesta de Ventas.');
+        }
+
+        return $sale;
     }
-    return $sale;
-}
+
+    /**
+     * Obtiene dirección, localidad y zona reales del cliente consultando la API de Clientes (/api/v1/clientes/{id}).
+     *
+     * @return array<string, mixed>|null
+     */
+    private function obtenerDatosCliente(int $idCliente): ?array
+    {
+        if (array_key_exists($idCliente, $this->clientesCache)) {
+            return $this->clientesCache[$idCliente];
+        }
+
+        $token = (string) (config('services.internal_api.token') ?: config('g2.ventas_token') ?: '');
+        $originalRequest = app()->bound('request') ? app('request') : null;
+
+        try {
+            $req = \Illuminate\Http\Request::create("/api/v1/clientes/{$idCliente}", 'GET');
+            $req->headers->set('Accept', 'application/json');
+            if ($token !== '') {
+                $req->headers->set('Authorization', 'Bearer ' . $token);
+            }
+
+            $resp = app()->handle($req);
+            if ($resp->getStatusCode() !== 200) {
+                return $this->clientesCache[$idCliente] = null;
+            }
+
+            $payload = json_decode((string) $resp->getContent(), true);
+            $data = is_array($payload) ? ($payload['data'] ?? $payload) : null;
+            if (! is_array($data)) {
+                return $this->clientesCache[$idCliente] = null;
+            }
+
+            $idZona = isset($data['zona_id']) && $data['zona_id'] !== null ? (int) $data['zona_id'] : null;
+            $zonas = $idZona !== null ? $this->obtenerMapaZonas($token) : [];
+
+            return $this->clientesCache[$idCliente] = [
+                'direccion' => filled($data['direccion'] ?? null) ? (string) $data['direccion'] : null,
+                'localidad' => filled($data['localidad'] ?? null) ? (string) $data['localidad'] : null,
+                'telefono' => (string) ($data['telefono'] ?? ''),
+                'cuit' => (string) ($data['dni_cuit'] ?? ''),
+                'razon_social' => (string) ($data['apellido_razon_social'] ?? ''),
+                'id_zona' => $idZona,
+                'zona_nombre' => ($idZona !== null && isset($zonas[$idZona])) ? $zonas[$idZona] : null,
+            ];
+        } catch (Throwable) {
+            return $this->clientesCache[$idCliente] = null;
+        } finally {
+            if ($originalRequest) {
+                app()->instance('request', $originalRequest);
+            }
+        }
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function obtenerMapaZonas(string $token): array
+    {
+        if ($this->zonasCache !== null) {
+            return $this->zonasCache;
+        }
+
+        $this->zonasCache = [];
+
+        try {
+            $req = \Illuminate\Http\Request::create('/api/v1/zonas', 'GET');
+            $req->headers->set('Accept', 'application/json');
+            if ($token !== '') {
+                $req->headers->set('Authorization', 'Bearer ' . $token);
+            }
+
+            $resp = app()->handle($req);
+            if ($resp->getStatusCode() !== 200) {
+                return $this->zonasCache;
+            }
+
+            $payload = json_decode((string) $resp->getContent(), true);
+            $rows = is_array($payload) ? ($payload['data'] ?? $payload) : [];
+            if (is_array($rows)) {
+                foreach ($rows as $row) {
+                    $id = (int) ($row['id'] ?? $row['id_zona'] ?? 0);
+                    $nombre = (string) ($row['nombre'] ?? '');
+                    if ($id > 0 && $nombre !== '') {
+                        $this->zonasCache[$id] = $nombre;
+                    }
+                }
+            }
+        } catch (Throwable) {
+            // Silencioso: mantiene fallback si no está disponible
+        }
+
+        return $this->zonasCache;
+    }
 }

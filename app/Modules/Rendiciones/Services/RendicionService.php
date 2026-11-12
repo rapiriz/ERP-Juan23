@@ -308,6 +308,7 @@ class RendicionService
 
         if ($accion === 'aprobar') {
             $rendicion->aprobar($idUsuarioValidador);
+            $this->repository->guardar($rendicion);
 
             // IMPACTO INTELIGENTE SEGÚN MEDIO DE PAGO:
             // - Efectivo -> Impacta directamente en Caja abierta.
@@ -339,6 +340,15 @@ class RendicionService
                         \Illuminate\Support\Facades\Log::info("Transferencia por \${$cobroItem->monto} registrada para Conciliación Bancaria (Rendición #{$rendicion->id_rendicion}).");
                     } elseif ($medioPagoLower === 'cheque') {
                         \Illuminate\Support\Facades\Log::info("Cheque por \${$cobroItem->monto} registrado en Cartera (Rendición #{$rendicion->id_rendicion}).");
+                    }
+
+                    // Imputar automáticamente el cobro en la Cuenta Corriente del cliente vía API de G4
+                    if (!empty($cobroItem->id_rendicion_cobro)) {
+                        try {
+                            $this->ventasClient->registrarCobroCuentaCorriente((int) $cobroItem->id_rendicion_cobro);
+                        } catch (\Throwable $e) {
+                            Log::warning("G2 - No se pudo imputar cobro #{$cobroItem->id_rendicion_cobro} en cuenta corriente (G4): " . $e->getMessage());
+                        }
                     }
 
                     // Notificación tolerante a la API de Ventas (G4) sobre la imputación del cobro
