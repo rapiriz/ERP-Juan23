@@ -214,6 +214,10 @@ class EntregaRepository
         $entrega['repartidor_nombre'] = UsuarioService::obtenerNombre((int)$entrega['id_repartidor']);
         $entrega['creador_nombre'] = UsuarioService::obtenerNombre((int)$entrega['id_usuario_creacion']);
 
+        $tieneCobroCols = \Illuminate\Support\Facades\Schema::hasColumn('entrega_pedido', 'monto_cobrado')
+            && \Illuminate\Support\Facades\Schema::hasColumn('entrega_pedido', 'medio_pago');
+        $cobroSelect = $tieneCobroCols ? ', ep.monto_cobrado, ep.medio_pago' : '';
+
         // Obtener pedidos incluidos desde entrega_pedido y remito (Tablas de G2)
         $sqlPedidos = "
             SELECT 
@@ -221,7 +225,7 @@ class EntregaRepository
                 ep.id_entrega,
                 ep.id_venta,
                 ep.estado_pedido_entrega,
-                ep.motivo_rechazo,
+                ep.motivo_rechazo{$cobroSelect},
                 r.id_remito,
                 r.numero_remito,
                 r.estado AS estado_remito
@@ -246,6 +250,8 @@ class EntregaRepository
                 'total_sueltos' => (int)($venta['total_sueltos'] ?? 0),
                 'observaciones_venta' => $venta['observaciones'] ?? '',
                 'estado_pedido_entrega' => $p['estado_pedido_entrega'],
+                'monto_cobrado' => isset($p['monto_cobrado']) ? (float)$p['monto_cobrado'] : null,
+                'medio_pago' => $p['medio_pago'] ?? null,
                 'motivo_rechazo' => $p['motivo_rechazo'],
                 'id_cliente' => (int)($venta['id_cliente'] ?? 1),
                 'cliente_nombre' => $venta['cliente_nombre'] ?? $venta['cliente']['nombre'] ?? "Cliente Pedido #{$p['id_venta']}",
@@ -275,18 +281,42 @@ class EntregaRepository
     /**
      * HU #3: Marcar un pedido dentro de una entrega como entregado
      */
-    public function marcarPedidoComoEntregado(int $idEntrega, int $idVenta, ?string $observaciones = null): void
-    {
+    public function marcarPedidoComoEntregado(
+        int $idEntrega,
+        int $idVenta,
+        ?string $observaciones = null,
+        ?string $medioPago = null,
+        ?float $montoCobrado = null
+    ): void {
+        $tieneCobroCols = \Illuminate\Support\Facades\Schema::hasColumn('entrega_pedido', 'monto_cobrado')
+            && \Illuminate\Support\Facades\Schema::hasColumn('entrega_pedido', 'medio_pago');
+
         // 1. Actualizar entrega_pedido (G2)
-        $sqlEp = "UPDATE entrega_pedido 
-                  SET estado_pedido_entrega = 'entregado', 
-                      fecha_actualizacion = NOW() 
-                  WHERE id_entrega = :id_entrega AND id_venta = :id_venta";
-        $stmtEp = $this->db->prepare($sqlEp);
-        $stmtEp->execute([
-            ':id_entrega' => $idEntrega,
-            ':id_venta' => $idVenta
-        ]);
+        if ($tieneCobroCols) {
+            $sqlEp = "UPDATE entrega_pedido 
+                      SET estado_pedido_entrega = 'entregado', 
+                          monto_cobrado = :monto_cobrado,
+                          medio_pago = :medio_pago,
+                          fecha_actualizacion = NOW() 
+                      WHERE id_entrega = :id_entrega AND id_venta = :id_venta";
+            $stmtEp = $this->db->prepare($sqlEp);
+            $stmtEp->execute([
+                ':monto_cobrado' => $montoCobrado,
+                ':medio_pago' => $medioPago,
+                ':id_entrega' => $idEntrega,
+                ':id_venta' => $idVenta
+            ]);
+        } else {
+            $sqlEp = "UPDATE entrega_pedido 
+                      SET estado_pedido_entrega = 'entregado', 
+                          fecha_actualizacion = NOW() 
+                      WHERE id_entrega = :id_entrega AND id_venta = :id_venta";
+            $stmtEp = $this->db->prepare($sqlEp);
+            $stmtEp->execute([
+                ':id_entrega' => $idEntrega,
+                ':id_venta' => $idVenta
+            ]);
+        }
 
         // 2. Actualizar estado del remito asociado a 'entregado_conforme' (G2)
         $sqlRemito = "UPDATE remito 
@@ -298,10 +328,7 @@ class EntregaRepository
             ':id_venta' => $idVenta
         ]);
 
-        // 3. Notificar a la API de Ventas de G4 (HTTP)
-        $this->actualizarEstadoVenta($idVenta, 'entregada');
-
-        // 4. Verificar si todos los pedidos de la entrega están entregados (G2)
+        // 3. Verificar si todos los pedidos de la entrega están entregados (G2)
         $sqlCheck = "SELECT COUNT(*) AS no_entregados 
                      FROM entrega_pedido 
                      WHERE id_entrega = :id_entrega 

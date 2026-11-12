@@ -376,7 +376,7 @@ async function alCambiarEntregaSelect(idEntrega) {
         const cobrosSugeridos = data.cobros_sugeridos || [];
 
         if (cobrosSugeridos.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;padding:1rem;color:var(--text-muted);">Esta entrega no tiene pedidos confirmados como entregados.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;padding:1rem;color:var(--text-muted);">Todos los pedidos de esta entrega ya fueron rendidos y aprobados en su totalidad.</td></tr>';
         } else {
             cobrosSugeridos.forEach(c => {
                 const tr = document.createElement('tr');
@@ -385,19 +385,32 @@ async function alCambiarEntregaSelect(idEntrega) {
                 tr.dataset.factura = c.id_factura;
                 tr.dataset.monto = c.monto;
 
+                const medio = (c.medio_pago || 'efectivo').toLowerCase();
+                let infoSaldo = '';
+                if (c.monto_ya_rendido > 0) {
+                    infoSaldo = `<br><small style="color:var(--success);font-weight:600;">Ya rendido: $${Number(c.monto_ya_rendido).toLocaleString('es-AR', {minimumFractionDigits: 2})}</small>`
+                        + `<br><small style="color:var(--text-muted);">Saldo pendiente: $${Number(c.saldo_pendiente).toLocaleString('es-AR', {minimumFractionDigits: 2})}</small>`;
+                } else if (c.monto_total_pedido !== undefined) {
+                    infoSaldo = `<br><small style="color:var(--text-muted);">Total pedido: $${Number(c.monto_total_pedido).toLocaleString('es-AR', {minimumFractionDigits: 2})}</small>`;
+                }
+
                 tr.innerHTML = `
                     <td>
                         <strong>#PED-${c.id_venta.toString().padStart(4, '0')}</strong> — ${c.cliente_nombre}
                         ${c.numero_remito ? `<br><small style="color:var(--text-muted);">Remito: ${c.numero_remito}</small>` : ''}
                     </td>
-                    <td style="text-align:right; font-weight:700; color:#1E3A8A;">
-                        $${Number(c.monto).toLocaleString('es-AR', {minimumFractionDigits: 2})}
+                    <td style="text-align:right;">
+                        <input type="number" step="0.01" min="0" class="clay-input input-monto-dinamico"
+                            value="${Number(c.monto).toFixed(2)}"
+                            oninput="recalcularTotalDinamico()"
+                            style="text-align:right; font-weight:700; color:#1E3A8A; padding:0.35rem 0.5rem; width:100%;">
+                        ${infoSaldo}
                     </td>
                     <td>
                         <select class="clay-select select-medio-pago-dinamico" style="font-size:0.85rem; padding:0.35rem 0.5rem; width:100%;">
-                            <option value="efectivo">Efectivo (Caja)</option>
-                            <option value="transferencia">Transferencia (Banco)</option>
-                            <option value="cheque">Cheque Diferido</option>
+                            <option value="efectivo" ${medio === 'efectivo' ? 'selected' : ''}>Efectivo (Caja)</option>
+                            <option value="transferencia" ${medio === 'transferencia' ? 'selected' : ''}>Transferencia (Banco)</option>
+                            <option value="cheque" ${medio === 'cheque' ? 'selected' : ''}>Cheque Diferido</option>
                         </select>
                     </td>
                 `;
@@ -405,7 +418,7 @@ async function alCambiarEntregaSelect(idEntrega) {
             });
         }
 
-        document.getElementById('totalRendidoDinamicoTxt').textContent = `$${Number(data.total_esperado).toLocaleString('es-AR', {minimumFractionDigits: 2})}`;
+        recalcularTotalDinamico();
 
         seccionDinamica.style.display = 'block';
         seccionManual.style.display   = 'none';
@@ -413,6 +426,20 @@ async function alCambiarEntregaSelect(idEntrega) {
     } catch (err) {
         console.error(err);
         showToast('Error al conectar con el servidor para preparar la rendición.', 'error');
+    }
+}
+
+function recalcularTotalDinamico() {
+    let total = 0;
+    document.querySelectorAll('.input-monto-dinamico').forEach(inp => {
+        const val = parseFloat(inp.value);
+        if (!isNaN(val) && val > 0) {
+            total += val;
+        }
+    });
+    const txt = document.getElementById('totalRendidoDinamicoTxt');
+    if (txt) {
+        txt.textContent = `$${total.toLocaleString('es-AR', {minimumFractionDigits: 2})}`;
     }
 }
 
@@ -433,12 +460,16 @@ async function guardarNuevaRendicion(e) {
     if (seccionDinamica.style.display !== 'none') {
         const filas = document.querySelectorAll('.fila-cobro-dinamico');
         filas.forEach(f => {
-            cobros.push({
-                id_cliente: parseInt(f.dataset.cliente),
-                id_factura: parseInt(f.dataset.factura),
-                monto: parseFloat(f.dataset.monto),
-                medio_pago: f.querySelector('.select-medio-pago-dinamico').value
-            });
+            const inputMonto = f.querySelector('.input-monto-dinamico');
+            const monto = inputMonto ? parseFloat(inputMonto.value) : parseFloat(f.dataset.monto);
+            if (!isNaN(monto) && monto > 0) {
+                cobros.push({
+                    id_cliente: parseInt(f.dataset.cliente),
+                    id_factura: parseInt(f.dataset.factura),
+                    monto: monto,
+                    medio_pago: f.querySelector('.select-medio-pago-dinamico').value
+                });
+            }
         });
 
         if (cobros.length === 0) {
@@ -584,9 +615,13 @@ async function verDetalleRendicion(idRendicion) {
             cobros.forEach(c => {
                 const tr = document.createElement('tr');
                 const meta = medioPagoMeta[c.medio_pago] || { label: c.medio_pago, badge: 'badge-zona', destino: 'General' };
+                const esc = (str) => String(str ?? '').replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+                const nombreCliente = esc(c.cliente_nombre || `Cliente #${c.id_cliente}`);
+                const cuitHtml = c.cliente_cuit ? ` <span style="color:var(--text-muted);font-size:0.8rem;">(CUIT: ${esc(c.cliente_cuit)})</span>` : '';
+                const refFactura = c.id_factura ? `Fac. #${esc(c.id_factura)}` : 'Cobro Cta. Cte.';
 
                 tr.innerHTML = `
-                    <td><strong>Cliente #${c.id_cliente}</strong> — Fac. #${c.id_factura}</td>
+                    <td><strong>${nombreCliente}</strong>${cuitHtml} — ${refFactura}</td>
                     <td><span class="badge ${meta.badge}">${meta.label}</span></td>
                     <td style="text-align:right;font-weight:700;font-variant-numeric:tabular-nums;">
                         $${Number(c.monto).toLocaleString('es-AR', { minimumFractionDigits: 2 })}

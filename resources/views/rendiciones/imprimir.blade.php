@@ -116,7 +116,12 @@
             @forelse($cobros as $idx => $c)
             <tr>
                 <td class="text-center">{{ $idx + 1 }}</td>
-                <td>{{ $c['cliente_nombre'] ?? ("Cliente #" . ($c['id_cliente'] ?? '—')) }}</td>
+                <td>
+                    <strong>{{ $c['cliente_nombre'] ?? ("Cliente #" . ($c['id_cliente'] ?? '—')) }}</strong>
+                    @if(!empty($c['cliente_cuit']))
+                        <br><span style="font-size: 9px; color: #64748b;">CUIT/DNI: {{ $c['cliente_cuit'] }}</span>
+                    @endif
+                </td>
                 <td>{{ !empty($c['id_factura']) ? "#FAC-" . $c['id_factura'] : 'Cobro a Cta. Cte.' }}</td>
                 <td class="text-center" style="text-transform: capitalize;">{{ $c['medio_pago'] ?? 'efectivo' }}</td>
                 <td class="text-right"><strong>{{ $dinero($c['monto']) }}</strong></td>

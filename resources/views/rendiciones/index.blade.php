@@ -248,7 +248,7 @@
                             <thead>
                                 <tr>
                                     <th>Pedido / Cliente</th>
-                                    <th style="text-align: right; width: 110px;">Total ($)</th>
+                                    <th style="text-align: right; width: 155px;">Monto Cobrado ($)</th>
                                     <th style="width: 170px;">Medio de Pago</th>
                                 </tr>
                             </thead>

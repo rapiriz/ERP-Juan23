@@ -150,7 +150,33 @@ class RendicionService
             );
         }
 
-        return $rendicion->toArray();
+        $detalle = $rendicion->toArray();
+
+        $repartidorNombre = \App\Modules\Shared\Services\UsuarioService::obtenerNombre((int) $rendicion->id_repartidor);
+        $detalle['repartidor_nombre'] = $repartidorNombre;
+        $detalle['repartidor'] = [
+            'id_usuario' => (int) $rendicion->id_repartidor,
+            'nombre'     => $repartidorNombre,
+        ];
+
+        if (!empty($detalle['cobros']) && is_array($detalle['cobros'])) {
+            $clientesCache = [];
+            foreach ($detalle['cobros'] as &$cobro) {
+                $idCliente = (int) ($cobro['id_cliente'] ?? 0);
+                if ($idCliente > 0 && !array_key_exists($idCliente, $clientesCache)) {
+                    $clientesCache[$idCliente] = \App\Modules\Shared\Services\ClienteService::obtenerCliente($idCliente);
+                }
+
+                $clienteInfo = $clientesCache[$idCliente] ?? null;
+                $cobro['cliente_nombre'] = !empty($clienteInfo['nombre'])
+                    ? $clienteInfo['nombre']
+                    : "Cliente #{$idCliente}";
+                $cobro['cliente_cuit'] = $clienteInfo['cuit'] ?? '';
+            }
+            unset($cobro);
+        }
+
+        return $detalle;
     }
 
     // -------------------------------------------------------------------------
@@ -363,11 +389,19 @@ class RendicionService
             }
 
             // Si la rendición está vinculada a una entrega de reparto, marcar la entrega como 'finalizada'
+            // únicamente si todos los pedidos de ese viaje ya fueron entregados.
             if (!empty($rendicion->id_entrega)) {
                 try {
-                    DB::table('entrega')
+                    $pedidosNoEntregados = DB::table('entrega_pedido')
                         ->where('id_entrega', $rendicion->id_entrega)
-                        ->update(['estado' => 'finalizada']);
+                        ->where('estado_pedido_entrega', '!=', 'entregado')
+                        ->count();
+
+                    if ($pedidosNoEntregados === 0) {
+                        DB::table('entrega')
+                            ->where('id_entrega', $rendicion->id_entrega)
+                            ->update(['estado' => 'finalizada']);
+                    }
                 } catch (\Throwable $e) {
                     \Illuminate\Support\Facades\Log::warning("No se pudo marcar entrega #{$rendicion->id_entrega} como finalizada: " . $e->getMessage());
                 }
@@ -428,6 +462,20 @@ class RendicionService
 
         $repartidorNombre = \App\Modules\Shared\Services\UsuarioService::obtenerNombre((int)$entrega->id_repartidor);
 
+        $tieneCobroCols = \Illuminate\Support\Facades\Schema::hasColumn('entrega_pedido', 'monto_cobrado')
+            && \Illuminate\Support\Facades\Schema::hasColumn('entrega_pedido', 'medio_pago');
+
+        $columnas = [
+            'ep.id_venta',
+            'ep.estado_pedido_entrega',
+            'r.id_remito',
+            'r.numero_remito',
+        ];
+        if ($tieneCobroCols) {
+            $columnas[] = 'ep.monto_cobrado';
+            $columnas[] = 'ep.medio_pago';
+        }
+
         // Consultar entrega_pedido y remito (Tablas propias de G2)
         $pedidosRaw = DB::table('entrega_pedido as ep')
             ->leftJoin('remito as r', function ($join) {
@@ -435,36 +483,66 @@ class RendicionService
                      ->on('ep.id_venta', '=', 'r.id_venta');
             })
             ->where('ep.id_entrega', $idEntrega)
-            ->select([
-                'ep.id_venta',
-                'ep.estado_pedido_entrega',
-                'r.id_remito',
-                'r.numero_remito'
-            ])
+            ->select($columnas)
             ->get();
+
+        // Sumar lo ya rendido y aprobado por cada factura/pedido en esta entrega
+        $aprobadoPorFactura = DB::table('RENDICION_COBRO as rc')
+            ->join('RENDICION as r', 'rc.id_rendicion', '=', 'r.id_rendicion')
+            ->where('r.id_entrega', $idEntrega)
+            ->where('r.estado', Rendicion::ESTADO_APROBADA)
+            ->groupBy('rc.id_factura')
+            ->selectRaw('rc.id_factura, SUM(rc.monto) as total_aprobado')
+            ->pluck('total_aprobado', 'rc.id_factura')
+            ->map(fn ($total) => (float) $total)
+            ->all();
 
         $cobrosSugeridos = [];
         $totalRendidoSugerido = 0.0;
 
         foreach ($pedidosRaw as $p) {
-            $venta = $this->ventasClient->obtenerVentaPorId((int)$p->id_venta);
-            $monto = (float)($venta['total'] ?? $venta['monto_total'] ?? 0.0);
+            $idVenta = (int) $p->id_venta;
+            $venta = $this->ventasClient->obtenerVentaPorId($idVenta);
+            $montoPedido = (float)($venta['total'] ?? $venta['monto_total'] ?? 0.0);
+            $yaAprobado = (float) ($aprobadoPorFactura[$idVenta] ?? 0.0);
+            $saldoPendiente = max(0.0, round($montoPedido - $yaAprobado, 2));
+
+            // Si ya se aprobó el 100% del pedido (o más), no volver a sugerirlo
+            if ($yaAprobado > 0 && $saldoPendiente <= 0.009) {
+                continue;
+            }
+
+            if ($yaAprobado > 0) {
+                // Hubo un pago parcial previo aprobado: sugerir el saldo pendiente
+                $montoSugerido = $saldoPendiente;
+            } else {
+                $montoSugerido = ($tieneCobroCols && $p->monto_cobrado !== null)
+                    ? (float) $p->monto_cobrado
+                    : $montoPedido;
+            }
+
+            $medioPago = ($tieneCobroCols && !empty($p->medio_pago))
+                ? strtolower((string) $p->medio_pago)
+                : 'efectivo';
             $idCliente = (int)($venta['id_cliente'] ?? 1);
             $clienteNombre = $venta['cliente_nombre'] ?? $venta['cliente']['nombre'] ?? "Cliente Pedido #{$p->id_venta}";
 
             $cobrosSugeridos[] = [
-                'id_venta' => (int) $p->id_venta,
-                'id_factura' => (int) $p->id_venta,
+                'id_venta' => $idVenta,
+                'id_factura' => $idVenta,
                 'id_cliente' => $idCliente,
                 'cliente_nombre' => $clienteNombre,
-                'monto' => $monto,
-                'medio_pago' => 'efectivo',
+                'monto' => $montoSugerido,
+                'monto_total_pedido' => $montoPedido,
+                'monto_ya_rendido' => $yaAprobado,
+                'saldo_pendiente' => $saldoPendiente,
+                'medio_pago' => $medioPago,
                 'id_remito' => $p->id_remito,
                 'numero_remito' => $p->numero_remito,
                 'entregado' => $p->estado_pedido_entrega === 'entregado'
             ];
             if ($p->estado_pedido_entrega === 'entregado') {
-                $totalRendidoSugerido += $monto;
+                $totalRendidoSugerido += $montoSugerido;
             }
         }
 
@@ -476,7 +554,7 @@ class RendicionService
             'estado_entrega' => $entrega->estado,
             'total_esperado' => round($totalRendidoSugerido, 2),
             'cobros_sugeridos' => $cobrosSugeridos,
-            'cantidad_pedidos' => count($pedidosRaw)
+            'cantidad_pedidos' => count($cobrosSugeridos)
         ];
     }
 
@@ -484,72 +562,112 @@ class RendicionService
      * Precarga o actualiza automáticamente una Rendición en estado 'pendiente' a partir de una Entrega.
      * Permite que el chofer no tenga que iniciar la rendición manualmente, sino que el sistema
      * envíe automáticamente los datos al historial de rendiciones para que el encargado las administre.
+     *
+     * @param array<int, array{monto_cobrado?: float|null, medio_pago?: string|null}> $cobrosOverride
      */
-    public function precargarOActualizarRendicionDesdeEntrega(int $idEntrega): ?array
+    public function precargarOActualizarRendicionDesdeEntrega(int $idEntrega, array $cobrosOverride = []): ?array
     {
         $datos = $this->obtenerDatosParaRendir($idEntrega);
-        $pedidosEntregados = array_filter($datos['cobros_sugeridos'], fn($c) => !empty($c['entregado']));
+        $cobrosSugeridos = array_map(function (array $c) use ($cobrosOverride): array {
+            $idVenta = (int) $c['id_venta'];
+            if (isset($cobrosOverride[$idVenta])) {
+                if (array_key_exists('monto_cobrado', $cobrosOverride[$idVenta]) && $cobrosOverride[$idVenta]['monto_cobrado'] !== null) {
+                    $c['monto'] = (float) $cobrosOverride[$idVenta]['monto_cobrado'];
+                }
+                if (!empty($cobrosOverride[$idVenta]['medio_pago'])) {
+                    $c['medio_pago'] = strtolower((string) $cobrosOverride[$idVenta]['medio_pago']);
+                }
+            }
+
+            return $c;
+        }, $datos['cobros_sugeridos']);
+
+        $pedidosEntregados = array_values(array_filter(
+            $cobrosSugeridos,
+            fn($c) => !empty($c['entregado']) && (float) ($c['monto'] ?? 0) > 0
+        ));
 
         if (empty($pedidosEntregados)) {
             return null;
         }
 
-        // 1. Buscar si ya existe una rendición para esta entrega
-        $rendicionExistente = DB::table('RENDICION')
-            ->where('id_entrega', $idEntrega)
-            ->first();
+        return DB::transaction(function () use ($idEntrega, $datos, $pedidosEntregados) {
+            // 1. Buscar si existe una rendición PENDIENTE para esta entrega.
+            // Si las anteriores ya fueron aprobadas o rechazadas, se crea una nueva pendiente para los nuevos pedidos.
+            $rendicionPendiente = DB::table('RENDICION')
+                ->where('id_entrega', $idEntrega)
+                ->where('estado', Rendicion::ESTADO_PENDIENTE)
+                ->orderByDesc('id_rendicion')
+                ->first();
 
-        // Si ya fue aprobada o rechazada por el administrador, no se sobreescribe
-        if ($rendicionExistente && in_array($rendicionExistente->estado, ['aprobada', 'rechazada'])) {
-            return (array) $rendicionExistente;
-        }
+            if ($rendicionPendiente) {
+                $idRendicion = (int) $rendicionPendiente->id_rendicion;
+                $facturasExistentes = DB::table('RENDICION_COBRO')
+                    ->where('id_rendicion', $idRendicion)
+                    ->pluck('id_factura')
+                    ->map(fn ($id) => (int) $id)
+                    ->all();
 
-        $totalCalculado = 0.0;
-        foreach ($pedidosEntregados as $p) {
-            $totalCalculado += (float) $p['monto'];
-        }
+                foreach ($pedidosEntregados as $p) {
+                    if (in_array((int) $p['id_factura'], $facturasExistentes, true)) {
+                        continue;
+                    }
 
-        if ($rendicionExistente) {
-            $idRendicion = (int) $rendicionExistente->id_rendicion;
-            DB::table('RENDICION')
-                ->where('id_rendicion', $idRendicion)
-                ->update([
+                    DB::table('RENDICION_COBRO')->insert([
+                        'id_rendicion'   => $idRendicion,
+                        'id_cliente'     => $p['id_cliente'],
+                        'id_factura'     => $p['id_factura'],
+                        'monto'          => $p['monto'],
+                        'medio_pago'     => $p['medio_pago'] ?? 'efectivo',
+                        'fecha_registro' => now(),
+                    ]);
+                }
+
+                $totalCalculado = (float) DB::table('RENDICION_COBRO')
+                    ->where('id_rendicion', $idRendicion)
+                    ->sum('monto');
+
+                DB::table('RENDICION')
+                    ->where('id_rendicion', $idRendicion)
+                    ->update([
+                        'total_rendido' => $totalCalculado,
+                        'fecha'         => now(),
+                        'observaciones' => "Rendición precargada automáticamente desde Entrega #{$idEntrega}."
+                    ]);
+            } else {
+                $totalCalculado = 0.0;
+                foreach ($pedidosEntregados as $p) {
+                    $totalCalculado += (float) $p['monto'];
+                }
+
+                $idRendicion = (int) DB::table('RENDICION')->insertGetId([
+                    'id_repartidor' => $datos['id_repartidor'],
+                    'id_entrega'    => $idEntrega,
+                    'fecha'         => now(),
                     'total_rendido' => $totalCalculado,
-                    'fecha' => now(),
-                    'observaciones' => "Rendición precargada automáticamente desde Entrega #{$idEntrega}."
+                    'estado'        => Rendicion::ESTADO_PENDIENTE,
+                    'observaciones' => "Rendición precargada automáticamente al confirmar reparto #{$idEntrega}."
                 ]);
 
-            // Reemplazar cobros asociados para reflejar el estado actual
-            DB::table('RENDICION_COBRO')->where('id_rendicion', $idRendicion)->delete();
-        } else {
-            $idRendicion = (int) DB::table('RENDICION')->insertGetId([
-                'id_repartidor' => $datos['id_repartidor'],
-                'id_entrega'    => $idEntrega,
-                'fecha'         => now(),
-                'total_rendido' => $totalCalculado,
-                'estado'        => 'pendiente',
-                'observaciones' => "Rendición precargada automáticamente al confirmar reparto #{$idEntrega}."
-            ]);
-        }
+                foreach ($pedidosEntregados as $p) {
+                    DB::table('RENDICION_COBRO')->insert([
+                        'id_rendicion'   => $idRendicion,
+                        'id_cliente'     => $p['id_cliente'],
+                        'id_factura'     => $p['id_factura'],
+                        'monto'          => $p['monto'],
+                        'medio_pago'     => $p['medio_pago'] ?? 'efectivo',
+                        'fecha_registro' => now(),
+                    ]);
+                }
+            }
 
-        // Insertar el desglose de cobros en RENDICION_COBRO
-        foreach ($pedidosEntregados as $p) {
-            DB::table('RENDICION_COBRO')->insert([
+            return [
                 'id_rendicion'   => $idRendicion,
-                'id_cliente'     => $p['id_cliente'],
-                'id_factura'     => $p['id_factura'],
-                'monto'          => $p['monto'],
-                'medio_pago'     => $p['medio_pago'] ?? 'efectivo',
-                'fecha_registro' => now(),
-            ]);
-        }
-
-        return [
-            'id_rendicion'   => $idRendicion,
-            'id_entrega'     => $idEntrega,
-            'total_rendido'  => $totalCalculado,
-            'estado'         => 'pendiente',
-            'pedidos_count'  => count($pedidosEntregados)
-        ];
+                'id_entrega'     => $idEntrega,
+                'total_rendido'  => $totalCalculado,
+                'estado'         => Rendicion::ESTADO_PENDIENTE,
+                'pedidos_count'  => count($pedidosEntregados)
+            ];
+        });
     }
 }

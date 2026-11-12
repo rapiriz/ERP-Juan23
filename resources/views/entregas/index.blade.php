@@ -405,6 +405,56 @@
         </div>
     </div>
 
+    <!-- MODAL: CONFIRMAR ENTREGA Y REGISTRO DE COBRO (PARCIAL / MEDIO DE PAGO) -->
+    <div id="modalConfirmarEntregaCobro" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modalConfEntregaTitulo" style="z-index: 1050;">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3 class="modal-title" id="modalConfEntregaTitulo">
+                    Confirmar Entrega y Cobro
+                </h3>
+                <button class="modal-close" onclick="cerrarModalConfirmarEntrega()" aria-label="Cerrar modal">✕</button>
+            </div>
+            <form id="formConfirmarEntregaCobro" onsubmit="enviarConfirmacionEntrega(event)">
+                <input type="hidden" id="confIdEntrega" value="">
+                <input type="hidden" id="confIdVenta" value="">
+
+                <div class="form-section" style="margin-bottom: 1rem;">
+                    <p><strong style="color: var(--primary);">Pedido:</strong> <span id="confPedidoLabel" style="font-weight: 700;">--</span></p>
+                    <p style="margin-top: 0.25rem;"><strong>Cliente:</strong> <span id="confClienteLabel">--</span></p>
+                    <p style="margin-top: 0.25rem;"><strong>Total del Pedido:</strong> <span id="confTotalPedidoLabel" style="font-weight: 700; color: #1E3A8A;">$0,00</span></p>
+                </div>
+
+                <div class="form-grid form-grid-2" style="margin-bottom: 0.9rem;">
+                    <div class="form-group">
+                        <label for="confMedioPago" class="form-label">Medio de Pago</label>
+                        <select id="confMedioPago" class="clay-select" required>
+                            <option value="efectivo">Efectivo</option>
+                            <option value="transferencia">Transferencia</option>
+                            <option value="cheque">Cheque</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="confMontoCobrado" class="form-label">Monto Cobrado ($)</label>
+                        <input type="number" id="confMontoCobrado" class="clay-input" step="0.01" min="0" required placeholder="0.00">
+                    </div>
+                </div>
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: -0.5rem; margin-bottom: 0.9rem;">
+                    Podés ingresar el total o un pago parcial (o 0 si queda pendiente en cuenta corriente).
+                </p>
+
+                <div class="form-group">
+                    <label for="confObservaciones" class="form-label">Observaciones (opcional)</label>
+                    <textarea id="confObservaciones" class="clay-input" rows="2" placeholder="Ej. Pago parcial por transferencia, saldo en cuenta corriente…"></textarea>
+                </div>
+
+                <div class="modal-footer" style="margin-top: 1.1rem;">
+                    <button type="button" class="clay-btn clay-btn-secondary" onclick="cerrarModalConfirmarEntrega()">Cancelar</button>
+                    <button type="submit" id="btnSubmitConfEntrega" class="clay-btn clay-btn-success">Confirmar Entrega</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- CONTENEDOR DE TOASTS -->
     <div class="toast-container" id="toastContainer" aria-live="assertive" aria-atomic="true"></div>
 

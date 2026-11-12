@@ -208,8 +208,19 @@ class EntregaService
         int $idEntrega,
         int $idVenta,
         ?string $observaciones,
-        int $idUsuarioAuditoria
+        int $idUsuarioAuditoria,
+        string $medioPago = 'efectivo',
+        ?float $montoCobrado = null
     ): array {
+        $medioPago = strtolower(trim($medioPago ?: 'efectivo'));
+        if (!in_array($medioPago, ['efectivo', 'transferencia', 'cheque'], true)) {
+            throw new Exception("Medio de pago inválido '{$medioPago}'. Permitidos: efectivo, transferencia, cheque.");
+        }
+
+        if ($montoCobrado !== null && $montoCobrado < 0) {
+            throw new Exception("El monto cobrado no puede ser negativo.");
+        }
+
         if ($idEntrega <= 0) {
             throw new Exception("El ID de entrega es inválido.");
         }
@@ -238,15 +249,22 @@ class EntregaService
             throw new Exception("El pedido #{$idVenta} ya se encuentra confirmado como entregado.");
         }
 
+        $montoEfectivo = $montoCobrado ?? (float) ($pedidoEncontrado['total'] ?? 0.0);
+
         DB::beginTransaction();
         try {
-            $this->entregaRepo->marcarPedidoComoEntregado($idEntrega, $idVenta, $observaciones);
+            $this->entregaRepo->marcarPedidoComoEntregado($idEntrega, $idVenta, $observaciones, $medioPago, $montoEfectivo);
             DB::commit();
 
             // 2. Precargar automáticamente la rendición en estado 'pendiente' para administración
             try {
                 $rendicionService = new \App\Modules\Rendiciones\Services\RendicionService(new \App\Modules\Rendiciones\Repositories\RendicionRepository());
-                $rendicionService->precargarOActualizarRendicionDesdeEntrega($idEntrega);
+                $rendicionService->precargarOActualizarRendicionDesdeEntrega($idEntrega, [
+                    $idVenta => [
+                        'monto_cobrado' => $montoEfectivo,
+                        'medio_pago'    => $medioPago,
+                    ],
+                ]);
             } catch (\Throwable $e) {
                 \Illuminate\Support\Facades\Log::warning("No se pudo precargar automáticamente la rendición para la entrega #{$idEntrega}: " . $e->getMessage());
             }
@@ -255,7 +273,7 @@ class EntregaService
             try {
                 $this->ventasClient->actualizarEstadoVenta($idVenta, 'entregada');
             } catch (\Throwable $e) {
-                // Loguear error pero mantener la entrega confirmada
+                \Illuminate\Support\Facades\Log::warning("No se pudo notificar a Ventas (G4) la entrega del pedido #{$idVenta}: " . $e->getMessage());
             }
 
             return [

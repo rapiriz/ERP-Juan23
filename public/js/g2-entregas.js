@@ -401,15 +401,21 @@ async function abrirModalHojaRuta(idEntrega) {
         if (pedidos.length === 0) {
             tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-muted);">No hay pedidos asignados a este viaje.</td></tr>`;
         } else {
+            window._pedidosHojaRuta = {};
             pedidos.forEach(p => {
+                window._pedidosHojaRuta[`${e.id_entrega}_${p.id_venta}`] = p;
                 const tr = document.createElement('tr');
                 const esEntregado = (p.estado_pedido_entrega === 'entregado');
                 const badgeEstado = esEntregado
                     ? `<span class="badge badge-entregada">Entregado</span>`
                     : `<span class="badge badge-en_camino">En Reparto</span>`;
 
+                const cobroInfo = esEntregado && p.monto_cobrado !== null && p.monto_cobrado !== undefined
+                    ? `<br><small style="color: var(--text-muted); font-weight: 500;">$${Number(p.monto_cobrado).toLocaleString('es-AR', { minimumFractionDigits: 2 })} (${p.medio_pago || 'efectivo'})</small>`
+                    : '';
+
                 const btnConfirmar = esEntregado
-                    ? `<span style="color: var(--success); font-weight: 700; font-size: 0.88rem;">Completado</span>`
+                    ? `<span style="color: var(--success); font-weight: 700; font-size: 0.88rem;">Completado${cobroInfo}</span>`
                     : `<button class="clay-btn clay-btn-success" style="min-height: 32px; padding: 0.3rem 0.75rem; font-size: 0.88rem;" onclick="confirmarEntregaPedido(${e.id_entrega}, ${p.id_venta})" title="Confirmar entrega física realizada">
                         Confirmar Entrega
                        </button>`;
@@ -499,18 +505,56 @@ async function consultarVentasGrupo4() {
 }
 
 /**
- * HU #3 (Issue #124): Confirmar pedido entregado por el chofer
+ * HU #3 (Issue #124): Confirmar pedido entregado por el chofer (con medio de pago y monto cobrado/parcial)
  */
-async function confirmarEntregaPedido(idEntrega, idVenta) {
-    if (!confirm(`¿Confirmar entrega física del pedido #PED-${idVenta.toString().padStart(4, '0')} al cliente?`)) {
+function confirmarEntregaPedido(idEntrega, idVenta) {
+    const p = (window._pedidosHojaRuta && window._pedidosHojaRuta[`${idEntrega}_${idVenta}`]) || null;
+    const total = p ? Number(p.total || 0) : 0;
+    const cliente = p ? (p.cliente_nombre || `Pedido #${idVenta}`) : `Pedido #${idVenta}`;
+
+    document.getElementById('confIdEntrega').value = idEntrega;
+    document.getElementById('confIdVenta').value = idVenta;
+    document.getElementById('confPedidoLabel').textContent = `#PED-${idVenta.toString().padStart(4, '0')}`;
+    document.getElementById('confClienteLabel').textContent = cliente;
+    document.getElementById('confTotalPedidoLabel').textContent = `$${total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
+    document.getElementById('confMedioPago').value = 'efectivo';
+    document.getElementById('confMontoCobrado').value = total > 0 ? total.toFixed(2) : '0.00';
+    document.getElementById('confObservaciones').value = '';
+
+    document.getElementById('modalConfirmarEntregaCobro').style.display = 'flex';
+}
+
+function cerrarModalConfirmarEntrega() {
+    document.getElementById('modalConfirmarEntregaCobro').style.display = 'none';
+}
+
+async function enviarConfirmacionEntrega(e) {
+    e.preventDefault();
+
+    const idEntrega = parseInt(document.getElementById('confIdEntrega').value, 10);
+    const idVenta = parseInt(document.getElementById('confIdVenta').value, 10);
+    const medioPago = document.getElementById('confMedioPago').value;
+    const montoCobrado = parseFloat(document.getElementById('confMontoCobrado').value);
+    const observaciones = document.getElementById('confObservaciones').value.trim();
+
+    if (isNaN(montoCobrado) || montoCobrado < 0) {
+        showToast('Ingresá un monto cobrado válido (mayor o igual a 0).', 'warning');
         return;
     }
+
+    const btn = document.getElementById('btnSubmitConfEntrega');
+    btn.disabled = true;
+    btn.textContent = 'Confirmando…';
 
     try {
         const res = await g2Fetch(`${API_BASE}/entregas/${idEntrega}/pedidos/${idVenta}/entregado`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({})
+            body: JSON.stringify({
+                medio_pago: medioPago,
+                monto_cobrado: montoCobrado,
+                observaciones: observaciones || null
+            })
         });
 
         const json = await res.json();
@@ -520,6 +564,7 @@ async function confirmarEntregaPedido(idEntrega, idVenta) {
             return;
         }
 
+        cerrarModalConfirmarEntrega();
         showToast(json.mensaje, 'success');
 
         // Refrescar modal de hoja de ruta si está abierto
@@ -531,6 +576,9 @@ async function confirmarEntregaPedido(idEntrega, idVenta) {
     } catch (err) {
         console.error(err);
         showToast('Error al conectar con el servidor.', 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Confirmar Entrega';
     }
 }
 

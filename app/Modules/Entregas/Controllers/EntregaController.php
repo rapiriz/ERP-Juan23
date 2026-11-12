@@ -159,6 +159,12 @@ class EntregaController extends Controller
             $idEntrega = (int)($id ?? $body['id_entrega'] ?? 0);
             $idPedido = (int)($idVenta ?? $body['id_venta'] ?? $body['id_pedido'] ?? 0);
             $observaciones = $body['observaciones'] ?? null;
+            $medioPago = isset($body['medio_pago']) && $body['medio_pago'] !== ''
+                ? strtolower(trim((string) $body['medio_pago']))
+                : 'efectivo';
+            $montoCobrado = array_key_exists('monto_cobrado', $body) && $body['monto_cobrado'] !== null && $body['monto_cobrado'] !== ''
+                ? (float) $body['monto_cobrado']
+                : null;
             $idUsuario = G2Identity::id();
 
             if ($idEntrega <= 0 || $idPedido <= 0) {
@@ -169,7 +175,9 @@ class EntregaController extends Controller
                 $idEntrega,
                 $idPedido,
                 $observaciones,
-                $idUsuario
+                $idUsuario,
+                $medioPago,
+                $montoCobrado
             );
 
             return Response::json($resultado, 200, $resultado['mensaje']);
