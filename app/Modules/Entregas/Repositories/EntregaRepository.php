@@ -167,7 +167,7 @@ class EntregaRepository
             $params[':estado'] = $filtros['estado'];
         }
 
-        $sql .= " GROUP BY e.id_entrega ORDER BY e.id_entrega DESC";
+        $sql .= " GROUP BY e.id_entrega, e.id_repartidor, e.fecha_creacion, e.fecha_salida, e.estado, e.observaciones ORDER BY e.id_entrega DESC";
 
         $stmt = $this->db->prepare($sql);
         $stmt->execute($params);
@@ -242,6 +242,7 @@ class EntregaRepository
         $pedidos = [];
         foreach ($pedidosRaw as $p) {
             $venta = $this->ventasClient->obtenerVentaPorId((int)$p['id_venta']);
+            $idCliente = (int)($venta['id_cliente'] ?? 1);
             $pedidos[] = [
                 'id_venta' => (int)$p['id_venta'],
                 'fecha_venta' => $venta['fecha'] ?? date('Y-m-d H:i:s'),
@@ -253,8 +254,9 @@ class EntregaRepository
                 'monto_cobrado' => isset($p['monto_cobrado']) ? (float)$p['monto_cobrado'] : null,
                 'medio_pago' => $p['medio_pago'] ?? null,
                 'motivo_rechazo' => $p['motivo_rechazo'],
-                'id_cliente' => (int)($venta['id_cliente'] ?? 1),
+                'id_cliente' => $idCliente,
                 'cliente_nombre' => $venta['cliente_nombre'] ?? $venta['cliente']['nombre'] ?? "Cliente Pedido #{$p['id_venta']}",
+                'cliente_saldo' => $this->obtenerSaldoCliente($idCliente),
                 'direccion' => $venta['direccion'] ?? 'Domicilio comercial',
                 'localidad' => $venta['localidad'] ?? 'Pigüé',
                 'telefono' => $venta['telefono'] ?? '',
@@ -380,7 +382,7 @@ class EntregaRepository
             $params[':id_repartidor'] = $idRepartidor;
         }
 
-        $sql .= " GROUP BY e.id_entrega HAVING pedidos_entregados > 0 OR e.estado = 'finalizada' ORDER BY e.id_entrega DESC";
+        $sql .= " GROUP BY e.id_entrega, e.id_repartidor, e.fecha_creacion, e.fecha_salida, e.estado, e.observaciones HAVING pedidos_entregados > 0 OR e.estado = 'finalizada' ORDER BY e.id_entrega DESC";
 
         $stmt = $this->db->prepare($sql);
         $stmt->execute($params);
@@ -403,5 +405,38 @@ class EntregaRepository
         }
 
         return $entregas;
+    }
+
+    /**
+     * Calcula el saldo actual de la cuenta corriente del cliente.
+     * Negativo = debe dinero, 0 = al día, Positivo = saldo a favor.
+     * Retorna null si las tablas de cuenta corriente o ventas no están disponibles.
+     */
+    public function obtenerSaldoCliente(int $idCliente): ?float
+    {
+        if ($idCliente <= 0) {
+            return null;
+        }
+
+        try {
+            $pagos = 0.0;
+            if (\Illuminate\Support\Facades\Schema::hasTable('cuenta_corriente_movimientos')) {
+                $pagos = (float) \Illuminate\Support\Facades\DB::table('cuenta_corriente_movimientos')
+                    ->where('cliente_id', $idCliente)
+                    ->sum('importe');
+            }
+
+            $deudaVentas = 0.0;
+            if (\Illuminate\Support\Facades\Schema::hasTable('venta')) {
+                $deudaVentas = (float) \Illuminate\Support\Facades\DB::table('venta')
+                    ->where('id_cliente', $idCliente)
+                    ->whereNotIn('estado', ['cancelada', 'anulada'])
+                    ->sum('total');
+            }
+
+            return round($pagos - $deudaVentas, 2);
+        } catch (\Throwable $e) {
+            return null;
+        }
     }
 }

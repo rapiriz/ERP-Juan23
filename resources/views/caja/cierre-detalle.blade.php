@@ -122,8 +122,13 @@
 
     @if (!empty($cierre['movimientos']))
         <div class="clay-card">
-            <h3>Movimientos de la caja</h3>
-            <table>
+            <div class="encabezado-flex">
+                <h3>Movimientos de la caja</h3>
+                <span class="subtitulo" style="font-size: 0.85rem; color: #64748B;">
+                    💡 Tocá un movimiento para ver su detalle completo
+                </span>
+            </div>
+            <table class="tabla-clickeable">
                 <thead>
                     <tr>
                         <th>Tipo</th>
@@ -134,19 +139,156 @@
                 </thead>
                 <tbody>
                     @foreach ($cierre['movimientos'] as $movimiento)
-                        <tr>
+                        <tr onclick='abrirModalDetalleMovimiento(@json($movimiento))' title="Ver detalle del movimiento">
                             <td>{{ $etiquetasTipo[$movimiento['tipo']] ?? ucfirst(str_replace('_', ' ', $movimiento['tipo'])) }}</td>
                             <td>{{ $etiquetasMedio[$movimiento['medio_pago'] ?? 'efectivo'] ?? $movimiento['medio_pago'] }}</td>
                             <td>{{ $movimiento['concepto'] }}</td>
-                            <td>${{ number_format($movimiento['monto'], 2, ',', '.') }}</td>
+                            <td><strong>${{ number_format($movimiento['monto'], 2, ',', '.') }}</strong></td>
                         </tr>
                     @endforeach
                 </tbody>
             </table>
         </div>
+
+        <!-- MODAL DETALLE DE MOVIMIENTO EN CIERRE -->
+        <div id="modal-detalle-movimiento" class="modal-overlay">
+            <div class="clay-card modal-card" style="max-width: 520px;">
+                <div class="modal-header">
+                    <h3>Detalle de movimiento</h3>
+                    <button type="button" class="modal-close" onclick="cerrarModalDetalleMovimiento()" aria-label="Cerrar modal">✕</button>
+                </div>
+
+                <div class="detalle-grid">
+                    <div class="detalle-item">
+                        <span class="detalle-label">ID Movimiento</span>
+                        <span class="detalle-valor" id="det-mov-id">#--</span>
+                    </div>
+                    <div class="detalle-item">
+                        <span class="detalle-label">Tipo</span>
+                        <span class="detalle-valor" id="det-mov-tipo">--</span>
+                    </div>
+                    <div class="detalle-item">
+                        <span class="detalle-label">Medio de Pago</span>
+                        <span class="detalle-valor" id="det-mov-medio">--</span>
+                    </div>
+                    <div class="detalle-item">
+                        <span class="detalle-label">Monto</span>
+                        <span class="detalle-valor" id="det-mov-monto" style="color: var(--primary); font-size: 1.15rem;">$0,00</span>
+                    </div>
+                </div>
+
+                <div class="detalle-grid" style="margin-top: 0;">
+                    <div class="detalle-item" style="grid-column: 1 / -1;">
+                        <span class="detalle-label">Concepto / Motivo</span>
+                        <span class="detalle-valor" id="det-mov-concepto" style="font-weight: 500;">--</span>
+                    </div>
+                    <div class="detalle-item">
+                        <span class="detalle-label">Fecha del Movimiento</span>
+                        <span class="detalle-valor" id="det-mov-fecha">--</span>
+                    </div>
+                    <div class="detalle-item">
+                        <span class="detalle-label">Fecha y Hora de Carga</span>
+                        <span class="detalle-valor" id="det-mov-fecha-carga">--</span>
+                    </div>
+                    <div class="detalle-item" id="item-mov-cobro" style="display:none;">
+                        <span class="detalle-label">Cobro Vinculado</span>
+                        <span class="detalle-valor" id="det-mov-cobro">#--</span>
+                    </div>
+                    <div class="detalle-item" id="item-mov-usuario" style="display:none;">
+                        <span class="detalle-label">Usuario Carga</span>
+                        <span class="detalle-valor" id="det-mov-usuario">--</span>
+                    </div>
+                </div>
+
+                <div id="seccion-modificacion-movimiento" class="alerta" style="background:#F8FAFC; border:1px solid #E2E8F0; padding:0.75rem; margin-top:0.5rem; display:none; font-size:0.85rem;">
+                    <strong>Registro modificado:</strong>
+                    <span id="det-mov-modificacion-texto"></span>
+                </div>
+
+                <div class="fila-acciones" style="justify-content: flex-end; margin-top: 1.25rem;">
+                    <button type="button" class="clay-btn-secondary" onclick="cerrarModalDetalleMovimiento()">
+                        Cerrar
+                    </button>
+                </div>
+            </div>
+        </div>
     @endif
 
     <script>
+        const etiquetasTipo = @json($etiquetasTipo);
+        const etiquetasMedio = @json($etiquetasMedio);
+
+        function formatearMonto(numero) {
+            return '$' + Number(numero).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        function abrirModalDetalleMovimiento(m) {
+            if (!m) return;
+            document.getElementById('det-mov-id').textContent = '#' + (m.id_movimiento_caja || '--');
+            document.getElementById('det-mov-tipo').textContent = etiquetasTipo[m.tipo] || (m.tipo ? m.tipo.replace(/_/g, ' ') : '--');
+            document.getElementById('det-mov-medio').textContent = etiquetasMedio[m.medio_pago] || m.medio_pago || 'Efectivo';
+            document.getElementById('det-mov-monto').textContent = formatearMonto(m.monto || 0);
+            document.getElementById('det-mov-concepto').textContent = m.concepto || '--';
+
+            const formatoFecha = (val) => {
+                if (!val) return '--';
+                const d = new Date(val);
+                return isNaN(d.getTime()) ? val : d.toLocaleDateString('es-AR') + ' ' + d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+            };
+            const formatoSoloFecha = (val) => {
+                if (!val) return '--';
+                if (typeof val === 'string' && val.includes('T')) val = val.split('T')[0];
+                return val;
+            };
+
+            document.getElementById('det-mov-fecha').textContent = formatoSoloFecha(m.fecha);
+            document.getElementById('det-mov-fecha-carga').textContent = formatoFecha(m.fecha_hora_carga);
+
+            const itemCobro = document.getElementById('item-mov-cobro');
+            if (m.id_cobro) {
+                document.getElementById('det-mov-cobro').textContent = '#' + m.id_cobro;
+                itemCobro.style.display = 'flex';
+            } else {
+                itemCobro.style.display = 'none';
+            }
+
+            const itemUsuario = document.getElementById('item-mov-usuario');
+            if (m.id_usuario) {
+                document.getElementById('det-mov-usuario').textContent = '#' + m.id_usuario;
+                itemUsuario.style.display = 'flex';
+            } else {
+                itemUsuario.style.display = 'none';
+            }
+
+            const seccionMod = document.getElementById('seccion-modificacion-movimiento');
+            if (m.fecha_hora_modificacion) {
+                let txt = 'Modificado el ' + formatoFecha(m.fecha_hora_modificacion);
+                if (m.monto_anterior !== null && m.monto_anterior !== undefined) {
+                    txt += ' (monto previo: ' + formatearMonto(m.monto_anterior) + ')';
+                }
+                if (m.id_usuario_modificacion) {
+                    txt += ' por usuario #' + m.id_usuario_modificacion;
+                }
+                document.getElementById('det-mov-modificacion-texto').textContent = txt;
+                seccionMod.style.display = 'block';
+            } else {
+                seccionMod.style.display = 'none';
+            }
+
+            document.getElementById('modal-detalle-movimiento').classList.add('visible');
+        }
+
+        function cerrarModalDetalleMovimiento() {
+            const modal = document.getElementById('modal-detalle-movimiento');
+            if (modal) modal.classList.remove('visible');
+        }
+
+        const modalDet = document.getElementById('modal-detalle-movimiento');
+        if (modalDet) {
+            modalDet.addEventListener('click', function(e) {
+                if (e.target === this) cerrarModalDetalleMovimiento();
+            });
+        }
         // Campos de monto: solo dígitos y separador decimal (se bloquean e, E, + y -).
         document.querySelectorAll('[data-solo-numeros]').forEach((campo) => {
             campo.addEventListener('keydown', (e) => {

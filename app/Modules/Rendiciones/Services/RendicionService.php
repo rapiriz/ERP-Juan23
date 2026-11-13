@@ -368,21 +368,14 @@ class RendicionService
                         \Illuminate\Support\Facades\Log::info("Cheque por \${$cobroItem->monto} registrado en Cartera (Rendición #{$rendicion->id_rendicion}).");
                     }
 
-                    // Imputar automáticamente el cobro en la Cuenta Corriente del cliente vía API de G4
+                    // Imputar automáticamente el cobro en la Cuenta Corriente del cliente vía API de G4.
+                    // Cuenta Corriente evalúa si la suma de cobros salda el total de la venta
+                    // para pasarla a 'pagada' (soporta pagos parciales y evita marcarla pagada antes de tiempo).
                     if (!empty($cobroItem->id_rendicion_cobro)) {
                         try {
                             $this->ventasClient->registrarCobroCuentaCorriente((int) $cobroItem->id_rendicion_cobro);
                         } catch (\Throwable $e) {
                             Log::warning("G2 - No se pudo imputar cobro #{$cobroItem->id_rendicion_cobro} en cuenta corriente (G4): " . $e->getMessage());
-                        }
-                    }
-
-                    // Notificación tolerante a la API de Ventas (G4) sobre la imputación del cobro
-                    if (!empty($cobroItem->id_factura)) {
-                        try {
-                            $this->ventasClient->actualizarEstadoVenta((int) $cobroItem->id_factura, 'pagada');
-                        } catch (\Throwable $e) {
-                            Log::warning("G2 - No se pudo actualizar estado en G4 para venta/factura #{$cobroItem->id_factura}: " . $e->getMessage());
                         }
                     }
                 }

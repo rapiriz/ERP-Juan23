@@ -553,6 +553,24 @@ async function confirmarEntregaPedido(idEntrega, idVenta) {
     document.getElementById('confIdVenta').value = idVenta;
     document.getElementById('confPedidoLabel').textContent = `#PED-${idVenta.toString().padStart(4, '0')}`;
     document.getElementById('confClienteLabel').textContent = cliente;
+
+    const saldoEl = document.getElementById('confSaldoClienteLabel');
+    if (saldoEl) {
+        if (p && p.cliente_saldo !== null && p.cliente_saldo !== undefined) {
+            const saldo = Number(p.cliente_saldo);
+            const absFormatted = Math.abs(saldo).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            if (saldo < 0) {
+                saldoEl.innerHTML = `<span class="badge" style="background:#FEE2E2; color:#991B1B;">Debe $${absFormatted}</span>`;
+            } else if (saldo > 0) {
+                saldoEl.innerHTML = `<span class="badge" style="background:#DBEAFE; color:#1E40AF;">Saldo a favor: $${absFormatted}</span>`;
+            } else {
+                saldoEl.innerHTML = `<span class="badge" style="background:#DCFCE7; color:#166534;">Al día ($0,00)</span>`;
+            }
+        } else {
+            saldoEl.textContent = 'No disponible';
+        }
+    }
+
     document.getElementById('confTotalPedidoLabel').textContent = `$${total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
     document.getElementById('confMedioPago').value = 'efectivo';
     document.getElementById('confMontoCobrado').value = total > 0 ? total.toFixed(2) : '0.00';

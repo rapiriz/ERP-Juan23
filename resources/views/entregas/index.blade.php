@@ -485,6 +485,7 @@
                 <div class="form-section" style="margin-bottom: 1rem;">
                     <p><strong style="color: var(--primary);">Pedido:</strong> <span id="confPedidoLabel" style="font-weight: 700;">--</span></p>
                     <p style="margin-top: 0.25rem;"><strong>Cliente:</strong> <span id="confClienteLabel">--</span></p>
+                    <p style="margin-top: 0.25rem;"><strong>Saldo Cuenta Corriente:</strong> <span id="confSaldoClienteLabel">--</span></p>
                     <p style="margin-top: 0.25rem;"><strong>Total del Pedido:</strong> <span id="confTotalPedidoLabel" style="font-weight: 700; color: #1E3A8A;">$0,00</span></p>
                 </div>
 

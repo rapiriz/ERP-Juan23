@@ -184,8 +184,76 @@
     display: flex;
 }
 .g2-page .modal-card {
-    max-width: 420px;
+    max-width: 480px;
     width: 90%;
+}
+
+.g2-page .tabla-clickeable tbody tr {
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+
+.g2-page .tabla-clickeable tbody tr:hover {
+    background-color: #F1F5F9;
+}
+
+.g2-page .tabla-clickeable tbody tr:hover td {
+    color: var(--primary);
+}
+
+.g2-page .detalle-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 0.85rem;
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+}
+
+.g2-page .detalle-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    background: #F8FAFC;
+    padding: 0.65rem 0.85rem;
+    border-radius: var(--radius-xs);
+    border: 1px solid #E2E8F0;
+}
+
+.g2-page .detalle-label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #64748B;
+    letter-spacing: 0.03em;
+}
+
+.g2-page .detalle-valor {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.g2-page .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
+.g2-page .modal-close {
+    background: none;
+    border: none;
+    font-size: 1.25rem;
+    line-height: 1;
+    color: #64748B;
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: 6px;
+}
+
+.g2-page .modal-close:hover {
+    color: var(--danger);
+    background: #FEE2E2;
 }
 
 .g2-page { display:block; min-height:0; padding:1rem; border-radius:1rem; }
