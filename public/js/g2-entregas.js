@@ -573,7 +573,13 @@ async function confirmarEntregaPedido(idEntrega, idVenta) {
 
     document.getElementById('confTotalPedidoLabel').textContent = `$${total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
     document.getElementById('confMedioPago').value = 'efectivo';
-    document.getElementById('confMontoCobrado').value = total > 0 ? total.toFixed(2) : '0.00';
+    const inputMonto = document.getElementById('confMontoCobrado');
+    inputMonto.value = total > 0 ? total.toFixed(2) : '0.00';
+    if (total > 0) {
+        inputMonto.max = total.toFixed(2);
+    } else {
+        inputMonto.removeAttribute('max');
+    }
     document.getElementById('confObservaciones').value = '';
 
     document.getElementById('modalConfirmarEntregaCobro').style.display = 'flex';

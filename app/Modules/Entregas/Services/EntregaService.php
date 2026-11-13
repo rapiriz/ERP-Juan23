@@ -249,7 +249,12 @@ class EntregaService
             throw new Exception("El pedido #{$idVenta} ya se encuentra confirmado como entregado.");
         }
 
-        $montoEfectivo = $montoCobrado ?? (float) ($pedidoEncontrado['total'] ?? 0.0);
+        $totalPedido = (float) ($pedidoEncontrado['total'] ?? 0.0);
+        if ($montoCobrado !== null && $totalPedido > 0 && round($montoCobrado, 2) > round($totalPedido, 2)) {
+            throw new Exception("El monto cobrado no puede superar el total del pedido ($" . number_format($totalPedido, 2, ',', '.') . ").");
+        }
+
+        $montoEfectivo = $montoCobrado ?? $totalPedido;
 
         DB::beginTransaction();
         try {

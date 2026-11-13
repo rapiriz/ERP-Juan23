@@ -111,7 +111,7 @@
             </thead>
             <tbody id="tabla-movimientos-body">
                 @foreach ($caja['movimientos'] ?? [] as $movimiento)
-                    <tr onclick='abrirModalDetalleMovimiento(@json($movimiento))' title="Ver detalle del movimiento">
+                    <tr onclick="abrirModalDetalleMovimiento({{ \Illuminate\Support\Js::from($movimiento) }})" title="Ver detalle del movimiento">
                         <td>{{ $etiquetasTipo[$movimiento['tipo']] ?? ucfirst(str_replace('_', ' ', $movimiento['tipo'])) }}</td>
                         <td>{{ $etiquetasMedio[$movimiento['medio_pago'] ?? 'efectivo'] ?? $movimiento['medio_pago'] }}</td>
                         <td>{{ $movimiento['concepto'] }}</td>

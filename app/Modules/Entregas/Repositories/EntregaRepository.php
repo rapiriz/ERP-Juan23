@@ -242,7 +242,7 @@ class EntregaRepository
         $pedidos = [];
         foreach ($pedidosRaw as $p) {
             $venta = $this->ventasClient->obtenerVentaPorId((int)$p['id_venta']);
-            $idCliente = (int)($venta['id_cliente'] ?? 1);
+            $idCliente = (int)($venta['id_cliente'] ?? 0);
             $pedidos[] = [
                 'id_venta' => (int)$p['id_venta'],
                 'fecha_venta' => $venta['fecha'] ?? date('Y-m-d H:i:s'),
@@ -430,7 +430,7 @@ class EntregaRepository
             if (\Illuminate\Support\Facades\Schema::hasTable('venta')) {
                 $deudaVentas = (float) \Illuminate\Support\Facades\DB::table('venta')
                     ->where('id_cliente', $idCliente)
-                    ->whereNotIn('estado', ['cancelada', 'anulada'])
+                    ->whereNotIn('estado', ['cancelada', 'anulada', 'borrador', 'pendiente'])
                     ->sum('total');
             }
 

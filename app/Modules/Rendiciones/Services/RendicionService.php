@@ -331,46 +331,57 @@ class RendicionService
         $accion             = strtolower(trim($datos['accion'] ?? ''));
         $idUsuarioValidador = (int) ($datos['id_usuario_validador'] ?? 0);
         $cobrosAprobadosIds = $datos['cobros_aprobados'] ?? null; // IDs de cobros individuales a aprobar si es revisión parcial
+        $estadoPrevio       = $rendicion->estado;
 
         if ($accion === 'aprobar') {
-            $rendicion->aprobar($idUsuarioValidador);
-            $this->repository->guardar($rendicion);
+            DB::transaction(function () use ($rendicion, $idUsuarioValidador, $cobrosAprobadosIds) {
+                $rendicion->aprobar($idUsuarioValidador);
+                $this->repository->guardar($rendicion);
 
-            // IMPACTO INTELIGENTE SEGÚN MEDIO DE PAGO:
-            // - Efectivo -> Impacta directamente en Caja abierta.
-            // - Transferencia -> Queda registrado para Conciliación Bancaria.
-            // - Cheque -> Queda registrado en Cartera de Cheques.
-            if ($rendicion->cobros && count($rendicion->cobros) > 0) {
-                foreach ($rendicion->cobros as $cobroItem) {
-                    // Si se especificó una selección parcial de cobros y este no está, se omite/queda pendiente
-                    if (is_array($cobrosAprobadosIds) && !in_array($cobroItem->id_rendicion_cobro, $cobrosAprobadosIds)) {
-                        continue;
-                    }
+                // IMPACTO INTELIGENTE SEGÚN MEDIO DE PAGO:
+                // - Efectivo -> Impacta directamente en Caja abierta.
+                // - Transferencia -> Queda registrado para Conciliación Bancaria.
+                // - Cheque -> Queda registrado en Cartera de Cheques.
+                if ($rendicion->cobros && count($rendicion->cobros) > 0) {
+                    foreach ($rendicion->cobros as $cobroItem) {
+                        // Si se especificó una selección parcial de cobros y este no está, se omite/queda pendiente
+                        if (is_array($cobrosAprobadosIds) && !in_array($cobroItem->id_rendicion_cobro, $cobrosAprobadosIds)) {
+                            continue;
+                        }
 
-                    $medioPagoLower = strtolower(trim($cobroItem->medio_pago ?? ''));
+                        $medioPagoLower = strtolower(trim($cobroItem->medio_pago ?? ''));
 
-                    if ($medioPagoLower === 'efectivo') {
-                        try {
+                        if (
+                            $medioPagoLower === 'efectivo'
+                            && (float) $cobroItem->monto > 0
+                            && \Illuminate\Support\Facades\Schema::hasTable('CAJA')
+                        ) {
                             $cajaService = app(\App\Modules\Caja\Services\CajaService::class);
-                            $cajaService->registrarCobroEnEfectivo(
+                            $resCaja = $cajaService->registrarCobroEnEfectivo(
                                 $idUsuarioValidador,
                                 \App\Modules\Caja\Models\Caja::ROL_ADMIN,
                                 (float) $cobroItem->monto,
                                 "Liquidación Rendición #{$rendicion->id_rendicion} - Cobro #{$cobroItem->id_rendicion_cobro}",
                                 null
                             );
-                        } catch (\Throwable $e) {
-                            \Illuminate\Support\Facades\Log::warning("No se pudo registrar cobro en Caja para rendición #{$rendicion->id_rendicion}: " . $e->getMessage());
+                            if (is_array($resCaja) && !empty($resCaja['error'])) {
+                                throw new InvalidArgumentException($resCaja['mensaje'] ?? 'No se pudo registrar el cobro en Caja.');
+                            }
+                        } elseif ($medioPagoLower === 'transferencia') {
+                            \Illuminate\Support\Facades\Log::info("Transferencia por \${$cobroItem->monto} registrada para Conciliación Bancaria (Rendición #{$rendicion->id_rendicion}).");
+                        } elseif ($medioPagoLower === 'cheque') {
+                            \Illuminate\Support\Facades\Log::info("Cheque por \${$cobroItem->monto} registrado en Cartera (Rendición #{$rendicion->id_rendicion}).");
                         }
-                    } elseif ($medioPagoLower === 'transferencia') {
-                        \Illuminate\Support\Facades\Log::info("Transferencia por \${$cobroItem->monto} registrada para Conciliación Bancaria (Rendición #{$rendicion->id_rendicion}).");
-                    } elseif ($medioPagoLower === 'cheque') {
-                        \Illuminate\Support\Facades\Log::info("Cheque por \${$cobroItem->monto} registrado en Cartera (Rendición #{$rendicion->id_rendicion}).");
                     }
+                }
+            });
 
-                    // Imputar automáticamente el cobro en la Cuenta Corriente del cliente vía API de G4.
-                    // Cuenta Corriente evalúa si la suma de cobros salda el total de la venta
-                    // para pasarla a 'pagada' (soporta pagos parciales y evita marcarla pagada antes de tiempo).
+            // Imputar en Cuenta Corriente (G4) fuera de la transacción local
+            if ($rendicion->cobros && count($rendicion->cobros) > 0) {
+                foreach ($rendicion->cobros as $cobroItem) {
+                    if (is_array($cobrosAprobadosIds) && !in_array($cobroItem->id_rendicion_cobro, $cobrosAprobadosIds)) {
+                        continue;
+                    }
                     if (!empty($cobroItem->id_rendicion_cobro)) {
                         try {
                             $this->ventasClient->registrarCobroCuentaCorriente((int) $cobroItem->id_rendicion_cobro);
@@ -403,10 +414,11 @@ class RendicionService
             $motivo = $datos['motivo_rechazo'] ?? '';
             $rendicion->rechazar($idUsuarioValidador, $motivo);
 
-            // Reversión auditada en Caja si alguno de los cobros en efectivo ya había impactado en Caja
-            if ($rendicion->cobros && count($rendicion->cobros) > 0) {
+            // Reversión auditada en Caja únicamente si la rendición estaba aprobada previamente
+            // (si estaba pendiente, sus cobros nunca ingresaron a Caja).
+            if ($estadoPrevio === 'aprobada' && $rendicion->cobros && count($rendicion->cobros) > 0) {
                 foreach ($rendicion->cobros as $cobroItem) {
-                    if (strtolower(trim($cobroItem->medio_pago ?? '')) === 'efectivo') {
+                    if (strtolower(trim($cobroItem->medio_pago ?? '')) === 'efectivo' && (float) $cobroItem->monto > 0) {
                         try {
                             $cajaService = app(\App\Modules\Caja\Services\CajaService::class);
                             $cajaService->registrarReversionDeCobro(
@@ -473,7 +485,7 @@ class RendicionService
         $pedidosRaw = DB::table('entrega_pedido as ep')
             ->leftJoin('remito as r', function ($join) {
                 $join->on('ep.id_entrega', '=', 'r.id_entrega')
-                     ->on('ep.id_venta', '=', 'r.id_venta');
+                    ->on('ep.id_venta', '=', 'r.id_venta');
             })
             ->where('ep.id_entrega', $idEntrega)
             ->select($columnas)
@@ -487,7 +499,7 @@ class RendicionService
             ->groupBy('rc.id_factura')
             ->selectRaw('rc.id_factura, SUM(rc.monto) as total_aprobado')
             ->pluck('total_aprobado', 'rc.id_factura')
-            ->map(fn ($total) => (float) $total)
+            ->map(fn($total) => (float) $total)
             ->all();
 
         $cobrosSugeridos = [];
@@ -594,7 +606,7 @@ class RendicionService
                 ->join('RENDICION', 'RENDICION.id_rendicion', '=', 'RENDICION_COBRO.id_rendicion')
                 ->where('RENDICION.id_entrega', $idEntrega)
                 ->pluck('RENDICION_COBRO.id_factura')
-                ->map(fn ($id) => (int) $id)
+                ->map(fn($id) => (int) $id)
                 ->all();
 
             foreach ($pedidosEntregados as $p) {
