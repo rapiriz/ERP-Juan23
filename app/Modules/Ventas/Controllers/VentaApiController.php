@@ -140,7 +140,7 @@ class VentaApiController extends Controller
                 'precioMay' => (float) $p['precioMay'],
                 'stock' => $disponible ?? (isset($p['stock']) ? (int) $p['stock'] : null),
             ];
-        }, $productos->todos());
+        }, array_values(array_filter($productos->todos(), fn (array $producto) => ($producto['estado'] ?? 'activo') === 'activo')));
 
         return response()->json(['data' => array_values($catalogo)]);
     }

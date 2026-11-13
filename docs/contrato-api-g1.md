@@ -1,5 +1,14 @@
 # Contrato HTTP/JSON de G1
 
+## Actualización de integración del 13/11/2026
+
+`GET /api/v1/clientes` y `/clientes/{id}` agregan `zona_nombre`, derivado de la zona real del cliente. Los campos de dirección, localidad, teléfono y `zona_id` conservan su significado y permisos. Una zona ausente devuelve `null`.
+
+El catálogo público utiliza el precio minorista efectivo recibido de G3. Se mantiene su proyección comercial pública y el aislamiento de costos, usuarios y auditoría.
+
+Los consumidores de cobros/rendiciones pueden seguir los enlaces de paginación con los filtros originales. G2 utiliza el libro financiero para obtener la deuda efectiva de cada pedido y distinguirla de cobros declarados. El recorrido completo se describe en el [informe de integración](informe-cierre-integracion-tarifas-g2-2026-11-13.md).
+
+
 Este documento describe las rutas G1 bajo `/api/v1`. Los ejemplos son ilustrativos, no datos ni credenciales reales. El inventario vigente es [api-rutas-registradas.md](api-rutas-registradas.md); la guía de ejecución y despliegue es [validacion-y-despliegue.md](validacion-y-despliegue.md). Los contratos financieros actuales leen el libro compartido y G1 consume Ventas, Caja y Productos mediante APIs autenticadas. El transporte `internal` no requiere otro servidor HTTP. Los informes anteriores conservan el estado de su fecha y no reemplazan esta guía.
 
 ## Convenciones

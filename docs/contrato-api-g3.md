@@ -1,5 +1,40 @@
 # Contrato HTTP/JSON de APIs de Integración — Grupo 3 (Productos y Stock)
 
+## Actualización comercial del 13/11/2026
+
+Este contrato se contrastó con develop `a69baf0d58e2e786537b81c78b89ef0ee732ef9b` y con los controladores de Branch-G1. Las reglas vigentes de stock, autorización, imágenes y transporte interno de la adenda siguiente siguen aplicándose.
+
+- `precio_unitario` es el precio base. `precio_minorista` y `precio_mayorista` entregan las tarifas efectivas. `precioMin` y `precioMay` conservan sus alias respectivos.
+- Los campos persistidos de tarifa admiten `NULL`; ese valor sigue el precio base vigente. Una tarifa explícita conserva su importe cuando cambia el precio base.
+- El formulario de Inventario permite cargar ambas tarifas. El JSON interno agrega `precio_minorista_configurado` y `precio_mayorista_configurado` para recuperar la opción de usar el base.
+- Alta y edición aceptan los alias camelCase. Cuando se envían junto a sus campos canónicos, deben coincidir. Los precios admiten hasta dos decimales y un máximo de `9999999999.99`.
+- En el alta, `stock` y `stock_disponible` aceptan enteros entre cero y `2147483647`. La normalización precede a la escritura. Un conflicto entre alias produce 422.
+- Un aumento de precio con `tipo_precio=mayorista` o `minorista` modifica esa tarifa. `ambos` modifica el base y las tarifas explícitas. Los cambios de costo/recargo conservan las tarifas explícitas.
+- G4 filtra los productos inactivos antes de consultar disponibilidad para POS y editor. Su calculadora también rechaza venderlos. La consulta puntual de stock conserva su validación de producto activo.
+- La proyección pública `GET /api/v1/catalogo` de G1 utiliza la tarifa minorista efectiva.
+
+Ejemplo abreviado de respuesta de producto con tarifas diferenciadas.
+
+```json
+{
+  "status": "success",
+  "data": {
+    "id": 1,
+    "id_producto": 1,
+    "precio_unitario": 2500,
+    "precio_minorista": 2500,
+    "precio_mayorista": 2200,
+    "precioMin": 2500,
+    "precioMay": 2200
+  }
+}
+```
+
+La creación/edición de producto mantiene las rutas internas `/api/productos` de la sesión web de G3. Para subir una imagen, utilizar multipart con `imagen_archivo` y los campos comerciales. La lectura de integración está disponible en los prefijos `/api` y `/api/v1`, respetando los middleware de cada ruta.
+
+El detalle de migraciones, pruebas y reversión se encuentra en el [informe del 13/11](informe-cierre-integracion-tarifas-g2-2026-11-13.md).
+
+
 > Actualización integrada del 10/11/2026. El [inventario de rutas registradas](api-rutas-registradas.md) y esta adenda prevalecen sobre anuncios históricos de issues. El transporte interno conserva autenticación y permisos; no se eliminan por usar un único servidor Artisan.
 
 ## Adenda de integración vigente
@@ -84,7 +119,7 @@ Validaciones de compras usan **422**; conflictos de estado, proveedor o solicitu
 
 ### 1.4. Tratamiento de Precios e IVA (Precios Netos)
 - **Todos los precios expuestos por G3 son netos, sin IVA** (`precio_unitario`, `precio_mayorista`, `precio_minorista`, `precioMay`, `precioMin`).
-- La distribuidora maneja una lista de precios base única; las condiciones mayoristas/minoristas se establecen mediante **descuentos y promociones** (procesados por G4 en ventas) y la discriminación del IVA la realiza la facturación (G2).
+- La distribuidora conserva un precio base y permite configurar tarifas minorista y mayorista diferenciadas. G4 aplica la tarifa elegida y sus descuentos/promociones, con validación del servidor. Los comprobantes actuales conservan el alcance interno documentado.
 - La formación del precio se basa en el **costo de reposición** del proveedor principal y el **recargo porcentual (markup)** del producto. Ambos son datos operativos internos y sensibles de G3, por lo que **no se exponen en las APIs de integración pública** preservando la confidencialidad comercial del catálogo.
 
 ---

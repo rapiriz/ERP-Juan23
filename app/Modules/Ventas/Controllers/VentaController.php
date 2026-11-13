@@ -24,14 +24,16 @@ class VentaController extends Controller
 {
     public function index(ClienteGateway $clientes, ProductoGateway $productos, StockGateway $stock)
     {
-        $productosDisponibles = collect($productos->todos())->map(function (array $producto) use ($stock): array {
+        $productosDisponibles = collect($productos->todos())
+            ->filter(fn (array $producto) => ($producto['estado'] ?? 'activo') === 'activo')
+            ->map(function (array $producto) use ($stock): array {
             $disponible = $stock->disponible((int) $producto['id']);
             if ($disponible !== null) {
                 $producto['stock'] = $disponible;
             }
 
             return $producto;
-        })->all();
+        })->values()->all();
 
         return view('ventas.ventas', [
             'productos' => $productosDisponibles,
@@ -41,7 +43,9 @@ class VentaController extends Controller
 
     public function obtenerProductosSimulados(ProductoGateway $productos, StockGateway $stock)
     {
-        $catalogo = collect($productos->todos())->map(function (array $producto) use ($stock): array {
+        $catalogo = collect($productos->todos())
+            ->filter(fn (array $producto) => ($producto['estado'] ?? 'activo') === 'activo')
+            ->map(function (array $producto) use ($stock): array {
             $disponible = $stock->disponible((int) $producto['id']);
             if ($disponible !== null) {
                 $producto['stock'] = $disponible;
@@ -90,11 +94,11 @@ class VentaController extends Controller
             ]);
         }
         $catalogo = collect($todosLosProductos)->keyBy('id')->all();
-        app(SalePricePolicy::class)->validate($cliente, $datos['lista'], (bool) ($datos['aplicar_precio_mayorista'] ?? false));
         $observaciones = trim($datos['observaciones'] ?? '') ?: 'Venta POS a cuenta corriente';
 
         $resultado = DB::transaction(function () use ($request, $cliente, $catalogo, $datos, $observaciones, $requestKey): array {
             DB::table('clientes')->where('id', $cliente['id'])->lockForUpdate()->firstOrFail();
+            app(SalePricePolicy::class)->validate($cliente, $datos['lista'], (bool) ($datos['aplicar_precio_mayorista'] ?? false));
             $previous = app(SaleCreationRequests::class)->claim($requestKey, UsuarioActual::id($request), $datos);
             if ($previous !== null) {
                 return [...$previous, 'repetido' => true];
@@ -112,6 +116,7 @@ class VentaController extends Controller
             }
             $ventaId = DB::table('venta')->insertGetId([
                 'id_cliente' => $cliente['id'],
+                'lista' => $datos['lista'],
                 'fecha' => now()->toDateString(),
                 'total' => $total,
                 'descuento_global' => $montoDescuentoGlobal,

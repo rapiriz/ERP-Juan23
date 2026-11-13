@@ -1,5 +1,16 @@
 # ERP Juan23
 
+## Actualización de Branch-G1 del 13/11/2026
+
+Inventario permite guardar precios minorista y mayorista por producto. Un campo vacío sigue el precio base. Ventas guarda la tarifa seleccionada y valida clientes y productos activos. El catálogo público utiliza el precio minorista efectivo.
+
+Entregas permite declarar un cobro parcial o entregar sin cobrar. Rendiciones conserva la aplicación individual al libro financiero, permite declarar después el saldo cobrado y ofrece impresión desde su detalle. Los enlaces paginados conservan sus filtros.
+
+Se agregaron tres migraciones aditivas del 13/11. En esta computadora ya se aplicaron con respaldo y verificación de los registros anteriores. Para actualizar otra instalación, respaldar la base y ejecutar `C:\xampp\php\php.exe erp-install.php` antes de utilizar el código nuevo.
+
+El [informe de esta actualización](docs/informe-cierre-integracion-tarifas-g2-2026-11-13.md) detalla los archivos de G1, G2, G3 y G4 modificados, las reglas de precios, los contratos, las pruebas y la reversión.
+
+
 ## Entorno integrado (09/11/2026)
 
 Se completó la etapa de bloqueos generales e integración: migraciones que conservan datos, instalación desde cero y actualización, transporte interno entre módulos, fuentes financieras y correcciones de escape de HTML. Los cambios y sus límites están en [el informe de esta etapa](docs/informe-bloqueos-generales-e-integracion-2026-11-09.md).

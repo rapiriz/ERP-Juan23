@@ -640,9 +640,19 @@
                     </div>
                     <div>
                         <label class="block text-[10px] font-extrabold text-slate-600 uppercase mb-1">
-                            Precio Venta ($) *
+                            Precio base ($) *
                         </label>
                         <input type="number" step="0.01" min="0" id="prodPrecioUnitario" oninput="calcularRecargoDesdePrecio()" required class="clay-input w-full font-black text-xs text-indigo-950" placeholder="0.00">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label for="prodPrecioMinorista" class="block text-[11px] font-extrabold text-slate-600 uppercase mb-1">Precio minorista ($)</label>
+                        <input type="number" step="0.01" min="0" max="9999999999.99" id="prodPrecioMinorista" class="clay-input w-full text-sm" placeholder="Usar precio base">
+                    </div>
+                    <div>
+                        <label for="prodPrecioMayorista" class="block text-[11px] font-extrabold text-slate-600 uppercase mb-1">Precio mayorista ($)</label>
+                        <input type="number" step="0.01" min="0" max="9999999999.99" id="prodPrecioMayorista" class="clay-input w-full text-sm" placeholder="Usar precio base">
                     </div>
                 </div>
                 <div id="prodAlertaBajoCosto" class="hidden text-[10px] font-extrabold text-rose-600 bg-rose-50 px-2 py-1 rounded-lg border border-rose-200">
@@ -1657,6 +1667,8 @@
                     <td><span class="text-xs font-bold text-slate-600">${window.erpSafeHtml.escape(p.marca?.nombre || p.marca_nombre || '-')}</span></td>
                     <td class="text-center">
                         <div class="font-black text-slate-800">${precioUnitario}</div>
+                        <div class="text-xs text-slate-600">Minorista ${Number(p.precio_minorista).toLocaleString('es-AR', {style: 'currency', currency: 'ARS'})}</div>
+                        <div class="text-xs text-slate-600">Mayorista ${Number(p.precio_mayorista).toLocaleString('es-AR', {style: 'currency', currency: 'ARS'})}</div>
                         ${precioDetalleHtml}
                     </td>
                     <td class="text-center">
@@ -2118,6 +2130,8 @@
         document.getElementById('prodCosto').value = '';
         document.getElementById('prodRecargo').value = '';
         document.getElementById('prodPrecioUnitario').value = '';
+        document.getElementById('prodPrecioMinorista').value = '';
+        document.getElementById('prodPrecioMayorista').value = '';
         actualizarMargenUI();
         document.getElementById('prodImagen').value = '';
         const fileInput = document.getElementById('prodImagenArchivo');
@@ -2147,6 +2161,8 @@
         document.getElementById('prodCosto').value = (prod.costo !== null && prod.costo !== undefined) ? prod.costo : '';
         document.getElementById('prodRecargo').value = (prod.recargo !== null && prod.recargo !== undefined) ? prod.recargo : '';
         document.getElementById('prodPrecioUnitario').value = prod.precio_unitario ?? prod.precio_minorista ?? '';
+        document.getElementById('prodPrecioMinorista').value = prod.precio_minorista_configurado ?? '';
+        document.getElementById('prodPrecioMayorista').value = prod.precio_mayorista_configurado ?? '';
         actualizarMargenUI();
         document.getElementById('prodImagen').value = prod.imagen_url || prod.imagen || '';
         const fileInput = document.getElementById('prodImagenArchivo');
@@ -2248,8 +2264,8 @@
             costo: (costoVal !== '' && costoVal !== null && !isNaN(costoVal)) ? Number(costoVal) : null,
             recargo: (recargoVal !== '' && recargoVal !== null && !isNaN(recargoVal)) ? Number(recargoVal) : null,
             precio_unitario: precioUnitario,
-            precio_minorista: precioUnitario,
-            precio_mayorista: precioUnitario,
+            precio_minorista: document.getElementById('prodPrecioMinorista').value === '' ? null : Number(document.getElementById('prodPrecioMinorista').value),
+            precio_mayorista: document.getElementById('prodPrecioMayorista').value === '' ? null : Number(document.getElementById('prodPrecioMayorista').value),
             imagen: imagenTexto || null,
             stock_minimo: Number(document.getElementById('prodStockMin').value || 10),
             id_ubicacion: document.getElementById('prodUbicacion').value || null,
@@ -2266,7 +2282,7 @@
                 const formData = new FormData();
                 if (id) formData.append('_method', 'PUT');
                 Object.entries(payload).forEach(([k, v]) => {
-                    if (v !== null && v !== undefined) formData.append(k, String(v));
+                    if (v !== undefined) formData.append(k, v === null ? '' : String(v));
                 });
                 formData.append('imagen_archivo', archivoInput.files[0]);
                 res = await fetch(url, {

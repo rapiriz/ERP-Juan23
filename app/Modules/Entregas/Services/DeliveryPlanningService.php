@@ -96,27 +96,35 @@ class DeliveryPlanningService
         });
     }
 
-    public function deliver(int $id, int $saleId, int $actor, ?string $note): array
+    public function deliver(int $id, int $saleId, int $actor, ?string $note, ?float $amount = null, string $method = 'efectivo'): array
     {
         $user = $this->actor($actor);
 
-        return DB::transaction(function () use ($id, $saleId, $actor, $user, $note) {
+        abort_unless(in_array($method, ['efectivo', 'transferencia', 'cheque'], true), 422, 'Medio de pago inválido.');
+        abort_if($amount !== null && (! is_finite($amount) || $amount < 0 || $amount > 99999999.99 || abs($amount * 100 - round($amount * 100)) > 0.0001), 422, 'Importe cobrado inválido.');
+
+        return DB::transaction(function () use ($id, $saleId, $actor, $user, $note, $amount, $method) {
             $delivery = DB::table('entrega')->where('id_entrega', $id)->lockForUpdate()->firstOrFail();
             abort_unless($user->rol->value === 'administrativo' || (int) $delivery->id_repartidor === $actor, 403);
             $item = DB::table('entrega_pedido')->where('id_entrega', $id)->where('id_venta', $saleId)->lockForUpdate()->firstOrFail();
             if ($item->estado_pedido_entrega === 'entregado') {
+                abort_if($amount !== null && ((int) round($amount * 100) !== (int) round($item->monto_cobrado * 100) || $method !== $item->medio_pago), 409, 'La entrega ya fue confirmada con otro cobro. Registrá el saldo desde Rendiciones.');
                 return ['id_entrega' => $id, 'id_venta' => $saleId, 'repetido' => true, 'mensaje' => 'El pedido ya estaba confirmado; se conservó una sola operación.'];
             }
             abort_unless(in_array($delivery->estado, ['en_preparacion', 'en_camino'], true) && $item->estado_pedido_entrega === 'en_preparacion', 409, 'La entrega o el pedido no admite confirmaciones.');
+            $service = app(RendicionService::class);
+            $available = $service->availableForDeclaration($saleId);
+            $amount ??= $available;
+            abort_if((int) round($amount * 100) > (int) round($available * 100), 422, 'El cobro supera el saldo disponible o ya declarado del pedido.');
             $this->owner->change($saleId, 'entregar', $actor);
-            DB::table('entrega_pedido')->where('id_entrega_pedido', $item->id_entrega_pedido)->update(['estado_pedido_entrega' => 'entregado', 'fecha_actualizacion' => now()]);
+            DB::table('entrega_pedido')->where('id_entrega_pedido', $item->id_entrega_pedido)->update(['estado_pedido_entrega' => 'entregado', 'fecha_actualizacion' => now(), 'monto_cobrado' => $amount, 'medio_pago' => $method]);
             DB::table('remito')->where('id_entrega', $id)->where('id_venta', $saleId)->where('estado', '!=', 'anulado')->update(['estado' => 'entregado_conforme']);
             $pending = DB::table('entrega_pedido')->where('id_entrega', $id)->where('estado_pedido_entrega', 'en_preparacion')->exists();
             DB::table('entrega')->where('id_entrega', $id)->update(['estado' => $pending ? 'en_camino' : 'finalizada', 'fecha_modificacion' => now(), 'id_usuario_modificacion' => $actor]);
             $rendition = app(RendicionService::class)->precargarOActualizarRendicionDesdeEntrega($id);
-            G2OperationAudit::record('entregas', $id, 'pedido_entregado', $actor, ['venta_id' => $saleId, 'observaciones' => $note, 'rendicion' => $rendition]);
+            G2OperationAudit::record('entregas', $id, 'pedido_entregado', $actor, ['venta_id' => $saleId, 'observaciones' => $note, 'monto_cobrado' => $amount, 'medio_pago' => $method, 'rendicion' => $rendition]);
 
-            return ['id_entrega' => $id, 'id_venta' => $saleId, 'estado_pedido' => 'entregado', 'rendicion_precargada' => $rendition !== null, 'mensaje' => 'Pedido entregado y rendición preparada.'];
-        });
+            return ['id_entrega' => $id, 'id_venta' => $saleId, 'estado_pedido' => 'entregado', 'monto_cobrado' => $amount, 'medio_pago' => $method, 'rendicion_precargada' => $rendition !== null, 'mensaje' => $rendition ? 'Pedido entregado y rendición preparada.' : 'Pedido entregado sin cobros nuevos para rendir.'];
+        }, 3);
     }
 }

@@ -44,7 +44,8 @@ class RendicionApiController extends Controller
         $perPage = (int) ($validated['per_page'] ?? 20);
         $rendiciones = $query->orderBy('fecha', 'desc')
             ->orderBy('id_rendicion', 'desc')
-            ->paginate($perPage);
+            ->paginate($perPage)
+            ->appends($validated);
 
         return response()->json([
             'data' => $rendiciones->getCollection()->map(function (Rendicion $rendicion) {

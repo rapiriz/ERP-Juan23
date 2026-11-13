@@ -139,6 +139,7 @@ class VentaService
 
             $cambios = [
                 'total' => $calculo['total'],
+                'lista' => $datos['lista'],
                 'descuento_global' => $calculo['descuento_global'],
             ];
             // Las observaciones solo se tocan si vinieron en el pedido.

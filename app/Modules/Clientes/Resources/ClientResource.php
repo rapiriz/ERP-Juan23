@@ -22,6 +22,7 @@ class ClientResource extends JsonResource
             'direccion_numero' => $this->direccion_numero,
             'localidad' => $this->localidad,
             'zona_id' => $this->zona_id,
+            'zona_nombre' => $this->zona?->nombre,
             'condicion_iva' => $this->condicion_iva,
             'tipo_cliente' => $this->tipo_cliente->value,
             'estado' => $this->estado->value,

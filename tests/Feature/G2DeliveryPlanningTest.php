@@ -147,4 +147,82 @@ class G2DeliveryPlanningTest extends TestCase
         $this->assertDatabaseCount('RENDICION_COBRO',2);
         $this->assertDatabaseCount('cobro',1);
     }
+
+    public function test_partial_delivery_collection_keeps_actual_debt_and_allows_a_later_payment(): void
+    {
+        $sale = $this->sale();
+        $delivery = $this->create([$sale])->assertCreated()->json('data.id_entrega');
+        $url = "/g2/api/entregas/{$delivery}/pedidos/{$sale}/entregado";
+        $payload = ['monto_cobrado' => 30, 'medio_pago' => 'efectivo'];
+        $this->patchJson($url, $payload)->assertOk()->assertJsonPath('data.monto_cobrado', 30);
+        $this->patchJson($url, $payload)->assertOk()->assertJsonPath('data.repetido', true);
+        $this->patchJson($url, ['monto_cobrado' => 40])->assertConflict();
+        app(\App\Modules\Rendiciones\Services\RendicionService::class)->precargarOActualizarRendicionDesdeEntrega($delivery);
+        $this->assertDatabaseCount('RENDICION_COBRO', 1);
+        $this->assertDatabaseHas('RENDICION_COBRO', ['id_factura' => $sale, 'monto' => 30, 'estado_revision' => 'pendiente']);
+        app(CajaService::class)->abrirCaja($this->admin->id, 'admin', 0);
+        $rendition = DB::table('RENDICION')->value('id_rendicion');
+        $this->patchJson("/g2/api/rendiciones/{$rendition}/revisar", ['accion' => 'aprobar'])->assertOk();
+        $account = app(\App\Modules\CuentaCorriente\Services\FinancialReadService::class)->account($this->client->id);
+        $this->assertSame(70.0, $account['invoices']->first()['importe_pendiente']);
+        $prepared = $this->getJson('/g2/api/rendiciones/preparar/'.$delivery)->assertOk();
+        $prepared->assertJsonPath('data.cobros_sugeridos.0.monto', 70);
+        $next = ['id_repartidor' => $this->driver->id, 'id_entrega' => $delivery, 'cobros' => [
+            ['id_cliente' => $this->client->id, 'id_factura' => $sale, 'monto' => 70, 'medio_pago' => 'efectivo'],
+        ]];
+        $second = $this->postJson('/g2/api/rendiciones', $next)->assertCreated()->json('data.id_rendicion');
+        $this->postJson('/g2/api/rendiciones', $next)->assertUnprocessable();
+        $this->patchJson("/g2/api/rendiciones/{$second}/revisar", ['accion' => 'aprobar'])->assertOk();
+        $this->assertCount(0, app(\App\Modules\CuentaCorriente\Services\FinancialReadService::class)->account($this->client->id)['invoices']);
+        $this->assertDatabaseCount('cobro', 2);
+        $this->get('/rendiciones/'.$second.'/imprimir')->assertOk()->assertSee('aplicado')->assertSee('TOTAL DECLARADO');
+        $this->signInAs(User::factory()->create(['rol' => 'repartidor']));
+        $this->get('/rendiciones/'.$second.'/imprimir')->assertNotFound();
+    }
+
+    public function test_delivery_rejects_invalid_amounts_atomically_and_accepts_zero_without_a_collection(): void
+    {
+        $sale = $this->sale();
+        $delivery = $this->create([$sale])->assertCreated()->json('data.id_entrega');
+        $url = "/g2/api/entregas/{$delivery}/pedidos/{$sale}/entregado";
+        foreach ([-1, '1.234', 'abc', 100.01, null] as $amount) {
+            $this->patchJson($url, ['monto_cobrado' => $amount])->assertUnprocessable();
+            $this->assertDatabaseHas('venta', ['id_venta' => $sale, 'estado' => 'preparada']);
+            $this->assertDatabaseCount('RENDICION_COBRO', 0);
+        }
+        $this->patchJson($url, ['monto_cobrado' => 0])->assertOk()->assertJsonPath('data.rendicion_precargada', false);
+        $this->assertDatabaseHas('entrega_pedido', ['id_entrega' => $delivery, 'id_venta' => $sale, 'monto_cobrado' => 0]);
+        $this->assertDatabaseCount('RENDICION', 0);
+        $this->getJson('/g2/api/rendiciones/preparar/'.$delivery)->assertOk()->assertJsonPath('data.cobros_sugeridos.0.saldo_disponible', 100);
+    }
+
+    public function test_rejected_delivery_collection_is_not_automatically_declared_again(): void
+    {
+        $sale = $this->sale();
+        $delivery = $this->create([$sale])->assertCreated()->json('data.id_entrega');
+        $this->patchJson("/g2/api/entregas/{$delivery}/pedidos/{$sale}/entregado", ['monto_cobrado' => 30])->assertOk();
+        $rendition = DB::table('RENDICION')->value('id_rendicion');
+        $this->patchJson("/g2/api/rendiciones/{$rendition}/revisar", ['accion' => 'rechazar', 'motivo_rechazo' => 'Revisar comprobante'])->assertOk();
+        app(\App\Modules\Rendiciones\Services\RendicionService::class)->precargarOActualizarRendicionDesdeEntrega($delivery);
+        $this->assertDatabaseCount('RENDICION_COBRO', 1);
+        $this->assertDatabaseCount('RENDICION', 1);
+        $this->assertDatabaseCount('cobro', 0);
+    }
+
+    public function test_pagination_keeps_collection_customer_and_rendition_filters(): void
+    {
+        $sale = $this->sale();
+        $delivery = $this->create([$sale])->assertCreated()->json('data.id_entrega');
+        $this->patchJson("/g2/api/entregas/{$delivery}/pedidos/{$sale}/entregado")->assertOk();
+        $rendition = DB::table('RENDICION')->value('id_rendicion');
+        DB::table('RENDICION_COBRO')->insert(['id_rendicion' => $rendition, 'id_cliente' => $this->client->id, 'id_factura' => $sale, 'monto' => 1, 'medio_pago' => 'efectivo', 'fecha_registro' => now()]);
+        $response = $this->getJson('/api/v1/cobros?cliente_id='.$this->client->id.'&estado=pendiente&per_page=1')->assertOk();
+        $next = $response->json('links.next');
+        parse_str(parse_url($next, PHP_URL_QUERY), $params);
+        $this->assertSame((string) $this->client->id, $params['cliente_id']);
+        $this->assertSame('pendiente', $params['estado']);
+        $this->getJson($next)->assertOk()->assertJsonPath('meta.current_page', 2);
+        $response = $this->getJson('/api/v1/rendiciones?id_repartidor='.$this->driver->id.'&estado=pendiente&per_page=1')->assertOk();
+        $this->assertStringContainsString('id_repartidor='.$this->driver->id, $response->json('links.first'));
+    }
 }

@@ -9,16 +9,16 @@ use Illuminate\Support\Facades\Schema;
 /** Lectura del libro de cuenta corriente. Los cobros declarados no acreditan saldo. */
 class FinancialReadService
 {
-    public function account(int $clientId, ?Collection $entries = null, ?Collection $sales = null, ?Collection $collectionInvoices = null): array
+    public function account(int $clientId, ?Collection $entries = null, ?Collection $sales = null, ?Collection $collectionInvoices = null, bool $currentRead = false): array
     {
-        $entries ??= DB::table('cuenta_corriente_movimientos')->where('cliente_id', $clientId)
+        $entries ??= $this->query('cuenta_corriente_movimientos', $currentRead)->where('cliente_id', $clientId)
             ->orderBy('created_at')->orderBy('id')->get();
-        $sales ??= DB::table('venta')->where('id_cliente', $clientId)
+        $sales ??= $this->query('venta', $currentRead)->where('id_cliente', $clientId)
             ->whereNotIn('estado', ['cancelada', 'anulada'])->orderBy('fecha')->orderBy('id_venta')->get();
         $postedSales = $entries->whereNotNull('venta_id')->keyBy('venta_id');
         $signed = (int) $entries->sum(fn ($entry) => (int) round($entry->importe * 100));
         $historicalEntries = [];
-        $collectionInvoices ??= DB::table('RENDICION_COBRO')->pluck('id_factura', 'id_rendicion_cobro');
+        $collectionInvoices ??= $this->query('RENDICION_COBRO', $currentRead)->where('id_cliente', $clientId)->pluck('id_factura', 'id_rendicion_cobro');
         $invoices = [];
 
         foreach ($sales as $sale) {
@@ -45,15 +45,15 @@ class FinancialReadService
         $unallocatedCredit = 0;
         $payments = [];
         $registered = Schema::hasTable('cuenta_corriente_pagos')
-            ? DB::table('cuenta_corriente_pagos')->where('cliente_id', $clientId)->get()->keyBy('movimiento_cuenta_id') : collect();
-        $reversed = Schema::hasTable('g2_cobro_aplicaciones') ? DB::table('g2_cobro_aplicaciones')
+            ? $this->query('cuenta_corriente_pagos', $currentRead)->where('cliente_id', $clientId)->get()->keyBy('movimiento_cuenta_id') : collect();
+        $reversed = Schema::hasTable('g2_cobro_aplicaciones') ? $this->query('g2_cobro_aplicaciones', $currentRead)
             ->whereNotNull('reversion_cuenta_id')->get() : collect();
         $reversedPayments = $reversed->pluck('pago_id')->all();
         $reversalEntries = $reversed->pluck('reversion_cuenta_id')->all();
         $collectionLinks = Schema::hasTable('g2_cobro_aplicaciones')
-            ? DB::table('g2_cobro_aplicaciones')->whereIn('pago_id', $registered->pluck('id'))->pluck('id_cobro', 'pago_id') : collect();
+            ? $this->query('g2_cobro_aplicaciones', $currentRead)->whereIn('pago_id', $registered->pluck('id'))->pluck('id_cobro', 'pago_id') : collect();
         $cheques = Schema::hasTable('CHEQUE')
-            ? DB::table('CHEQUE')->whereIn('id_cobro', $collectionLinks->values())->get()->keyBy('id_cobro') : collect();
+            ? $this->query('CHEQUE', $currentRead)->whereIn('id_cobro', $collectionLinks->values())->get()->keyBy('id_cobro') : collect();
         foreach ($entries->whereNull('venta_id') as $entry) {
             if (in_array($entry->id, $reversalEntries) || in_array($registered->get($entry->id)?->id, $reversedPayments)) {
                 continue;
@@ -66,7 +66,7 @@ class FinancialReadService
                 $invoiceId = $collectionInvoices->get($collectionId);
             }
             if ($amount > 0 && str_starts_with($reference, 'devolucion:')) {
-                $invoiceId = DB::table('g4_notas_credito')->where('movimiento_id', $entry->id)->where('cliente_id', $clientId)->value('venta_id');
+                $invoiceId = $this->query('g4_notas_credito', $currentRead)->where('movimiento_id', $entry->id)->where('cliente_id', $clientId)->value('venta_id');
             }
             if ($amount > 0 && $invoiceId !== null && isset($invoices[$invoiceId])) {
                 $applied = min($amount, $invoices[$invoiceId]['pendiente_centavos']);
@@ -121,6 +121,11 @@ class FinancialReadService
             'invoices' => collect($invoices)->filter(fn ($invoice) => $invoice['importe_pendiente'] > 0)->values(),
             'payments' => collect($payments)->sortByDesc('fecha')->values(),
         ];
+    }
+
+    private function query(string $table, bool $currentRead): \Illuminate\Database\Query\Builder
+    {
+        return DB::table($table)->when($currentRead, fn ($query) => $query->lockForUpdate());
     }
 
     public function accounts(): Collection

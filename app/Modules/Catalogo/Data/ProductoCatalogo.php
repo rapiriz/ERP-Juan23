@@ -36,6 +36,7 @@ final readonly class ProductoCatalogo
             'nombre' => ['nullable', 'string', 'max:500'],
             'descripcion' => ['nullable', 'string', 'max:5000'],
             'precio_unitario' => ['nullable', 'numeric', 'min:0', 'max:9999999999'],
+            'precio_minorista' => ['nullable', 'numeric', 'min:0', 'max:9999999999.99'],
             'stock_disponible' => ['nullable', 'numeric'],
             'stock_minimo' => ['nullable', 'numeric', 'min:0'],
             'categoria_nombre' => ['nullable', 'string', 'max:300'],
@@ -73,7 +74,8 @@ final readonly class ProductoCatalogo
             isset($row['id_categoria']) ? (string) $row['id_categoria'] : 'otros',
             trim($row['marca_nombre'] ?? '') ?: 'Sin marca informada',
             isset($row['id_marca']) ? (string) $row['id_marca'] : 'otras',
-            isset($row['precio_unitario']) ? number_format((float) $row['precio_unitario'], 2, '.', '') : null,
+            isset($row['precio_minorista']) || isset($row['precio_unitario'])
+                ? number_format((float) ($row['precio_minorista'] ?? $row['precio_unitario']), 2, '.', '') : null,
             $presentacion, $disponibilidad, self::safeImage($row['imagen_url'] ?? $row['imagen'] ?? null),
             array_map(fn ($c) => ['id' => (string) $c['id'], 'nombre' => $c['nombre']], $row['categoria_ruta'] ?? []),
         );

@@ -55,7 +55,8 @@ class CobroApiController extends Controller
         $perPage = (int) ($validated['per_page'] ?? 20);
         $cobros = $query->orderBy('fecha_registro', 'desc')
             ->orderBy('id_rendicion_cobro', 'desc')
-            ->paginate($perPage);
+            ->paginate($perPage)
+            ->appends($validated);
 
         return response()->json([
             'data' => $cobros->getCollection()->map(function (RendicionCobro $cobro) {

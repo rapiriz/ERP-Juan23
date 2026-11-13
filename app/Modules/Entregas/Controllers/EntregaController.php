@@ -10,6 +10,7 @@ use App\Modules\Shared\Http\Response;
 use App\Modules\Shared\Services\UsuarioService;
 use Exception;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 class EntregaController extends Controller
@@ -170,6 +171,11 @@ class EntregaController extends Controller
      */
     public function confirmarPedidoEntregado(Request $request, int|string|null $id = null, int|string|null $idVenta = null)
     {
+        $collection = $request->validate([
+            'monto_cobrado' => ['sometimes', 'required', 'numeric', 'decimal:0,2', 'min:0', 'max:99999999.99'],
+            'medio_pago' => ['sometimes', 'required', 'in:efectivo,transferencia,cheque'],
+            'observaciones' => ['nullable', 'string', 'max:2000'],
+        ]);
         try {
             $body = $request->all();
             $idEntrega = (int) ($id ?? $body['id_entrega'] ?? 0);
@@ -185,11 +191,13 @@ class EntregaController extends Controller
                 $idEntrega,
                 $idPedido,
                 $observaciones,
-                $idUsuario
+                $idUsuario,
+                isset($collection['monto_cobrado']) ? (float) $collection['monto_cobrado'] : null,
+                $collection['medio_pago'] ?? 'efectivo'
             );
 
             return Response::json($resultado, 200, $resultado['mensaje']);
-        } catch (HttpExceptionInterface $e) {
+        } catch (ValidationException|HttpExceptionInterface $e) {
             throw $e;
         } catch (Exception $e) {
             return Response::error($e->getMessage(), 400);

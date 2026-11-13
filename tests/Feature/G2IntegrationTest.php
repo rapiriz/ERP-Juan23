@@ -159,7 +159,7 @@ class G2IntegrationTest extends TestCase
         $this->postJson('/g2/api/entregas', ['repartidor_id' => 41, 'pedidos_ids' => [10],
             'fecha_salida' => '2026-10-22', 'usuario_id' => 1])->assertCreated();
         $this->sessionAs(UserRole::REPARTIDOR);
-        $service->shouldReceive('confirmarPedidoEntregado')->once()->with(8, 10, null, 41)
+        $service->shouldReceive('confirmarPedidoEntregado')->once()->with(8, 10, null, 41, null, 'efectivo')
             ->andReturn(['id_entrega' => 8, 'mensaje' => 'Entrega de prueba']);
         $this->patchJson('/g2/api/entregas/8/pedidos/10/entregado', ['usuario_id' => 1])->assertOk();
     }

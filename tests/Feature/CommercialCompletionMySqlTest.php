@@ -410,4 +410,54 @@ class CommercialCompletionMySqlTest extends TestCase
         $this->putJson('/api/ventas/clientes/'.$this->client->id.'/credito', ['limite_credito' => 0])->assertOk()
             ->assertJsonPath('data.credito_disponible', 10.75)->assertJsonPath('data.saldo_a_favor_aplicable', 10.75);
     }
+
+    public function test_separate_prices_stock_alias_and_mass_increase_preserve_tariffs(): void
+    {
+        $payload = ['codigo' => 'QA-'.Str::uuid(), 'nombre' => 'Dos tarifas', 'descripcion' => 'Producto real de QA',
+            'id_categoria' => $this->product->id_categoria, 'id_marca' => $this->product->id_marca,
+            'precio_unitario' => 100, 'precio_minorista' => 120.50, 'precio_mayorista' => 90.25, 'stock' => 10];
+        foreach ([-1, 1.5, 'abc', 2147483648] as $stock) {
+            $this->postJson('/api/productos', array_replace($payload, ['stock' => $stock]))->assertUnprocessable();
+        }
+        $this->postJson('/api/productos', [...$payload, 'stock_disponible' => 11])->assertUnprocessable();
+        $this->postJson('/api/productos', $payload)->assertCreated();
+        $product = Producto::where('codigo', $payload['codigo'])->firstOrFail();
+        $this->assertEquals(10, $product->stock);
+        $this->getJson('/api/productos/'.$product->id_producto)->assertOk()->assertJsonPath('data.precioMin', 120.5)->assertJsonPath('data.precioMay', 90.25);
+        $this->postJson('/api/productos/aumento-masivo', ['ids' => [$product->id_producto], 'porcentaje' => 10, 'base_aumento' => 'precio', 'tipo_precio' => 'mayorista'])->assertOk();
+        $product->refresh();
+        $this->assertEquals(100, $product->precio_unitario);
+        $this->assertEquals(120.50, $product->precio_minorista);
+        $this->assertEquals(99.28, $product->precio_mayorista);
+        $this->putJson('/api/productos/'.$product->id_producto, [...$payload, 'precio_mayorista' => null])->assertOk();
+        $this->assertEquals(100, $product->fresh()->precio_mayorista);
+        $this->assertDatabaseHas('historial_precio', ['id_producto' => $product->id_producto, 'tipo_precio' => 'mayorista', 'precio' => 99.28]);
+        $alias = Producto::create(['codigo' => 'QA-'.Str::uuid(), 'nombre' => 'Alias de tarifas', 'descripcion' => 'Compatibilidad',
+            'precio_unitario' => 100, 'precioMin' => 120, 'precioMay' => 80, 'stock' => 0,
+            'id_categoria' => $product->id_categoria, 'id_marca' => $product->id_marca, 'id_usuario_carga' => $this->admin->id]);
+        $this->assertEquals(120, $alias->precio_minorista);
+        $this->assertEquals(80, $alias->precio_mayorista);
+    }
+
+    public function test_sale_persists_explicit_tariff_and_rejects_inactive_entities(): void
+    {
+        $this->client->update(['tipo_cliente' => 'mayorista']);
+        $this->product->update(['precio_minorista' => 12.50, 'precio_mayorista' => 9.25]);
+        $sale = $this->sale(['lista' => 'mayorista', 'aplicar_precio_mayorista' => true])->assertCreated()->json('venta_id');
+        $this->assertDatabaseHas('venta', ['id_venta' => $sale, 'lista' => 'mayorista', 'total' => 18.50]);
+        $this->getJson('/api/ventas/'.$sale)->assertOk()->assertJsonPath('data.lista', 'mayorista');
+        $this->product->update(['precio_mayorista' => 10.25]);
+        $this->putJson('/api/ventas/'.$sale, ['lista' => 'mayorista', 'aplicar_precio_mayorista' => true,
+            'items' => [['id' => $this->product->id_producto, 'cantidad' => 2, 'descuento' => 0]]])->assertOk();
+        $this->assertDatabaseHas('venta', ['id_venta' => $sale, 'lista' => 'mayorista', 'total' => 20.50]);
+        $this->client->update(['estado' => 'inactivo']);
+        $this->sale()->assertUnprocessable();
+        $this->client->update(['estado' => 'activo']);
+        $this->product->update(['estado' => 'inactivo']);
+        $before = DB::table('venta')->count();
+        $this->sale()->assertUnprocessable();
+        $this->assertSame($before, DB::table('venta')->count());
+        $this->get('/ventas')->assertOk();
+        $this->getJson('/api/ventas/productos')->assertOk()->assertJsonCount(0, 'data');
+    }
 }

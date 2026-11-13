@@ -620,13 +620,9 @@
 
         const porId = Object.fromEntries(catalogo.map(p => [p.id, p]));
 
-        // La venta no guarda la lista de precios: se deduce del precio del primer producto.
-        const primero = venta.detalles[0];
         const esMayorista = venta.cliente.tipo_cliente === 'mayorista';
-        const lista = esMayorista && primero && porId[primero.id_producto]
-            && Number(primero.precio_unitario) === Number(porId[primero.id_producto].precioMay)
-            && porId[primero.id_producto].precioMay !== porId[primero.id_producto].precioMin
-            ? 'mayorista' : 'minorista';
+        const lista = ['minorista', 'mayorista'].includes(venta.lista) && (venta.lista !== 'mayorista' || esMayorista) ? venta.lista : '';
+        const listaHistoricaDesconocida = lista === '';
 
         // Estado del editor (lo que se va a mandar al guardar).
         const editor = {
@@ -636,18 +632,23 @@
         };
 
         const precio = idProducto => {
+            if (!editor.lista) {
+                const original = venta.detalles.find(d => d.id_producto === idProducto);
+                if (original) return Number(original.precio_unitario);
+            }
             const p = porId[idProducto];
-            if (!p) return 0;
+            if (!p) return Number(venta.detalles.find(d => d.id_producto === idProducto)?.precio_unitario ?? 0);
             return editor.lista === 'mayorista' ? p.precioMay : p.precioMin;
         };
 
         function dibujar() {
             const filas = editor.items.map((item, i) => {
                 const p = porId[item.id];
+                const original = venta.detalles.find(d => d.id_producto === item.id);
                 const subtotal = item.cantidad * (precio(item.id) - item.descuento);
                 return `<tr>
-                    <td>${escapar(p?.codigo ?? '')}</td>
-                    <td>${escapar(p?.nombre ?? 'Producto #' + item.id)}</td>
+                    <td>${escapar(p?.codigo ?? original?.codigo ?? '')}</td>
+                    <td>${escapar(p?.nombre ?? original?.producto ?? 'Producto #' + item.id)}${p ? '' : '<small>Producto fuera del catálogo activo. Quitalo para guardar los cambios.</small>'}</td>
                     <td>${pesos(precio(item.id))}</td>
                     <td><input class="hv-editor-input" type="number" min="1" max="9999" step="1" value="${item.cantidad}" data-campo="cantidad" data-i="${i}" aria-label="Cantidad de ${escapar(p?.nombre ?? 'producto')}"></td>
                     <td><input class="hv-editor-input" type="number" min="0" step="0.01" value="${item.descuento}" data-campo="descuento" data-i="${i}" aria-label="Descuento por unidad de ${escapar(p?.nombre ?? 'producto')}"></td>
@@ -667,10 +668,19 @@
                 <section class="hv-editor" aria-label="Editar venta #${venta.id}">
                     <header class="hv-editor-header">
                         <h3 class="hv-editor-title">Modificar venta #${venta.id}</h3>
+                        ${listaHistoricaDesconocida ? `
+                        <label class="hv-editor-label">
+                            Elegí una tarifa vigente para recalcular esta venta. La tarifa anterior está ausente o ya no corresponde al tipo de cliente.
+                            <select class="hv-editor-input" data-campo="listaHistorica" required>
+                                <option value="">Elegir tarifa</option>
+                                <option value="minorista" ${editor.lista === 'minorista' ? 'selected' : ''}>Minorista</option>
+                                ${esMayorista ? `<option value="mayorista" ${editor.lista === 'mayorista' ? 'selected' : ''}>Mayorista</option>` : ''}
+                            </select>
+                        </label>` : `
                         <label class="hv-editor-label lista-mayorista">
                             <span><input type="checkbox" data-campo="lista" ${editor.lista === 'mayorista' ? 'checked' : ''} ${esMayorista ? '' : 'disabled'}> Aplicar precio mayorista</span>
                             <small>${esMayorista ? 'Sin marcar se utiliza la tarifa minorista.' : 'Cliente minorista: tarifa minorista.'}</small>
-                        </label>
+                        </label>`}
                     </header>
                     <div class="hv-editor-tabla-wrap">
                         <table class="hv-detalle-tabla hv-editor-tabla">
@@ -712,6 +722,7 @@
             const campo = e.target.dataset.campo;
             if (!campo) return;
             if (campo === 'lista') editor.lista = e.target.checked && esMayorista ? 'mayorista' : 'minorista';
+            if (campo === 'listaHistorica') editor.lista = e.target.value;
             if (campo === 'descuentoGlobal') editor.descuentoGlobal = Number(e.target.value) || 0;
             if (campo === 'cantidad' || campo === 'descuento') {
                 editor.items[e.target.dataset.i][campo] = Number(e.target.value) || 0;
@@ -743,6 +754,12 @@
             }
 
             if (t.hasAttribute('data-guardar')) {
+                if (!editor.lista) {
+                    const errorElement = contenedor.querySelector('[data-errores]');
+                    errorElement.textContent = 'Elegí la tarifa con la que querés recalcular esta venta histórica.';
+                    errorElement.hidden = false;
+                    return;
+                }
                 const subtotal = editor.items.reduce((s, it) => s + it.cantidad * (precio(it.id) - it.descuento), 0);
                 if (Number(editor.descuentoGlobal) > subtotal || editor.items.some(it => it.descuento > precio(it.id))) {
                     alert('El descuento no puede superar el importe al que se aplica.');

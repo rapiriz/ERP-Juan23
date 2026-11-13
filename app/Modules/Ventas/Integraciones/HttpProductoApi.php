@@ -86,6 +86,8 @@ class HttpProductoApi implements ProductoGateway
                 ? (int) $p['stock_disponible']
                 : (isset($p['stock']) ? (int) $p['stock'] : null),
             'estado' => (string) ($p['estado'] ?? 'activo'),
+            'unidades_por_bulto' => max(1, (int) ($p['unidades_por_bulto'] ?? 1)),
+            'descripcion' => (string) ($p['descripcion'] ?? ''),
         ];
     }
 

@@ -112,9 +112,11 @@ class EntregaService
         int $idEntrega,
         int $idVenta,
         ?string $observaciones,
-        int $idUsuarioAuditoria
+        int $idUsuarioAuditoria,
+        ?float $montoCobrado = null,
+        string $medioPago = 'efectivo'
     ): array {
-        return app(DeliveryPlanningService::class)->deliver($idEntrega, $idVenta, $idUsuarioAuditoria, $observaciones);
+        return app(DeliveryPlanningService::class)->deliver($idEntrega, $idVenta, $idUsuarioAuditoria, $observaciones, $montoCobrado, $medioPago);
     }
 
     /**

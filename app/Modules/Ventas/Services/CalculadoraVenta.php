@@ -54,6 +54,12 @@ class CalculadoraVenta
                 ]);
             }
 
+            if (($producto['estado'] ?? 'activo') !== 'activo') {
+                throw ValidationException::withMessages([
+                    "items.{$indice}.id" => ['El producto está inactivo y no puede incluirse en una venta.'],
+                ]);
+            }
+
             $precio = round((float) $producto[$columnaPrecio], 2);
             $descuento = round((float) $item['descuento'], 2);
 

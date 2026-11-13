@@ -395,6 +395,19 @@
     
 </div>
 <section class="section-block" id="deliveryEditor" hidden style="position:fixed;inset:10% 5%;z-index:2500;overflow:auto;background:var(--surface,#fffaf0);padding:2rem;box-shadow:0 10px 60px #10204055"><h2>Modificar pedidos de la entrega</h2><p>Quitá o incorporá pedidos de la misma zona. Sólo se guarda si la entrega continúa en preparación.</p><p id="deliveryEditorStatus" role="status"></p><div id="deliveryEditorOrders"></div><button type="button" class="button button-primary" id="deliveryEditorSave">Guardar pedidos</button><button type="button" class="button button-secondary" id="deliveryEditorCancel">Cancelar</button></section>
+<dialog id="deliveryCollectionDialog" aria-labelledby="deliveryCollectionTitle" style="width:min(94vw,520px);border:1px solid var(--border);border-radius:16px;padding:1.5rem;z-index:3000">
+    <form onsubmit="guardarCobroEntrega(event)">
+        <h2 id="deliveryCollectionTitle">Confirmar entrega y cobro</h2>
+        <p id="deliveryCollectionStatus" role="status"></p>
+        <label for="deliveryCollectedAmount">Importe cobrado</label>
+        <input id="deliveryCollectedAmount" class="clay-input" type="number" min="0" step="0.01" required>
+        <label for="deliveryPaymentMethod">Medio de pago</label>
+        <select id="deliveryPaymentMethod" class="clay-select"><option value="efectivo">Efectivo</option><option value="transferencia">Transferencia</option><option value="cheque">Cheque</option></select>
+        <p>El cobro queda declarado para su revisión. Los datos del cheque se completan desde Cobros antes de aplicarlo.</p>
+        <button id="deliveryCollectionSave" class="button button-primary" type="submit">Confirmar entrega</button>
+        <button class="button button-secondary" type="button" onclick="document.getElementById('deliveryCollectionDialog').close()">Cancelar</button>
+    </form>
+</dialog>
 @endsection
 @push('scripts')
 <script src="{{ asset('js/g2-http.js') }}" defer></script>

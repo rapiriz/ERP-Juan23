@@ -70,6 +70,9 @@ class CatalogoPublicoTest extends TestCase
 
         Http::assertSent(fn ($r) => $r->method() === 'GET' && $r['estado'] === 'activo' && ! $r->hasHeader('X-User-Id'));
 
+        $product = \App\Modules\Catalogo\Data\ProductoCatalogo::fromApi($this->product(1, ['precio_minorista' => 1300.50, 'precio_mayorista' => 1000]));
+        $this->assertSame('1300.50', $product->precio);
+
     }
 
     public function test_absent_source_is_503_with_public_interface_and_no_request(): void

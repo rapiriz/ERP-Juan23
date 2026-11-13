@@ -424,19 +424,32 @@ class RendicionController extends Controller
      * GET /g2/api/rendiciones/buscar-clientes
      * Búsqueda en tiempo real de clientes para carga manual de rendiciones
      */
+    public function imprimir(int $id)
+    {
+        try {
+            $rendicion = $this->service->obtenerDetalle($id);
+        } catch (InvalidArgumentException $e) {
+            abort(404, $e->getMessage());
+        }
+
+        return view('rendiciones.imprimir', compact('rendicion'));
+    }
+
     public function buscarClientes(Request $request)
     {
         try {
             $q = trim((string) $request->input('q', ''));
             $query = DB::table('clientes')
-                ->select(['id', 'nombre', 'apellido_razon_social', 'dni_cuit']);
+                ->where('estado', 'activo')
+                ->select(['id', 'nombre', 'apellido_razon_social', 'dni_cuit', 'direccion']);
 
             if ($q !== '') {
                 $query->where(function ($sub) use ($q) {
                     $pattern = '%'.$q.'%';
                     $sub->where('nombre', 'like', $pattern)
                         ->orWhere('apellido_razon_social', 'like', $pattern)
-                        ->orWhere('dni_cuit', 'like', $pattern);
+                        ->orWhere('dni_cuit', 'like', $pattern)->orWhere('direccion', 'like', $pattern);
+                    if (ctype_digit(ltrim($q, '#'))) $sub->orWhere('id', (int) ltrim($q, '#'));
                 });
             }
 

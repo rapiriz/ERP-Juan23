@@ -20,10 +20,18 @@ class SalePricePolicy
 
     public function validate(array $customer, string $list, bool $applyWholesale): void
     {
+        $local = DB::table('clientes')->where('id', $customer['id'])->first();
+        $status = $local->estado ?? $customer['estado'] ?? null;
+        if ($status instanceof \BackedEnum) {
+            $status = $status->value;
+        }
+        if ($status !== 'activo') {
+            throw ValidationException::withMessages(['cliente_id' => 'El cliente debe estar activo para registrar o modificar una venta.']);
+        }
         if (($list === 'mayorista') !== $applyWholesale) {
             throw ValidationException::withMessages(['aplicar_precio_mayorista' => 'Para usar la tarifa mayorista debés marcar Aplicar precio mayorista.']);
         }
-        if ($applyWholesale && $this->customerType($customer) !== 'mayorista') {
+        if ($applyWholesale && ($local->tipo_cliente ?? $this->customerType($customer)) !== 'mayorista') {
             throw ValidationException::withMessages(['lista' => 'La tarifa mayorista sólo puede aplicarse a un cliente mayorista.']);
         }
     }

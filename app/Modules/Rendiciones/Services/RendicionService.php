@@ -3,6 +3,7 @@
 namespace App\Modules\Rendiciones\Services;
 
 use App\Modules\Entregas\Integraciones\VentasApiClient;
+use App\Modules\CuentaCorriente\Services\FinancialReadService;
 use App\Modules\Rendiciones\Repositories\RendicionRepository;
 use App\Modules\Shared\Services\UsuarioService;
 use Illuminate\Support\Facades\DB;
@@ -88,6 +89,9 @@ class RendicionService
         // Transacción atómica: crear rendición + agregar cobros
         return DB::transaction(function () use ($datos, $idRepartidor, $idEntrega, $cobros, $remitos, $totalRendido) {
 
+            if ($idEntrega !== null) {
+                DB::table('entrega')->where('id_entrega', $idEntrega)->lockForUpdate()->firstOrFail();
+            }
             $rendicion = $this->repository->crear([
                 'id_repartidor' => $idRepartidor,
                 'id_entrega' => $idEntrega,
@@ -98,6 +102,9 @@ class RendicionService
 
             $cobrosRegistrados = [];
             foreach ($cobros as $cobro) {
+                if ($idEntrega !== null) {
+                    $this->validateDeliveryCollection($idEntrega, $cobro);
+                }
                 $cobrosRegistrados[] = $this->repository->agregarCobro($rendicion->id_rendicion, [
                     'id_cliente' => (int) ($cobro['id_cliente'] ?? 0),
                     'id_factura' => (int) ($cobro['id_factura'] ?? 0),
@@ -118,7 +125,7 @@ class RendicionService
                 'cantidad_cobros_asociados' => count($cobrosRegistrados),
                 'cantidad_remitos' => count($remitos),
             ];
-        });
+        }, 3);
     }
 
     // -------------------------------------------------------------------------
@@ -150,7 +157,17 @@ class RendicionService
             );
         }
 
-        return [...$rendicion->toArray(),
+        $detail = $rendicion->toArray();
+        $detail['repartidor_nombre'] = UsuarioService::obtenerNombre((int) $rendicion->id_repartidor);
+        $clients = DB::table('clientes')->whereIn('id', array_column($detail['cobros'], 'id_cliente'))->get()->keyBy('id');
+        foreach ($detail['cobros'] as &$collection) {
+            $client = $clients->get($collection['id_cliente']);
+            $collection['cliente_nombre'] = $client ? trim($client->nombre.' '.$client->apellido_razon_social) : 'Cliente #'.$collection['id_cliente'];
+            $collection['cliente_cuit'] = $client?->dni_cuit;
+        }
+        unset($collection);
+
+        return [...$detail,
             'devoluciones' => DB::table('g2_rendicion_devoluciones')->where('id_rendicion', $idRendicion)->orderBy('id')->get()->toArray(),
             'diferencia' => DB::table('g2_rendicion_diferencias')->where('id_rendicion', $idRendicion)->first()];
     }
@@ -196,6 +213,10 @@ class RendicionService
                 throw new InvalidArgumentException($resultadoValidacion['mensaje']);
             }
 
+            if ($rendicion->id_entrega) {
+                DB::table('entrega')->where('id_entrega', $rendicion->id_entrega)->lockForUpdate()->firstOrFail();
+                $this->validateDeliveryCollection((int) $rendicion->id_entrega, $datos);
+            }
             $cobro = $this->repository->agregarCobro($idRendicion, [
                 'id_cliente' => (int) $datos['id_cliente'],
                 'id_factura' => (int) $datos['id_factura'],
@@ -205,7 +226,7 @@ class RendicionService
             ]);
 
             return $cobro->toArray();
-        });
+        }, 3);
     }
 
     // -------------------------------------------------------------------------
@@ -285,6 +306,8 @@ class RendicionService
             ->select([
                 'ep.id_venta',
                 'ep.estado_pedido_entrega',
+                'ep.monto_cobrado',
+                'ep.medio_pago',
                 'r.id_remito',
                 'r.numero_remito',
             ])
@@ -298,7 +321,10 @@ class RendicionService
             if (! $venta) {
                 throw new \UnexpectedValueException('Ventas no devolvió los datos reales del pedido para rendir.');
             }
-            $monto = (float) ($venta['total'] ?? $venta['monto_total'] ?? 0.0);
+            $total = (float) ($venta['total'] ?? $venta['monto_total'] ?? 0.0);
+            $available = $this->availableForDeclaration((int) $p->id_venta);
+            $appliedBefore = DB::table('RENDICION_COBRO')->where('id_factura', $p->id_venta)->where('estado_revision', 'aplicado')->exists();
+            $monto = $appliedBefore ? $available : min($available, (float) ($p->monto_cobrado ?? $available));
             $idCliente = (int) ($venta['id_cliente'] ?? 1);
             $clienteNombre = $venta['cliente_nombre'] ?? $venta['cliente']['nombre'] ?? "Cliente Pedido #{$p->id_venta}";
 
@@ -308,7 +334,9 @@ class RendicionService
                 'id_cliente' => $idCliente,
                 'cliente_nombre' => $clienteNombre,
                 'monto' => $monto,
-                'medio_pago' => 'efectivo',
+                'medio_pago' => $p->medio_pago ?? 'efectivo',
+                'monto_total_pedido' => $total,
+                'saldo_disponible' => $available,
                 'id_remito' => $p->id_remito,
                 'numero_remito' => $p->numero_remito,
                 'entregado' => $p->estado_pedido_entrega === 'entregado',
@@ -337,72 +365,68 @@ class RendicionService
      */
     public function precargarOActualizarRendicionDesdeEntrega(int $idEntrega): ?array
     {
-        $datos = $this->obtenerDatosParaRendir($idEntrega);
-        $pedidosEntregados = array_filter($datos['cobros_sugeridos'], fn ($c) => ! empty($c['entregado']));
-
-        if (empty($pedidosEntregados)) {
-            return null;
-        }
-
-        // Una entrega puede rendirse por tramos. No reabrir ni reemplazar lotes ya revisados.
-        $rendicionExistente = DB::table('RENDICION')->where('id_entrega', $idEntrega)->where('estado', 'pendiente')->orderByDesc('id_rendicion')->first();
-        $closedInvoices = DB::table('RENDICION_COBRO as c')->join('RENDICION as r', 'r.id_rendicion', '=', 'c.id_rendicion')->where('r.id_entrega', $idEntrega)->where('r.estado', '!=', 'pendiente')->pluck('c.id_factura')->all();
-        $pedidosEntregados = array_filter($pedidosEntregados, fn ($p) => ! in_array($p['id_factura'], $closedInvoices));
-        if (! $pedidosEntregados) {
-            return $rendicionExistente ? (array) $rendicionExistente : null;
-        }
-
-        $totalCalculado = 0.0;
-        foreach ($pedidosEntregados as $p) {
-            $totalCalculado += (float) $p['monto'];
-        }
-
-        if ($rendicionExistente) {
-            $idRendicion = (int) $rendicionExistente->id_rendicion;
-            DB::table('RENDICION')
-                ->where('id_rendicion', $idRendicion)
-                ->update([
-                    'total_rendido' => $totalCalculado,
-                    'fecha' => now(),
-                    'observaciones' => "Rendición precargada automáticamente desde Entrega #{$idEntrega}.",
-                ]);
-
-            // Conservar cobros declarados, revisados y sus referencias financieras.
-        } else {
-            $idRendicion = (int) DB::table('RENDICION')->insertGetId([
-                'id_repartidor' => $datos['id_repartidor'],
-                'id_entrega' => $idEntrega,
-                'fecha' => now(),
-                'total_rendido' => $totalCalculado,
-                'estado' => 'pendiente',
-                'observaciones' => "Rendición precargada automáticamente al confirmar reparto #{$idEntrega}.",
-            ]);
-        }
-
-        // Insertar el desglose de cobros en RENDICION_COBRO
-        foreach ($pedidosEntregados as $p) {
-            if (DB::table('RENDICION_COBRO')->where('id_rendicion', $idRendicion)->where('id_factura', $p['id_factura'])->exists()) {
-                continue;
+        return DB::transaction(function () use ($idEntrega) {
+            DB::table('entrega')->where('id_entrega', $idEntrega)->lockForUpdate()->firstOrFail();
+            $datos = $this->obtenerDatosParaRendir($idEntrega);
+            $orders = [];
+            foreach ($datos['cobros_sugeridos'] as $order) {
+                if (! $order['entregado'] || $order['monto'] <= 0) {
+                    continue;
+                }
+                $previous = DB::table('RENDICION_COBRO as c')
+                    ->join('RENDICION as r', 'r.id_rendicion', '=', 'c.id_rendicion')
+                    ->where('r.id_entrega', $idEntrega)->where('c.id_factura', $order['id_venta'])
+                    ->lockForUpdate()->first();
+                if ($previous) {
+                    continue;
+                }
+                $orders[] = $order;
             }
-            DB::table('RENDICION_COBRO')->insert([
-                'id_rendicion' => $idRendicion,
-                'id_cliente' => $p['id_cliente'],
-                'id_factura' => $p['id_factura'],
-                'monto' => $p['monto'],
-                'medio_pago' => $p['medio_pago'] ?? 'efectivo',
-                'fecha_registro' => now(),
+            $existing = DB::table('RENDICION')->where('id_entrega', $idEntrega)->where('estado', 'pendiente')->orderByDesc('id_rendicion')->lockForUpdate()->first();
+            if (! $orders) {
+                return $existing ? (array) $existing : null;
+            }
+            $id = $existing?->id_rendicion ?? DB::table('RENDICION')->insertGetId([
+                'id_repartidor' => $datos['id_repartidor'], 'id_entrega' => $idEntrega,
+                'fecha' => now(), 'total_rendido' => 0, 'estado' => 'pendiente',
+                'observaciones' => "Rendición precargada desde Entrega #{$idEntrega}.",
             ]);
-        }
+            foreach ($orders as $order) {
+                DB::table('RENDICION_COBRO')->insert([
+                    'id_rendicion' => $id, 'id_cliente' => $order['id_cliente'],
+                    'id_factura' => $order['id_factura'], 'monto' => $order['monto'],
+                    'medio_pago' => $order['medio_pago'], 'fecha_registro' => now(),
+                ]);
+            }
+            $total = (float) DB::table('RENDICION_COBRO')->where('id_rendicion', $id)->sum('monto');
+            DB::table('RENDICION')->where('id_rendicion', $id)->update(['total_rendido' => $total]);
 
-        $totalCalculado = (float) DB::table('RENDICION_COBRO')->where('id_rendicion', $idRendicion)->sum('monto');
-        DB::table('RENDICION')->where('id_rendicion', $idRendicion)->update(['total_rendido' => $totalCalculado]);
+            return ['id_rendicion' => $id, 'id_entrega' => $idEntrega, 'total_rendido' => $total, 'estado' => 'pendiente', 'pedidos_count' => count($orders)];
+        }, 3);
+    }
 
-        return [
-            'id_rendicion' => $idRendicion,
-            'id_entrega' => $idEntrega,
-            'total_rendido' => $totalCalculado,
-            'estado' => 'pendiente',
-            'pedidos_count' => count($pedidosEntregados),
-        ];
+    /** Deuda efectiva menos cobros aún declarados. El bloqueo de cliente serializa las declaraciones. */
+    public function availableForDeclaration(int $saleId): float
+    {
+        $clientId = DB::table('venta')->where('id_venta', $saleId)->value('id_cliente');
+        abort_unless($clientId, 422, 'La venta del cobro no existe.');
+        DB::table('clientes')->where('id', $clientId)->lockForUpdate()->firstOrFail();
+        DB::table('venta')->where('id_venta', $saleId)->lockForUpdate()->firstOrFail();
+        $account = app(FinancialReadService::class)->account((int) $clientId, currentRead: DB::transactionLevel() > 0);
+        $invoice = collect($account['invoices'])->firstWhere('id', $saleId);
+        $pending = (int) round(($invoice['importe_pendiente'] ?? 0) * 100);
+        $declared = (int) round(DB::table('RENDICION_COBRO')->where('id_factura', $saleId)->where('estado_revision', 'pendiente')->lockForUpdate()->get()->sum('monto') * 100);
+
+        return max(0, $pending - $declared) / 100;
+    }
+
+    private function validateDeliveryCollection(int $delivery, array $collection): void
+    {
+        $item = DB::table('entrega_pedido')->where('id_entrega', $delivery)->where('id_venta', $collection['id_factura'] ?? 0)->first();
+        abort_unless($item && $item->estado_pedido_entrega === 'entregado', 422, 'El cobro debe corresponder a un pedido entregado de esta entrega.');
+        $client = DB::table('venta')->where('id_venta', $item->id_venta)->value('id_cliente');
+        abort_unless((int) $client === (int) ($collection['id_cliente'] ?? 0), 422, 'El cliente del cobro no corresponde al pedido.');
+        $available = $this->availableForDeclaration((int) $item->id_venta);
+        abort_if((int) round($collection['monto'] * 100) > (int) round($available * 100), 422, 'El cobro supera el saldo disponible o ya declarado.');
     }
 }

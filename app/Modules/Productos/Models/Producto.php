@@ -85,6 +85,8 @@ class Producto extends Model
         'precio_unitario',
         'precioMay',
         'precioMin',
+        'precio_minorista',
+        'precio_mayorista',
         'costo',
         'recargo',
         'imagen',
@@ -130,7 +132,7 @@ class Producto extends Model
 
     protected static function normalizarAtributos(array $attributes): array
     {
-        $columnas = Schema::getConnection()->getSchemaBuilder()->getColumnListing('producto');
+        $columnas = Schema::getConnection()->getSchemaBuilder()->getColumnListing((new static)->getTable());
         $normalizados = [];
 
         foreach ($attributes as $clave => $valor) {
@@ -147,12 +149,12 @@ class Producto extends Model
                 continue;
             }
 
-            if ($clave === 'precioMay' && ! in_array('precioMay', $columnas, true) && in_array('precio_unitario', $columnas, true)) {
-                $claveNormalizada = 'precio_unitario';
+            if ($clave === 'precioMay' && ! in_array('precioMay', $columnas, true) && in_array('precio_mayorista', $columnas, true)) {
+                $claveNormalizada = 'precio_mayorista';
             }
 
-            if ($clave === 'precioMin' && ! in_array('precioMin', $columnas, true) && in_array('precio_unitario', $columnas, true)) {
-                $claveNormalizada = 'precio_unitario';
+            if ($clave === 'precioMin' && ! in_array('precioMin', $columnas, true) && in_array('precio_minorista', $columnas, true)) {
+                $claveNormalizada = 'precio_minorista';
             }
 
             if (! in_array($claveNormalizada, $columnas, true) && ! in_array($claveNormalizada, ['precio_unitario', 'precioMay', 'precioMin', 'stock_disponible', 'stock_actual', 'costo', 'recargo'], true)) {
@@ -248,22 +250,22 @@ class Producto extends Model
 
     public function getPrecioMayoristaAttribute(): float
     {
-        return (float) ($this->attributes['precio_unitario'] ?? $this->attributes['precioMay'] ?? 0.0);
+        return (float) ($this->attributes['precio_mayorista'] ?? $this->attributes['precioMay'] ?? $this->precio_unitario);
     }
 
     public function getPrecioMinoristaAttribute(): float
     {
-        return (float) ($this->attributes['precio_unitario'] ?? $this->attributes['precioMin'] ?? 0.0);
+        return (float) ($this->attributes['precio_minorista'] ?? $this->attributes['precioMin'] ?? $this->precio_unitario);
     }
 
     public function getPrecioMayAttribute(): float
     {
-        return (float) ($this->attributes['precio_unitario'] ?? $this->attributes['precioMay'] ?? 0.0);
+        return $this->precio_mayorista;
     }
 
     public function getPrecioMinAttribute(): float
     {
-        return (float) ($this->attributes['precio_unitario'] ?? $this->attributes['precioMin'] ?? 0.0);
+        return $this->precio_minorista;
     }
 
     public function getCostoAttribute(): ?float

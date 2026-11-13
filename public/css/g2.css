@@ -716,3 +716,12 @@ body.erp-shell {
     display: none !important;
 }
 
+.g2-renditions .kpi-card {
+    min-width: 0;
+}
+
+.g2-renditions .tab-bar {
+    max-width: 100%;
+    overflow-x: auto;
+}
+

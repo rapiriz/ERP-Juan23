@@ -350,7 +350,7 @@ async function alCambiarEntregaSelect(idEntrega) {
         }
 
         tbody.innerHTML = '';
-        const cobrosSugeridos = data.cobros_sugeridos || [];
+        const cobrosSugeridos = (data.cobros_sugeridos || []).filter(c => c.entregado && Number(c.saldo_disponible) > 0);
 
         if (cobrosSugeridos.length === 0) {
             tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;padding:1rem;color:var(--text-muted);">Esta entrega no tiene pedidos confirmados como entregados.</td></tr>';
@@ -368,7 +368,8 @@ async function alCambiarEntregaSelect(idEntrega) {
                         ${c.numero_remito ? `<br><small style="color:var(--text-muted);">Remito: ${escapeG2Html(c.numero_remito)}</small>` : ''}
                     </td>
                     <td style="text-align:right; font-weight:700; color:#1E3A8A;">
-                        $${Number(c.monto).toLocaleString('es-AR', {minimumFractionDigits: 2})}
+                        <input class="clay-input monto-cobro-dinamico" type="number" min="0" max="${Number(c.saldo_disponible)}" step="0.01" value="${Number(c.monto)}" aria-label="Importe a rendir del pedido ${Number(c.id_venta)}" required>
+                        <small>Saldo disponible $${Number(c.saldo_disponible).toLocaleString('es-AR', {minimumFractionDigits: 2})}</small>
                     </td>
                     <td>
                         <select class="clay-select select-medio-pago-dinamico" style="font-size:0.85rem; padding:0.35rem 0.5rem; width:100%;">
@@ -378,10 +379,15 @@ async function alCambiarEntregaSelect(idEntrega) {
                         </select>
                     </td>
                 `;
+                tr.querySelector('.select-medio-pago-dinamico').value = c.medio_pago || 'efectivo';
                 tbody.appendChild(tr);
             });
         }
 
+        tbody.oninput = () => {
+            const total = [...tbody.querySelectorAll('.monto-cobro-dinamico')].reduce((sum, input) => sum + Number(input.value || 0), 0);
+            document.getElementById('totalRendidoDinamicoTxt').textContent = `$${total.toLocaleString('es-AR', {minimumFractionDigits: 2})}`;
+        };
         document.getElementById('totalRendidoDinamicoTxt').textContent = `$${Number(data.total_esperado).toLocaleString('es-AR', {minimumFractionDigits: 2})}`;
 
         seccionDinamica.style.display = 'block';
@@ -413,11 +419,12 @@ async function guardarNuevaRendicion(e) {
             cobros.push({
                 id_cliente: parseInt(f.dataset.cliente),
                 id_factura: parseInt(f.dataset.factura),
-                monto: parseFloat(f.dataset.monto),
+                monto: Number(f.querySelector('.monto-cobro-dinamico').value),
                 medio_pago: f.querySelector('.select-medio-pago-dinamico').value
             });
         });
 
+        cobros = cobros.filter(c => c.monto > 0);
         if (cobros.length === 0) {
             showToast('No hay cobros de pedidos entregados para rendir en este viaje.', 'warning');
             submitBtn.disabled = false;
@@ -518,7 +525,8 @@ async function verDetalleRendicion(idRendicion) {
 
         const r = json.data;
         document.getElementById('detIdRendicion').textContent = `#REND-${Number(r.id_rendicion).toString().padStart(4,'0')}`;
-        document.getElementById('detRepartidor').textContent  = r.repartidor ? r.repartidor.nombre : `Repartidor #${r.id_repartidor}`;
+        document.getElementById('detRepartidor').textContent = r.repartidor_nombre || `Repartidor #${r.id_repartidor}`;
+        document.getElementById('printRendition').href = `/rendiciones/${Number(r.id_rendicion)}/imprimir`;
         document.getElementById('detFecha').textContent       = new Date(r.fecha).toLocaleString('es-AR');
         document.getElementById('detTotal').textContent       = `$${Number(r.total_rendido).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
         document.getElementById('detObs').textContent         = r.observaciones || 'Sin observaciones.';
@@ -561,7 +569,7 @@ async function verDetalleRendicion(idRendicion) {
                 const meta = medioPagoMeta[c.medio_pago] || { label: c.medio_pago, badge: 'badge-zona', destino: 'General' };
 
                 tr.innerHTML = `
-                    <td>${g2Admin && (c.estado_revision || 'pendiente') === 'pendiente' ? `<input type="checkbox" class="cobro-revision" value="${Number(c.id_rendicion_cobro)}" checked aria-label="Seleccionar cobro">` : ''}<strong>Cliente #${Number(c.id_cliente)}</strong> — Fac. #${Number(c.id_factura)}</td>
+                    <td>${g2Admin && (c.estado_revision || 'pendiente') === 'pendiente' ? `<input type="checkbox" class="cobro-revision" value="${Number(c.id_rendicion_cobro)}" checked aria-label="Seleccionar cobro">` : ''}<strong>${escapeG2Html(c.cliente_nombre || `Cliente #${Number(c.id_cliente)}`)}</strong> — Fac. #${Number(c.id_factura)}</td>
                     <td><span class="badge ${meta.badge}">${escapeG2Html(meta.label)}</span></td>
                     <td style="text-align:right;font-weight:700;font-variant-numeric:tabular-nums;">
                         $${Number(c.monto).toLocaleString('es-AR', { minimumFractionDigits: 2 })}

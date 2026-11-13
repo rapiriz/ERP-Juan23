@@ -204,9 +204,16 @@ class VentasApiClient
         $sale['estado'] = is_string($estado) ? strtolower(trim($estado)) : null;
 
         $sale['cliente_nombre'] = $sale['cliente_nombre'] ?? $sale['cliente']['nombre'] ?? null;
+        $sale['direccion'] = $sale['direccion'] ?? $sale['cliente']['direccion'] ?? null;
+        $sale['localidad'] = $sale['localidad'] ?? $sale['cliente']['localidad'] ?? null;
+        $sale['zona_nombre'] = $sale['zona_nombre'] ?? $sale['cliente']['zona_nombre'] ?? null;
+        $sale['telefono'] = $sale['telefono'] ?? $sale['cliente']['telefono'] ?? null;
         $sale['items'] = $sale['items'] ?? array_map(fn ($item) => [
             ...$item, 'producto_nombre' => $item['producto'] ?? null,
         ], $sale['detalles'] ?? []);
+        $sale['total_articulos'] = array_sum(array_column($sale['items'], 'cantidad'));
+        $sale['total_bultos'] = array_sum(array_column($sale['items'], 'bultos'));
+        $sale['total_sueltos'] = array_sum(array_column($sale['items'], 'sueltos'));
 
         if ($sale['id_venta'] <= 0 || $sale['id_cliente'] <= 0 || ! is_numeric($sale['total'] ?? null)) {
             throw new UnexpectedValueException('Faltan identificadores o el total real en la respuesta de Ventas.');

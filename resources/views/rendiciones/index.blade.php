@@ -6,7 +6,7 @@
 @endpush
 @section('content')
 @if(auth()->user()->rol->value === 'administrativo')<p><a class="button button-primary" href="{{ route('cobros.index') }}">Cobros pendientes y anulaciones</a></p>@endif
-<div class="g2-page" data-g2-role="{{ \App\Modules\Shared\Auth\G2Identity::role() }}">
+<div class="g2-page g2-renditions" data-g2-role="{{ \App\Modules\Shared\Auth\G2Identity::role() }}">
 <div class="g2-content">
 
         <!-- ENCABEZADO -->
@@ -319,7 +319,7 @@
         <div class="modal-content" style="max-width: 680px;">
             <div class="modal-header">
                 <h3 class="modal-title" id="modalDetalleTitle">
-                    Detalle Rendición <span id="detIdRendicion">#--</span>
+                    Detalle Rendición <span id="detIdRendicion">#--</span> <a id="printRendition" class="button button-secondary" target="_blank" rel="noopener">Imprimir</a>
                 </h3>
                 <button class="modal-close" onclick="cerrarModalDetalle()" aria-label="Cerrar modal">✕</button>
             </div>

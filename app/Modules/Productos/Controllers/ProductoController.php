@@ -118,6 +118,8 @@ class ProductoController extends Controller
             $provPrincipal = $provActivos->firstWhere('es_proveedor_principal', true);
 
             $datos['costo'] = $p->costo !== null ? (float) $p->costo : null;
+            $datos['precio_minorista_configurado'] = $p->getRawOriginal('precio_minorista');
+            $datos['precio_mayorista_configurado'] = $p->getRawOriginal('precio_mayorista');
             $datos['recargo'] = $p->recargo !== null ? (float) $p->recargo : null;
             $datos['margen_ganancia'] = $p->margen_ganancia !== null ? (float) $p->margen_ganancia : null;
             $datos['id_proveedor_principal'] = $provPrincipal ? (int) $provPrincipal->id_proveedor : null;
@@ -146,6 +148,7 @@ class ProductoController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
+        $this->normalizeCommercialInputs($request);
         if ($request->filled('costo') && $request->filled('recargo') && ! $request->filled('precio_unitario')) {
             $costoCalc = (float) $request->input('costo');
             $recargoCalc = (float) $request->input('recargo');
@@ -158,8 +161,9 @@ class ProductoController extends Controller
             'codigo' => 'required|string|max:50|unique:producto,codigo',
             'nombre' => 'nullable|string|max:255',
             'descripcion' => 'required|string|max:255',
-            'precio_unitario' => 'required|numeric|min:0',
-            'precio_minorista' => 'nullable|numeric|min:0',
+            'precio_unitario' => 'required|numeric|decimal:0,2|min:0|max:9999999999.99',
+            'precio_minorista' => 'nullable|numeric|decimal:0,2|min:0|max:9999999999.99',
+            'precio_mayorista' => 'nullable|numeric|decimal:0,2|min:0|max:9999999999.99',
             'costo' => 'nullable|numeric|min:0',
             'recargo' => 'nullable|numeric|min:0',
             'id_categoria' => 'required|integer|exists:categoria,id_categoria',
@@ -195,7 +199,7 @@ class ProductoController extends Controller
 
         try {
             $now = Carbon::now()->toDateTimeString();
-            $stockInicial = (int) ($request->input('stock_disponible', $request->input('stock', 0)));
+            $stockInicial = (int) ($validator->validated()['stock_disponible'] ?? 0);
             $stockMinimo = (int) ($request->input('stock_minimo', 5));
             $formatoBulto = trim((string) $request->input('formato_bulto', 'Unidad')) ?: 'Unidad';
             $unidadesPorBulto = max(1, (int) $request->input('unidades_por_bulto', 1));
@@ -224,6 +228,8 @@ class ProductoController extends Controller
                     'nombre' => $nombre,
                     'descripcion' => $descripcion,
                     'precio_unitario' => $precioUnitario,
+                    'precio_minorista' => $request->input('precio_minorista'),
+                    'precio_mayorista' => $request->input('precio_mayorista'),
                     'costo' => $costo,
                     'recargo' => $recargo,
                     'imagen' => $imagenRuta,
@@ -251,6 +257,17 @@ class ProductoController extends Controller
                     'fecha_cambio' => $now,
                     'id_usuario' => $idUsuario,
                 ]);
+
+                foreach (['minorista', 'mayorista'] as $tarifa) {
+                    if ($request->filled('precio_'.$tarifa)) {
+                        HistorialPrecio::create([
+                            'id_producto' => $prod->id_producto, 'tipo_precio' => $tarifa,
+                            'precio' => $request->input('precio_'.$tarifa), 'porcentaje_aumento' => 0,
+                            'regla_redondeo' => 'sin_redondeo', 'origen' => 'manual',
+                            'fecha_cambio' => $now, 'id_usuario' => $idUsuario,
+                        ]);
+                    }
+                }
 
                 // 3. Asignar ubicación física si se especificó (S14)
                 if ($request->filled('id_ubicacion')) {
@@ -357,6 +374,7 @@ class ProductoController extends Controller
      */
     public function update(Request $request, int $id): JsonResponse
     {
+        $this->normalizeCommercialInputs($request);
         return DB::transaction(function () use ($request, $id) {
             $producto = Producto::lockForUpdate()->find($id);
 
@@ -367,7 +385,7 @@ class ProductoController extends Controller
                 ], 404);
             }
 
-            if (! $request->filled('precio_unitario') && ! $request->filled('precioMay')) {
+            if (! $request->filled('precio_unitario')) {
                 $costoUpdate = $request->filled('costo') ? (float) $request->input('costo') : (float) $producto->costo;
                 $recargoUpdate = $request->filled('recargo') ? (float) $request->input('recargo') : ($producto->recargo !== null ? (float) $producto->recargo : null);
                 if ($costoUpdate > 0 && $recargoUpdate !== null) {
@@ -385,8 +403,9 @@ class ProductoController extends Controller
                 'codigo' => "required|string|max:50|unique:producto,codigo,{$id},id_producto",
                 'nombre' => 'nullable|string|max:255',
                 'descripcion' => 'required|string|max:255',
-                'precio_unitario' => 'required|numeric|min:0',
-                'precio_minorista' => 'nullable|numeric|min:0',
+                'precio_unitario' => 'required|numeric|decimal:0,2|min:0|max:9999999999.99',
+                'precio_minorista' => 'nullable|numeric|decimal:0,2|min:0|max:9999999999.99',
+                'precio_mayorista' => 'nullable|numeric|decimal:0,2|min:0|max:9999999999.99',
                 'costo' => 'nullable|numeric|min:0',
                 'recargo' => 'nullable|numeric|min:0',
                 'id_categoria' => 'required|integer|exists:categoria,id_categoria',
@@ -451,6 +470,8 @@ class ProductoController extends Controller
                     'nombre' => $producto->nombre,
                     'descripcion' => $producto->descripcion,
                     'precio_unitario' => (float) $producto->precio_unitario,
+                    'precio_minorista' => $producto->getRawOriginal('precio_minorista'),
+                    'precio_mayorista' => $producto->getRawOriginal('precio_mayorista'),
                     'id_categoria' => (int) $producto->id_categoria,
                     'id_marca' => (int) $producto->id_marca,
                     'stock_minimo' => (int) $producto->stock_minimo,
@@ -462,6 +483,8 @@ class ProductoController extends Controller
                     'nombre' => $nombre,
                     'descripcion' => $descripcion,
                     'precio_unitario' => $nuevoPrecio,
+                    'precio_minorista' => $request->exists('precio_minorista') ? $request->input('precio_minorista') : $producto->getRawOriginal('precio_minorista'),
+                    'precio_mayorista' => $request->exists('precio_mayorista') ? $request->input('precio_mayorista') : $producto->getRawOriginal('precio_mayorista'),
                     'id_categoria' => (int) $request->input('id_categoria'),
                     'id_marca' => (int) $request->input('id_marca'),
                     'stock_minimo' => $request->has('stock_minimo') ? (int) $request->input('stock_minimo') : (int) $producto->stock_minimo,
@@ -499,6 +522,23 @@ class ProductoController extends Controller
                         'fecha_modificacion' => $now,
                         'id_usuario_modificacion' => $idUsuario,
                     ];
+
+                    foreach (['precio_minorista', 'precio_mayorista'] as $tarifa) {
+                        if ($request->exists($tarifa)) {
+                            $value = $request->input($tarifa);
+                            $effective = $value === null ? $nuevoPrecio : (float) $value;
+                            $previous = (float) $producto->$tarifa;
+                            $datosUpdate[$tarifa] = $value;
+                            if ((int) round($effective * 100) !== (int) round($previous * 100)) {
+                                HistorialPrecio::create([
+                                    'id_producto' => $producto->id_producto, 'tipo_precio' => substr($tarifa, 7),
+                                    'precio' => $effective, 'porcentaje_aumento' => $previous > 0 ? round(($effective / $previous - 1) * 100, 2) : 0,
+                                    'regla_redondeo' => 'sin_redondeo', 'origen' => 'manual',
+                                    'fecha_cambio' => $now, 'id_usuario' => $idUsuario,
+                                ]);
+                            }
+                        }
+                    }
 
                     if ($request->has('formato_bulto')) {
                         $datosUpdate['formato_bulto'] = trim((string) $request->input('formato_bulto', 'Unidad')) ?: 'Unidad';
@@ -722,8 +762,9 @@ class ProductoController extends Controller
             ->get();
 
         $resultado = [];
-        $precioAnterior = null;
+        $preciosAnteriores = [];
         foreach ($registros as $registro) {
+            $precioAnterior = $preciosAnteriores[$registro->tipo_precio] ?? null;
             $precioNuevo = (float) $registro->precio;
             $variacionPorcentaje = null;
             if ($precioAnterior !== null && $precioAnterior > 0) {
@@ -753,7 +794,7 @@ class ProductoController extends Controller
                 'id_usuario' => $registro->id_usuario,
                 'usuario_nombre' => $registro->nombre_usuario,
             ];
-            $precioAnterior = $precioNuevo;
+            $preciosAnteriores[$registro->tipo_precio] = $precioNuevo;
         }
         $resultado = array_reverse($resultado);
 
@@ -950,12 +991,13 @@ class ProductoController extends Controller
                     ->filterProveedor($idProveedorFiltro);
             }
 
-            $detalles = DB::transaction(function () use ($query, $porcentaje, $baseAumento, $reglaRedondeo, $idProveedorFiltro, $idUsuario, $now) {
+            $detalles = DB::transaction(function () use ($query, $porcentaje, $baseAumento, $reglaRedondeo, $idProveedorFiltro, $idUsuario, $now, $tipoPrecio) {
                 $productos = $query->orderBy('id_producto')->lockForUpdate()->get();
                 $detalles = [];
 
                 foreach ($productos as $producto) {
                     $cambio = false;
+                    $tarifasAnteriores = ['minorista' => (float) $producto->precio_minorista, 'mayorista' => (float) $producto->precio_mayorista];
                     $precioAnterior = (float) $producto->precio_unitario;
                     $costoAnterior = $producto->costo !== null ? (float) $producto->costo : null;
                     $recargoAnterior = $producto->recargo !== null ? (float) $producto->recargo : null;
@@ -1008,24 +1050,53 @@ class ProductoController extends Controller
                         }
                     }
 
+                    $tariffUpdates = [];
+                    if ($baseAumento === 'precio') {
+                        if ($tipoPrecio !== 'ambos') $nuevoPrecio = $precioAnterior;
+                        foreach (['minorista', 'mayorista'] as $tariff) {
+                            $field = 'precio_'.$tariff;
+                            if (($tipoPrecio === 'ambos' && $producto->getRawOriginal($field) !== null) || $tipoPrecio === $tariff) {
+                                $value = $this->aplicarReglaRedondeo($tarifasAnteriores[$tariff] * (1 + $porcentaje / 100), $reglaRedondeo);
+                                if ($value > 9999999999.99) {
+                                    throw \Illuminate\Validation\ValidationException::withMessages(['porcentaje' => 'El aumento supera el importe máximo permitido.']);
+                                }
+                                if ((int) round($value * 100) !== (int) round($tarifasAnteriores[$tariff] * 100)) {
+                                    $tariffUpdates[$field] = $value;
+                                    HistorialPrecio::create([
+                                        'id_producto' => $producto->id_producto, 'tipo_precio' => $tariff,
+                                        'precio' => $value, 'porcentaje_aumento' => $porcentaje,
+                                        'regla_redondeo' => $reglaRedondeo, 'origen' => 'aumento_masivo',
+                                        'fecha_cambio' => $now, 'id_usuario' => $idUsuario,
+                                    ]);
+                                }
+                            }
+                        }
+                        $nuevoRecargo = $costoAnterior > 0 ? round(($nuevoPrecio / $costoAnterior - 1) * 100, 2) : $recargoAnterior;
+                    }
+                    if (! is_finite($nuevoPrecio) || $nuevoPrecio > 9999999999.99) {
+                        throw \Illuminate\Validation\ValidationException::withMessages(['porcentaje' => 'El aumento supera el importe máximo permitido.']);
+                    }
                     $cambioPrecio = abs($nuevoPrecio - $precioAnterior) >= 0.001;
                     $cambioCosto = $costoNuevo !== null && $costoAnterior !== null && abs($costoNuevo - $costoAnterior) >= 0.001;
 
-                    if ($cambioPrecio || $cambioCosto) {
+                    if ($cambioPrecio || $cambioCosto || $tariffUpdates) {
                         $porcentajeRealPrecio = $precioAnterior > 0
                             ? round((($nuevoPrecio - $precioAnterior) / $precioAnterior) * 100, 2)
                             : $porcentaje;
 
-                        HistorialPrecio::create([
-                            'id_producto' => $producto->id_producto,
-                            'tipo_precio' => 'general',
-                            'precio' => $nuevoPrecio,
-                            'porcentaje_aumento' => $porcentajeRealPrecio,
-                            'regla_redondeo' => $reglaRedondeo,
-                            'origen' => $baseAumento === 'costo' ? 'costo_reposicion' : 'aumento_masivo',
-                            'fecha_cambio' => $now,
-                            'id_usuario' => $idUsuario,
-                        ]);
+                        if ($cambioPrecio || $cambioCosto) {
+                            HistorialPrecio::create([
+                                'id_producto' => $producto->id_producto,
+                                'tipo_precio' => 'general',
+                                'precio' => $nuevoPrecio,
+                                'porcentaje_aumento' => $porcentajeRealPrecio,
+                                'regla_redondeo' => $reglaRedondeo,
+                                'origen' => $baseAumento === 'costo' ? 'costo_reposicion' : 'aumento_masivo',
+                                'fecha_cambio' => $now,
+                                'id_usuario' => $idUsuario,
+                            ]);
+
+                        }
 
                         $updateData = [
                             'precio_unitario' => $nuevoPrecio,
@@ -1040,7 +1111,7 @@ class ProductoController extends Controller
                             $updateData['recargo'] = $nuevoRecargo;
                         }
 
-                        $producto->update($updateData);
+                        $producto->update([...$updateData, ...$tariffUpdates]);
 
                         AuditoriaLogger::registrar(
                             'producto',
@@ -1050,6 +1121,7 @@ class ProductoController extends Controller
                                 'precio_unitario' => $precioAnterior,
                                 'costo' => $costoAnterior,
                                 'recargo' => $recargoAnterior,
+                                'tarifas' => $tarifasAnteriores,
                             ],
                             [
                                 'precio_unitario' => $nuevoPrecio,
@@ -1057,6 +1129,7 @@ class ProductoController extends Controller
                                 'recargo' => $nuevoRecargo,
                                 'aumento_masivo_porcentaje' => $porcentaje,
                                 'base_aumento' => $baseAumento,
+                                'tarifas' => ['minorista' => $producto->precio_minorista, 'mayorista' => $producto->precio_mayorista],
                             ],
                             $idUsuario
                         );
@@ -1076,10 +1149,10 @@ class ProductoController extends Controller
                         'precio_nuevo' => $nuevoPrecio,
                         'precio_unitario_anterior' => $precioAnterior,
                         'precio_unitario_nuevo' => $nuevoPrecio,
-                        'precio_mayorista_anterior' => $precioAnterior,
-                        'precio_mayorista_nuevo' => $nuevoPrecio,
-                        'precio_minorista_anterior' => $precioAnterior,
-                        'precio_minorista_nuevo' => $nuevoPrecio,
+                        'precio_mayorista_anterior' => $tarifasAnteriores['mayorista'],
+                        'precio_mayorista_nuevo' => (float) $producto->precio_mayorista,
+                        'precio_minorista_anterior' => $tarifasAnteriores['minorista'],
+                        'precio_minorista_nuevo' => (float) $producto->precio_minorista,
                         'aplicado' => $cambio,
                     ];
                 }
@@ -1137,6 +1210,27 @@ class ProductoController extends Controller
         }
 
         return $candidato / 100;
+    }
+
+    private function normalizeCommercialInputs(Request $request): void
+    {
+        validator($request->all(), [
+            'stock' => ['nullable', 'integer', 'min:0', 'max:2147483647'],
+            'stock_disponible' => ['nullable', 'integer', 'min:0', 'max:2147483647'],
+            'precioMin' => ['nullable', 'numeric', 'decimal:0,2', 'min:0', 'max:9999999999.99'],
+            'precioMay' => ['nullable', 'numeric', 'decimal:0,2', 'min:0', 'max:9999999999.99'],
+        ])->validate();
+
+        foreach (['stock' => 'stock_disponible', 'precioMin' => 'precio_minorista', 'precioMay' => 'precio_mayorista'] as $alias => $field) {
+            if (! $request->exists($alias)) {
+                continue;
+            }
+            if ($request->exists($field) && (string) $request->input($field) !== (string) $request->input($alias)
+                && (! is_numeric($request->input($field)) || (float) $request->input($field) !== (float) $request->input($alias))) {
+                throw \Illuminate\Validation\ValidationException::withMessages([$field => 'Los valores del campo y su alias deben coincidir.']);
+            }
+            $request->merge([$field => $request->input($alias)]);
+        }
     }
 
     private function resolverImagen(Request $request, ?string $codigo = null, ?string $imagenActual = null): ?string

@@ -413,9 +413,9 @@ async function abrirModalHojaRuta(idEntrega) {
 
                 tr.innerHTML = `
                     <td><strong style="color: var(--primary);">#PED-${Number(p.id_venta).toString().padStart(4, '0')}</strong></td>
-                    <td><strong>${escapeDeliveryHtml(p.cliente_nombre)}</strong></td>
+                    <td><strong>${escapeDeliveryHtml(p.cliente_nombre)}</strong>${p.monto_cobrado != null ? `<br><small>Cobrado $${Number(p.monto_cobrado).toLocaleString("es-AR")} · ${escapeDeliveryHtml(p.medio_pago)}</small>` : ""}</td>
                     <td>${escapeDeliveryHtml(p.direccion)}, ${escapeDeliveryHtml(p.localidad)} <span class="badge-zona">${escapeDeliveryHtml(p.zona_nombre)}</span></td>
-                    <td style="text-align: center;"><span class="badge-bultos">${Number(p.total_bultos)} b</span></td>
+                    <td style="text-align: center;"><span class="badge-bultos">${Number(p.total_articulos)} unidades · ${Number(p.total_bultos)} bultos · ${Number(p.total_sueltos)} sueltas</span></td>
                     <td style="text-align: right; font-weight: 700; color: #1E3A8A;">$${Number(p.total).toLocaleString('es-AR', {minimumFractionDigits: 2})}</td>
                     <td style="text-align: center;">${badgeEstado}</td>
                     <td style="text-align: center;">
@@ -477,35 +477,47 @@ async function consultarVentasGrupo4() {
  * HU #3 (Issue #124): Confirmar pedido entregado por el chofer
  */
 async function confirmarEntregaPedido(idEntrega, idVenta) {
-    if (!confirm(`¿Confirmar entrega física del pedido #PED-${idVenta.toString().padStart(4, '0')} al cliente?`)) {
-        return;
-    }
-
     try {
-        const res = await g2Fetch(`${API_BASE}/entregas/${idEntrega}/pedidos/${idVenta}/entregado`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({})
+        const response = await g2Fetch(`${API_BASE}/rendiciones/preparar/${idEntrega}`);
+        const json = await response.json();
+        if (!response.ok || json.error) throw new Error(json.mensaje || json.message || 'No se pudo consultar el saldo.');
+        const order = json.data.cobros_sugeridos.find(item => Number(item.id_venta) === Number(idVenta));
+        if (!order) throw new Error('El pedido ya no pertenece a esta entrega.');
+        const dialog = document.getElementById('deliveryCollectionDialog');
+        dialog.dataset.delivery = idEntrega;
+        dialog.dataset.sale = idVenta;
+        const amount = document.getElementById('deliveryCollectedAmount');
+        amount.max = Number(order.saldo_disponible).toFixed(2);
+        amount.value = Number(order.saldo_disponible).toFixed(2);
+        document.getElementById('deliveryCollectionStatus').textContent = `Pedido #${idVenta} · Saldo disponible $${Number(order.saldo_disponible).toLocaleString('es-AR', {minimumFractionDigits: 2})}. Ingresá 0 para entregar sin cobrar.`;
+        document.getElementById('deliveryPaymentMethod').value = 'efectivo';
+        dialog.showModal();
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function guardarCobroEntrega(event) {
+    event.preventDefault();
+    const dialog = document.getElementById('deliveryCollectionDialog');
+    const button = document.getElementById('deliveryCollectionSave');
+    button.disabled = true;
+    try {
+        const response = await g2Fetch(`${API_BASE}/entregas/${Number(dialog.dataset.delivery)}/pedidos/${Number(dialog.dataset.sale)}/entregado`, {
+            method: 'PATCH', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({monto_cobrado: Number(document.getElementById('deliveryCollectedAmount').value), medio_pago: document.getElementById('deliveryPaymentMethod').value})
         });
-
-        const json = await res.json();
-
-        if (json.error) {
-            showToast('Error: ' + json.mensaje, 'error');
-            return;
-        }
-
+        const json = await response.json();
+        if (!response.ok || json.error) throw new Error(json.mensaje || json.message || 'No se pudo confirmar la entrega.');
+        dialog.close();
         showToast(json.mensaje, 'success');
-
-        // Refrescar modal de hoja de ruta si está abierto
-        abrirModalHojaRuta(idEntrega);
-        // Refrescar listado de viajes y pedidos pendientes
-        cargarEntregas();
-        if (g2Admin) cargarPedidosPendientes();
-
-    } catch (err) {
-        console.error(err);
-        showToast('Error al conectar con el servidor.', 'error');
+        await abrirModalHojaRuta(Number(dialog.dataset.delivery));
+        await cargarEntregas();
+        if (g2Admin) await cargarPedidosPendientes();
+    } catch (error) {
+        document.getElementById('deliveryCollectionStatus').textContent = error.message;
+    } finally {
+        button.disabled = false;
     }
 }
 
@@ -574,7 +586,7 @@ async function verRemito(idRemito) {
         // Configurar acción de entrega en el pie del remito
         const contAccion = document.getElementById('remitoAccionEntrega');
         if (contAccion) {
-            if (r.estado === 'entregado') {
+            if (['entregado', 'entregado_conforme', 'anulado'].includes(r.estado)) {
                 contAccion.innerHTML = `<span class="badge badge-entregada" style="padding: 0.5rem 1rem; font-size: 0.95rem;">Mercadería Entregada Conforme</span>`;
             } else {
                 contAccion.innerHTML = `

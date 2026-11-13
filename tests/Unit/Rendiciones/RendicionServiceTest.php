@@ -32,7 +32,6 @@ class RendicionServiceTest extends TestCase
         $ventasMock = $this->createMock(VentasApiClient::class);
 
         $repoMock->method('repartidorEstaActivo')->with(2)->willReturn(true);
-        $repoMock->method('entregaExiste')->with(1)->willReturn(true);
 
         $datosCobros = [
             [
@@ -53,12 +52,12 @@ class RendicionServiceTest extends TestCase
             ->method('crear')
             ->with($this->callback(function ($datos) {
                 return $datos['id_repartidor'] === 2
-                    && $datos['id_entrega'] === 1;
+                    && $datos['id_entrega'] === null;
             }))
             ->willReturn($this->rendicionFake([
                 'id_rendicion' => 1,
                 'id_repartidor' => 2,
-                'id_entrega' => 1,
+                'id_entrega' => null,
                 'total_rendido' => 0.0,
                 'estado' => Rendicion::ESTADO_PENDIENTE,
             ]));
@@ -72,7 +71,7 @@ class RendicionServiceTest extends TestCase
         $service = new RendicionService($repoMock, $ventasMock);
         $resultado = $service->registrarRendicion([
             'id_repartidor' => 2,
-            'id_entrega' => 1,
+            'id_entrega' => null,
             'cobros' => $datosCobros,
             'observaciones' => 'Rendición de prueba',
         ]);

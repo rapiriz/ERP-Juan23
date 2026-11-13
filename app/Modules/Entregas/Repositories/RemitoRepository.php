@@ -191,7 +191,8 @@ class RemitoRepository
 
         $remito['total_venta'] = (float) ($venta['total'] ?? $venta['monto_total'] ?? 0.0);
 
-        $remito['total_bultos'] = (int) ($venta['total_bultos'] ?? 1);
+        $remito['total_articulos'] = (int) ($venta['total_articulos'] ?? 0);
+        $remito['total_bultos'] = (int) ($venta['total_bultos'] ?? 0);
 
         $remito['total_sueltos'] = (int) ($venta['total_sueltos'] ?? 0);
 
@@ -199,15 +200,15 @@ class RemitoRepository
 
         $remito['razon_social'] = $venta['razon_social'] ?? '';
 
-        $remito['cuit'] = $venta['cuit'] ?? '';
+        $remito['cuit'] = $venta['cuit'] ?? $venta['cliente']['cuit'] ?? '';
 
-        $remito['direccion'] = $venta['direccion'] ?? 'Domicilio comercial';
+        $remito['direccion'] = $venta['direccion'] ?? 'Sin dirección registrada';
 
-        $remito['localidad'] = $venta['localidad'] ?? 'Pigüé';
+        $remito['localidad'] = $venta['localidad'] ?? 'Sin localidad registrada';
 
         $remito['telefono'] = $venta['telefono'] ?? '';
 
-        $remito['zona_nombre'] = $venta['zona_nombre'] ?? 'Ruta Saavedra';
+        $remito['zona_nombre'] = $venta['zona_nombre'] ?? 'Sin zona registrada';
 
         $remito['repartidor_nombre'] = UsuarioService::obtenerNombre((int) $remito['id_repartidor']);
 
@@ -227,7 +228,8 @@ class RemitoRepository
 
         foreach ($items as &$it) {
 
-            $it['codigo'] = 'ART-'.($it['id_producto'] ?? $it['id_detalle_remito']);
+            $original = collect($venta['items'] ?? [])->firstWhere('id_producto', (int) $it['id_producto']);
+            $it['codigo'] = $original['codigo'] ?? 'ART-'.$it['id_producto'];
 
         }
 
