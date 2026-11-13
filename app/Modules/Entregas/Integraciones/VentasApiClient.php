@@ -79,6 +79,14 @@ class VentasApiClient
             }
 
             $originalRequest = app()->bound('request') ? app('request') : null;
+
+            // La sub-petición comparte el mismo proceso: si el middleware de Ventas arranca
+            // una sesión (ej. sin token), reemplazaría la sesión del usuario y lo desloguearía.
+            // Guardamos la sesión actual para restaurarla al terminar.
+            $sesion = app()->bound('session') ? app('session')->driver() : null;
+            $sesionId = $sesion?->getId();
+            $sesionDatos = $sesion?->all() ?? [];
+
             try {
                 $laravelResponse = app()->handle($subRequest);
                 $psrResponse = new \GuzzleHttp\Psr7\Response(
@@ -91,6 +99,11 @@ class VentasApiClient
                 Log::warning("G2 - VentasApiClient: Excepción en llamada interna a Ventas: " . $e->getMessage());
                 return null;
             } finally {
+                if ($sesion !== null && $sesionId !== null) {
+                    $sesion->setId($sesionId);
+                    $sesion->flush();
+                    $sesion->replace($sesionDatos);
+                }
                 if ($originalRequest) {
                     app()->instance('request', $originalRequest);
                 }
