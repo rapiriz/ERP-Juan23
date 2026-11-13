@@ -90,6 +90,7 @@ class CatalogOrderService
             $items = DB::table('g1_catalog_order_items')->where('order_id', $id)->orderBy('producto_id')->get();
             $request = Request::create('/api/ventas', 'POST', ['request_key' => $order->sale_request_key,
                 'cliente_id' => (int) $data['cliente_id'], 'lista' => $data['lista'], 'observaciones' => 'Pedido catálogo #'.$id,
+                'aplicar_precio_mayorista' => $data['lista'] === 'mayorista',
                 'items' => $items->map(fn ($i) => ['id' => $i->producto_id, 'cantidad' => $i->cantidad, 'descuento' => 0])->all()]);
             $request->headers->set('Accept', 'application/json');
             $request->setUserResolver(fn () => $actor);

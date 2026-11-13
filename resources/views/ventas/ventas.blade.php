@@ -723,13 +723,9 @@
             <span class="cuit" id="domicilioClienteVenta"></span>
         </div>
 
-        <div class="lista-toggle">
-            <button type="button" class="lista-btn active" data-lista="minorista">
-                Lista 1 — Minorista
-            </button>
-            <button type="button" class="lista-btn" data-lista="mayorista">
-                Lista 2 — Mayorista
-            </button>
+        <div class="lista-mayorista">
+            <label><input type="checkbox" id="aplicarPrecioMayorista"> Aplicar precio mayorista</label>
+            <small id="ayudaPrecioMayorista">Tarifa minorista por defecto. Disponible para clientes mayoristas.</small>
         </div>
 
         <div class="acciones-cliente">
@@ -922,10 +918,11 @@
 @endsection
 
 @push('scripts')
+<script src="{{ asset('assets/js/sale-confirmation.js') }}"></script>
 <script>
     let creditVersion = 0;
     let creditSnapshot = null;
-    // Datos que vienen del controlador (por ahora hardcodeados en VentaController)
+    // Datos del catálogo y clientes suministrados por el servidor.
     const PRODUCTOS = @json($productos);
     const CLIENTES = @json($clientes);
     const URL_VENTAS = @json(route('ventas.store'));
@@ -939,6 +936,8 @@
     const carrito = []; // cada fila tiene una lineKey propia y puede pertenecer a una promo
     let siguienteIdLinea = 1;
     let ventaEnCurso = false;
+    let bonificacionConfirmadaPara = null;
+    const firmaBonificacion = () => JSON.stringify([document.getElementById('clienteVenta').value, listaActual, carrito, descuentoGlobal]);
 
     const $ = (id) => document.getElementById(id);
     const clienteGuardado = localStorage.getItem('pos_cliente');
@@ -959,9 +958,17 @@
         $('nombreClienteVenta').textContent = cliente.nombre;
         $('cuitClienteVenta').textContent = `CUIT: ${cliente.cuit} · ${cliente.condicion}`;
         $('domicilioClienteVenta').textContent = cliente.domicilio;
+        const check = $('aplicarPrecioMayorista');
+        check.checked = false;
+        check.disabled = cliente.tipo_cliente !== 'mayorista';
+        $('ayudaPrecioMayorista').textContent = check.disabled
+            ? 'Cliente minorista: se aplica la tarifa minorista.'
+            : 'Cliente mayorista: marcá la casilla para aplicar su tarifa. Sin marcar, se usa la minorista.';
+        listaActual = 'minorista';
+        carrito.forEach(item => { const p = PRODUCTOS.find(p => p.id === item.id); if (p) item.precioUnit = precioDe(p); });
     }
 
-    $('clienteVenta').addEventListener('change', actualizarCliente);
+    $('clienteVenta').addEventListener('change', () => { actualizarCliente(); render(); });
     actualizarCliente();
 
     // ---------- Buscador ----------
@@ -985,7 +992,7 @@
                      style="padding:.7rem 1rem; cursor:pointer; border-bottom:1px solid #F1F5F9;">
                     <strong>${window.erpSafeHtml.escape(p.codigo)}</strong> · ${window.erpSafeHtml.escape(p.nombre)}
                     <span style="float:right;color:#64748B;">
-                        $${Number(p.precioMin).toLocaleString('es-AR')}
+                        $${Number(precioDe(p)).toLocaleString('es-AR')}
                     </span>
                 </div>
             `).join('');
@@ -1068,10 +1075,19 @@
         render();
     }
     function descuentoLineaMonto(item) {
-        const descuento = Number(item.descuentoMonto) || 0;
         const bruto = item.cantidad * item.precioUnit;
+        // Un porcentaje sigue siendo el mismo al cambiar cantidad o tarifa.
+        const descuento = !item.esPromocion && item.descuentoInputModo === 'porcentaje'
+            ? bruto * Number(item.descuentoInputValor || 0) / 100
+            : Number(item.descuentoMonto) || 0;
 
-        return Math.min(Math.max(descuento, 0), bruto);
+        const esPorcentaje = !item.esPromocion && item.descuentoInputModo === 'porcentaje';
+        const centavos = Math.round(Math.min(Math.max(descuento, 0), bruto) * 100);
+        // Un monto fijo no debe terminar concediendo más que lo ingresado.
+        const unitarioCentavos = esPorcentaje
+            ? Math.round(Math.round(item.precioUnit * 100) * Number(item.descuentoInputValor || 0) / 100)
+            : Math.floor(centavos / item.cantidad);
+        return Math.min(Math.round(bruto * 100), Math.max(0, unitarioCentavos * item.cantidad)) / 100;
     }
     function brutoLinea(item) {
     return item.cantidad * item.precioUnit;
@@ -1090,11 +1106,12 @@
     }
     // Aplica el descuento global sobre la base ya neta de líneas
     function calcularTotalConDescuento(subtotalNetoLineas) {
-    if (!descuentoGlobal.valor) return subtotalNetoLineas;
-    if (descuentoGlobal.modo === 'porcentaje') {
-        return subtotalNetoLineas * (1 - descuentoGlobal.valor / 100);
-    }
-    return Math.max(0, subtotalNetoLineas - descuentoGlobal.valor);
+        const subtotalCentavos = Math.round((subtotalNetoLineas + Number.EPSILON) * 100);
+        const valor = Number(descuentoGlobal.valor) || 0;
+        const descuentoCentavos = descuentoGlobal.modo === 'porcentaje'
+            ? Math.round(subtotalCentavos * valor / 100)
+            : Math.min(subtotalCentavos, Math.round(valor * 100));
+        return (subtotalCentavos - descuentoCentavos) / 100;
     }
     function render() {
         actualizarCreditoVisual();
@@ -1293,19 +1310,13 @@
     }
 
     // ---------- Lista minorista / mayorista ----------
-    document.querySelectorAll('.lista-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('.lista-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            listaActual = btn.dataset.lista;
-
-            // Recalcular precios de todo el carrito según la lista elegida
-            carrito.forEach(item => {
-                const p = PRODUCTOS.find(x => x.id === item.id);
-                if (p) item.precioUnit = precioDe(p);
-            });
-            render();
+    $('aplicarPrecioMayorista').addEventListener('change', () => {
+        listaActual = $('aplicarPrecioMayorista').checked ? 'mayorista' : 'minorista';
+        carrito.forEach(item => {
+            const p = PRODUCTOS.find(x => x.id === item.id);
+            if (p) item.precioUnit = precioDe(p);
         });
+        render();
     });
 
     // ---------- Botones finales ----------
@@ -1391,15 +1402,22 @@
     // ---------- Confirmar cobro ----------
     $('btnConfirmarCobro').addEventListener('click', async () => {
         if (!carrito.length) return;
+        const regalo = calcularTotalConDescuento(getSubtotalConDescLineas()) === 0
+            || carrito.some(item => netoLinea(item) === 0);
+        if (regalo && bonificacionConfirmadaPara !== firmaBonificacion()) {
+            if (!await window.erpSales.confirmGift()) return;
+            bonificacionConfirmadaPara = firmaBonificacion();
+        }
 
         // Conservar la referencia y el cuerpo ante una respuesta perdida o recarga.
         const scope = 'pos_venta_pendiente_{{ auth()->id() }}';
         const payload = {cliente_id: Number($('clienteVenta').value), fecha_vencimiento: $('fechaVencimientoVenta').value || null,
-            lista: listaActual, observaciones: cobroObservaciones.value.trim(),
+            lista: listaActual, aplicar_precio_mayorista: $('aplicarPrecioMayorista').checked,
+            confirmar_bonificacion: regalo, observaciones: cobroObservaciones.value.trim(),
             descuento_global: {modo: descuentoGlobal.modo, valor: Number(descuentoGlobal.valor) || 0},
             items: carrito.map(item => ({id: item.id, cantidad: item.cantidad,
                 id_promocion: item.esPromocion ? (Number(item.promocionId) || null) : null,
-                descuento: Number(((item.descuentoMonto || 0) / item.cantidad).toFixed(2))}))};
+                descuento: Number((descuentoLineaMonto(item) / item.cantidad).toFixed(2))}))};
         const stored = JSON.parse(localStorage.getItem(scope) || 'null');
         if (stored && JSON.stringify(stored.payload) !== JSON.stringify(payload)) {
             if (!confirm('Hay una venta sin confirmar con otros datos. ¿Reintentar el envío original para recuperar su resultado? El carrito actual se limpiará al confirmar.')) return;
@@ -1611,7 +1629,7 @@
         }
     });
 
-    $('btnAplicarDesc').addEventListener('click', () => {
+    $('btnAplicarDesc').addEventListener('click', async () => {
         const valor = Number(descInput.value) || 0;
 
         if (modoDescTemporal === 'porcentaje' && (valor < 0 || valor > 100)) {
@@ -1622,6 +1640,14 @@
             alert('El monto no puede ser negativo.');
             return;
         }
+        const baseDescuento = itemDescTarget === null ? getSubtotalConDescLineas()
+            : brutoLinea(carrito.find(item => item.lineKey === itemDescTarget));
+        if (!Number.isFinite(valor) || (modoDescTemporal === 'monto' && valor > baseDescuento)) {
+            alert('El descuento no puede superar el importe al que se aplica.');
+            return;
+        }
+        const regalo = modoDescTemporal === 'porcentaje' ? valor === 100 : valor === baseDescuento;
+        if (regalo && !await window.erpSales.confirmGift()) return;
 
         if (itemDescTarget === null) {
             // ---- GLOBAL ----
@@ -1651,6 +1677,7 @@
 
         cerrarModalDesc();
         render();
+        if (regalo) bonificacionConfirmadaPara = firmaBonificacion();
     });
 
     $('btnCerrarCaja').addEventListener('click', () => {
@@ -1670,12 +1697,15 @@
                 const items = JSON.parse(guardado);
                 const lineKeys = new Set();
                 items.forEach(x => {
+                    const productoActual = PRODUCTOS.find(p => p.id === Number(x.id));
+                    if (!productoActual) return;
+                    x.precioUnit = precioDe(productoActual);
                     // Compatibilidad con la estructura anterior
                     if (typeof x.descuentoMonto === 'undefined') {
                         // Si venía con `descuento` como %, lo convertimos a monto fijo
                         const pct = Number(x.descuento) || 0;
                         const precioUnitario = Number(x.precioUnit) || 0;
-                        x.descuentoMonto = precioUnitario * (pct / 100);
+                        x.descuentoMonto = Number(x.cantidad) * precioUnitario * (pct / 100);
                         x.descuentoInputModo  = pct > 0 ? 'porcentaje' : null;
                         x.descuentoInputValor = pct > 0 ? pct : null;
                         delete x.descuento;

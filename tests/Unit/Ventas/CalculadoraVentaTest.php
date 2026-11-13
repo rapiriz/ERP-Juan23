@@ -27,9 +27,9 @@ class CalculadoraVentaTest extends TestCase
         $this->calculadora = new CalculadoraVenta;
     }
 
-    private function calcular(array $items, string $lista = 'minorista', ?array $descuentoGlobal = null): array
+    private function calcular(array $items, string $lista = 'minorista', ?array $descuentoGlobal = null, bool $confirmar = false): array
     {
-        return $this->calculadora->calcular($items, $this->catalogo, $lista, $descuentoGlobal);
+        return $this->calculadora->calcular($items, $this->catalogo, $lista, $descuentoGlobal, $confirmar);
     }
 
     /**
@@ -125,12 +125,17 @@ class CalculadoraVentaTest extends TestCase
         $this->assertSame(6500.0, $r['total']);
     }
 
-    public function test_descuento_igual_al_precio_se_permite_si_el_total_es_positivo(): void
+    public function test_regalo_de_linea_exige_confirmacion_aunque_otra_linea_se_cobre(): void
     {
+        $errores = $this->erroresDe(fn () => $this->calcular([
+            ['id' => 1, 'cantidad' => 1, 'descuento' => 2500],
+            ['id' => 2, 'cantidad' => 1, 'descuento' => 0],
+        ]));
+        $this->assertArrayHasKey('confirmar_bonificacion', $errores);
         $r = $this->calcular([
             ['id' => 1, 'cantidad' => 1, 'descuento' => 2500], // regalo: 0
             ['id' => 2, 'cantidad' => 1, 'descuento' => 0],
-        ]);
+        ], 'minorista', null, true);
 
         $this->assertSame(1800.0, $r['total']);
     }
@@ -160,18 +165,20 @@ class CalculadoraVentaTest extends TestCase
         $this->assertArrayHasKey('descuento_global.valor', $errores);
     }
 
-    public function test_porcentaje_cien_deja_total_cero_y_es_invalido(): void
+    public function test_porcentaje_cien_exige_confirmacion_y_luego_permite_el_regalo(): void
     {
         $errores = $this->erroresDe(fn () => $this->calcular([['id' => 1, 'cantidad' => 1, 'descuento' => 0]], 'minorista', ['modo' => 'porcentaje', 'valor' => 100]));
 
-        $this->assertSame(['items' => ['La venta debe tener un total mayor a cero.']], $errores);
+        $this->assertArrayHasKey('confirmar_bonificacion', $errores);
+        $r = $this->calcular([['id' => 1, 'cantidad' => 1, 'descuento' => 0]], 'minorista', ['modo' => 'porcentaje', 'valor' => 100], true);
+        $this->assertSame(0.0, $r['total']);
     }
 
-    public function test_monto_global_mayor_al_subtotal_se_recorta_y_deja_total_cero(): void
+    public function test_monto_global_mayor_al_subtotal_se_rechaza(): void
     {
         $errores = $this->erroresDe(fn () => $this->calcular([['id' => 1, 'cantidad' => 1, 'descuento' => 0]], 'minorista', ['modo' => 'monto', 'valor' => 99999]));
 
-        $this->assertArrayHasKey('items', $errores);
+        $this->assertArrayHasKey('descuento_global.valor', $errores);
     }
 
     public function test_descuento_global_vacio_cuenta_como_cero(): void

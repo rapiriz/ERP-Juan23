@@ -85,6 +85,7 @@ class HttpClienteApi implements ClienteGateway
             'domicilio' => (string) ($cliente['direccion'] ?? ''),
             'localidad' => (string) ($cliente['localidad'] ?? ''),
             'zona_id' => isset($cliente['zona_id']) ? (int) $cliente['zona_id'] : null,
+            'tipo_cliente' => (string) ($cliente['tipo_cliente'] ?? ''),
             'movimientos' => [],
         ];
     }

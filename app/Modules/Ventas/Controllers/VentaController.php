@@ -11,6 +11,7 @@ use App\Modules\Ventas\Contracts\StockGateway;
 use App\Modules\Ventas\Enums\EstadoVenta;
 use App\Modules\Ventas\Services\CalculadoraVenta;
 use App\Modules\Ventas\Services\SaleCreationRequests;
+use App\Modules\Ventas\Services\SalePricePolicy;
 use App\Modules\Ventas\Services\StockDeliveryService;
 use App\Support\UsuarioActual;
 use Illuminate\Http\Request;
@@ -62,6 +63,8 @@ class VentaController extends Controller
             'request_key' => ['nullable', 'uuid'],
             'cliente_id' => ['required', 'integer'],
             'lista' => ['required', Rule::in(['minorista', 'mayorista'])],
+            'aplicar_precio_mayorista' => ['sometimes', 'boolean'],
+            'confirmar_bonificacion' => ['sometimes', 'boolean'],
             'observaciones' => ['nullable', 'string', 'max:150'],
             'items' => ['required', 'array', 'min:1', 'max:100'],
             'items.*.id' => ['required', 'integer', 'min:1'],
@@ -87,6 +90,7 @@ class VentaController extends Controller
             ]);
         }
         $catalogo = collect($todosLosProductos)->keyBy('id')->all();
+        app(SalePricePolicy::class)->validate($cliente, $datos['lista'], (bool) ($datos['aplicar_precio_mayorista'] ?? false));
         $observaciones = trim($datos['observaciones'] ?? '') ?: 'Venta POS a cuenta corriente';
 
         $resultado = DB::transaction(function () use ($request, $cliente, $catalogo, $datos, $observaciones, $requestKey): array {
@@ -97,7 +101,7 @@ class VentaController extends Controller
             }
             app(PromotionSaleService::class)->validate($datos['items'], $catalogo, $datos['lista'] === 'mayorista' ? 'precioMay' : 'precioMin');
             $calculo = app(CalculadoraVenta::class)->calcular(
-                $datos['items'], $catalogo, $datos['lista'], $datos['descuento_global'] ?? null);
+                $datos['items'], $catalogo, $datos['lista'], $datos['descuento_global'] ?? null, (bool) ($datos['confirmar_bonificacion'] ?? false));
             $detalles = $calculo['detalles'];
             $total = $calculo['total'];
             $montoDescuentoGlobal = $calculo['descuento_global'];
@@ -139,6 +143,15 @@ class VentaController extends Controller
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
+
+            if ($datos['confirmar_bonificacion'] ?? false) {
+                \App\Modules\Ventas\Models\VentaHistorial::create([
+                    'id_venta' => $ventaId, 'accion' => 'bonificacion', 'estado_anterior' => null,
+                    'estado_nuevo' => 'pendiente', 'motivo' => 'Bonificación confirmada expresamente por el operador.',
+                    'datos' => ['confirmar_bonificacion' => true, 'lista' => $datos['lista'], 'total' => $total],
+                    'id_usuario' => UsuarioActual::id($request),
+                ]);
+            }
 
             $cambiosStock = [];
             foreach ($cantidadesPorProducto as $idProducto => $cantidad) {

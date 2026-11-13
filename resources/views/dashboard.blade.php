@@ -7,6 +7,8 @@
     <link rel="stylesheet" href="{{ asset('assets/css/styles.css') }}">
     <link rel="stylesheet" href="{{ asset('css/modules.css') }}">
     <link rel="stylesheet" href="{{ asset('assets/css/navigation.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/accessibility.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/erp-theme.css') }}">
 </head>
 <body class="erp-body erp-shell">
     @include('partials.sidebar')

@@ -31,6 +31,8 @@ class ModificarVentaRequest extends VentaRequest
             // El cliente NO se puede cambiar: si vino, se rechaza con un mensaje claro.
             'cliente_id' => ['prohibited'],
             'lista' => ['required', Rule::in(['minorista', 'mayorista'])],
+            'aplicar_precio_mayorista' => ['sometimes', 'boolean'],
+            'confirmar_bonificacion' => ['sometimes', 'boolean'],
             'observaciones' => ['nullable', 'string', 'max:150'],
             'items' => ['required', 'array', 'min:1', 'max:100'],
             'items.*.id' => ['required', 'integer', 'min:1'],

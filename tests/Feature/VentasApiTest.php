@@ -80,6 +80,65 @@ class VentasApiTest extends TestCase
     // GET /api/ventas
     // =====================================================================
 
+    public function test_tarifa_mayorista_requiere_casilla_y_cliente_mayorista(): void
+    {
+        DB::table('clientes')->where('id', self::CLIENTE)->update(['tipo_cliente' => 'mayorista']);
+        $this->postJson('/api/ventas', $this->venta(['lista' => 'mayorista']))
+            ->assertUnprocessable()->assertJsonValidationErrors('aplicar_precio_mayorista');
+        $this->assertNadaGuardado();
+        DB::table('clientes')->where('id', self::CLIENTE)->update(['tipo_cliente' => 'minorista']);
+        $this->postJson('/api/ventas', $this->venta(['lista' => 'mayorista', 'aplicar_precio_mayorista' => true]))
+            ->assertUnprocessable()->assertJsonValidationErrors('lista');
+        $this->assertNadaGuardado();
+    }
+
+    public function test_cliente_mayorista_sin_casilla_conserva_precio_minorista(): void
+    {
+        DB::table('clientes')->where('id', self::CLIENTE)->update(['tipo_cliente' => 'mayorista']);
+        $this->postJson('/api/ventas', $this->venta(['items' => [
+            ['id' => 1, 'cantidad' => 1, 'descuento' => 0],
+            ['id' => 6, 'cantidad' => 1, 'descuento' => 0],
+            ['id' => 3, 'cantidad' => 1, 'descuento' => 0],
+        ]]))->assertCreated()->assertJsonPath('total', 7650);
+    }
+
+    public function test_regalo_exige_confirmacion_guarda_auditoria_y_no_duplica_por_reintento(): void
+    {
+        $body = $this->venta(['request_key' => (string) \Illuminate\Support\Str::uuid(),
+            'descuento_global' => ['modo' => 'porcentaje', 'valor' => 100]]);
+        $this->postJson('/api/ventas', $body)->assertUnprocessable()->assertJsonValidationErrors('confirmar_bonificacion');
+        $this->assertNadaGuardado();
+        $body['confirmar_bonificacion'] = true;
+        $this->postJson('/api/ventas', $body)->assertCreated()->assertJsonPath('total', 0);
+        $this->assertDatabaseHas('venta_historial', ['accion' => 'bonificacion', 'id_usuario' => auth()->id()]);
+        $this->assertDatabaseHas('cuenta_corriente_movimientos', ['importe' => 0]);
+        $this->postJson('/api/ventas', $body)->assertOk()->assertJsonPath('repetido', true);
+        $this->assertDatabaseCount('venta', 1);
+        $this->assertDatabaseCount('venta_historial', 1);
+        $this->assertDatabaseCount('g4_stock_operations', 1);
+    }
+
+    public function test_no_se_puede_regalar_una_linea_sin_confirmar_aunque_otras_se_cobren(): void
+    {
+        $this->postJson('/api/ventas', $this->venta(['items' => [
+            ['id' => 1, 'cantidad' => 1, 'descuento' => 2500],
+            ['id' => 6, 'cantidad' => 1, 'descuento' => 0],
+        ]]))->assertUnprocessable()->assertJsonValidationErrors('confirmar_bonificacion');
+        $this->assertNadaGuardado();
+    }
+
+    public function test_editar_una_venta_tambien_exige_confirmacion_del_regalo(): void
+    {
+        $id = $this->postJson('/api/ventas', $this->venta())->assertCreated()->json('venta_id');
+        $body = ['lista' => 'minorista', 'items' => [['id' => 1, 'cantidad' => 1, 'descuento' => 0]],
+            'descuento_global' => ['modo' => 'porcentaje', 'valor' => 100]];
+        $this->putJson('/api/ventas/'.$id, $body)->assertUnprocessable()->assertJsonValidationErrors('confirmar_bonificacion');
+        $this->assertDatabaseHas('venta', ['id_venta' => $id, 'total' => 2500]);
+        $this->putJson('/api/ventas/'.$id, [...$body, 'confirmar_bonificacion' => true])->assertOk()->assertJsonPath('data.total', 0);
+        $history = DB::table('venta_historial')->where('id_venta', $id)->where('accion', 'modificacion')->first();
+        $this->assertTrue(json_decode($history->datos, true)['confirmar_bonificacion']);
+    }
+
     public function test_index_sin_ventas_devuelve_lista_vacia(): void
     {
         $this->getJson('/api/ventas?page=1')
@@ -201,8 +260,10 @@ class VentasApiTest extends TestCase
 
     public function test_store_usa_precio_mayorista(): void
     {
+        DB::table('clientes')->where('id', self::CLIENTE)->update(['tipo_cliente' => 'mayorista']);
         $this->postJson('/api/ventas', $this->venta([
             'lista' => 'mayorista',
+            'aplicar_precio_mayorista' => true,
             'items' => [['id' => 3, 'cantidad' => 2, 'descuento' => 0]],
         ]))
             ->assertCreated()
@@ -273,9 +334,10 @@ class VentasApiTest extends TestCase
             ->assertJsonPath('total', 633.34);
     }
 
-    public function test_store_descuento_por_item_igual_al_precio_se_permite_si_el_total_es_positivo(): void
+    public function test_store_regalo_de_linea_con_confirmacion(): void
     {
         $this->postJson('/api/ventas', $this->venta([
+            'confirmar_bonificacion' => true,
             'items' => [
                 ['id' => 1, 'cantidad' => 1, 'descuento' => 2500], // regalo
                 ['id' => 6, 'cantidad' => 1, 'descuento' => 0],
@@ -364,9 +426,9 @@ class VentasApiTest extends TestCase
             'descuento_global sin valor' => [['descuento_global' => ['modo' => 'monto']], 'descuento_global.valor'],
             'descuento_global valor negativo' => [['descuento_global' => ['modo' => 'monto', 'valor' => -5]], 'descuento_global.valor'],
             'porcentaje > 100' => [['descuento_global' => ['modo' => 'porcentaje', 'valor' => 100.01]], 'descuento_global.valor'],
-            'porcentaje 100 deja total 0' => [['descuento_global' => ['modo' => 'porcentaje', 'valor' => 100]], 'items'],
-            'monto >= subtotal deja total 0' => [['descuento_global' => ['modo' => 'monto', 'valor' => 99999]], 'items'],
-            'descuento por item deja total 0' => [$item(['descuento' => 2500]), 'items'],
+            'porcentaje 100 sin confirmar' => [['descuento_global' => ['modo' => 'porcentaje', 'valor' => 100]], 'confirmar_bonificacion'],
+            'monto superior al subtotal' => [['descuento_global' => ['modo' => 'monto', 'valor' => 99999]], 'descuento_global.valor'],
+            'regalo por item sin confirmar' => [$item(['descuento' => 2500]), 'confirmar_bonificacion'],
         ];
     }
 
@@ -386,9 +448,11 @@ class VentasApiTest extends TestCase
 
     public function test_store_descuento_valida_contra_precio_de_la_lista_elegida(): void
     {
+        DB::table('clientes')->where('id', self::CLIENTE)->update(['tipo_cliente' => 'mayorista']);
         // 2300 es válido en minorista (2500) pero supera el mayorista (2200).
         $this->postJson('/api/ventas', $this->venta([
             'lista' => 'mayorista',
+            'aplicar_precio_mayorista' => true,
             'items' => [['id' => 1, 'cantidad' => 1, 'descuento' => 2300]],
         ]))->assertJsonValidationErrors('items.0.descuento');
 

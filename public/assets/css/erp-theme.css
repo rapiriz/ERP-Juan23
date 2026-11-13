@@ -1,12 +1,100 @@
-/* Lenguaje visual compartido por las pantallas internas de todos los módulos. */
-.erp-shell { --erp-primary:#075bdd; --erp-ink:#12345b; --erp-background:#f4ecda; --erp-surface:#fffaf0; --bg:#f4ecda; --surface:#fffaf0; --surface-muted:#faf4e8; --text:#12345b; --muted:#526b85; --primary:#075bdd; --border:#dfcdb1; font-family:Arial,Helvetica,sans-serif; color:var(--erp-ink); background:var(--erp-background); }
-.erp-shell .erp-workspace, .erp-shell .app-workspace { background:var(--erp-background); }
-.erp-shell main h1, .erp-shell main h2, .erp-shell main h3 { color:var(--erp-ink); }
-.erp-shell main input:not([type="checkbox"]):not([type="radio"]), .erp-shell main select, .erp-shell main textarea { border-color:#dfcdb1; border-radius:8px; background-color:#fffdf8; color:var(--erp-ink); }
-.erp-shell main button, .erp-shell main .button { border-radius:8px; }
-.erp-shell main .bg-white { background-color:var(--erp-surface); }
-.erp-shell :is(.clay-btn-primary,.button-primary,.btn-primary) { background:var(--erp-primary); color:#fff; border-color:var(--erp-primary); }
-.erp-shell :is(.section-block,.clay-card,.card) { border-color:var(--border); border-radius:12px; background-color:var(--erp-surface); }
-.erp-shell main table { border-color:#dfcdb1; }
-.erp-shell .clay-modal-backdrop.hidden, .erp-shell [role="dialog"].hidden { display:none!important; }
-@media (prefers-reduced-motion:reduce) { .erp-shell * { scroll-behavior:auto!important; } }
+/* Tema común: celeste, superficies blancas y acciones azules. Cargar al final.
+   No controla la apertura/cierre de los modales de cada módulo. */
+:is(.erp-shell, .erp-public-theme) {
+    --erp-primary: #0866e8; --erp-ink: #1e293b; --erp-background: #ebf4fc; --erp-surface: #fff;
+    --bg: #ebf4fc; --bg-app: #ebf4fc; --bg-general: #ebf4fc; --bg-main: #ebf4fc;
+    --bg-surface: #f5f9fd; --surface: #fff; --surface-muted: #f5f8fc;
+    --card-bg: #fff; --card-bg-solid: #fff;
+    --text: #1e293b; --text-main: #1e293b; --text-body: #334155; --muted: #64748b; --text-muted: #64748b;
+    --primary: #0866e8; --primary-strong: #0553c2; --primary-hover: #0553c2; --primary-soft: #e8f1ff;
+    --brand-blue: #0866e8; --brand-blue-dark: #0553c2; --primary-blue: #0866e8; --clay-primary: #0866e8;
+    --border: #dce6f0; --border-light: #e8eef5; --shadow: 0 3px 14px #25466d0a;
+    --shadow-clay: var(--shadow); --shadow-clay-sm: var(--shadow); --shadow-card-hover: 0 5px 18px #25466d10;
+    --shadow-clay-btn: 0 2px 5px #0866e820; --radius-lg: 18px; --radius-xl: 20px;
+    font-family: Arial, Helvetica, sans-serif;
+    color: var(--erp-ink); background: var(--erp-background); -webkit-font-smoothing: antialiased;
+}
+.erp-shell :is(.erp-workspace, .app-workspace, .g2-page, .g2-content) { background: var(--erp-background); color: var(--erp-ink); font-family: inherit; }
+.erp-shell :is(.layout, .erp-main) { max-width: 1440px; }
+.erp-shell main :is(h1, h2, h3) { color: var(--erp-ink); letter-spacing: -.02em; }
+.erp-shell main h1 { font-size: clamp(1.55rem, 2vw, 2rem); }
+.erp-shell main :is(.page-heading, .erp-heading, .page-header) { margin-bottom: 24px; }
+.erp-shell main :is(input, select, textarea, button) { font-family: inherit; }
+.erp-shell main :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), select, textarea),
+.erp-shell :is(.modal-content, .modal-card, .modal-desc, .clay-modal, .movimiento-dialog) :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
+    border: 1px solid var(--border); border-radius: 10px; background-color: #fff; color: var(--erp-ink); box-shadow: none;
+}
+.erp-shell :is(input[type="checkbox"], input[type="radio"]) { accent-color: var(--primary); }
+.erp-shell main :is(.section-block, .clay-card, .card, .form-panel, .action-panel, .search-panel, .toolbar-form,
+    .table-panel, .report-card, .kpi-card, .metric-card, .client-card, .summary-card) {
+    background: var(--erp-surface); border: 1px solid var(--border); border-radius: 18px;
+    box-shadow: var(--shadow); backdrop-filter: none;
+}
+.erp-shell main :is(.clay-card, .report-card):hover { transform: none; }
+.erp-shell main .bg-white { background-color: var(--erp-surface); }
+.erp-shell main input.pl-10 { padding-left: 2.5rem; }
+.erp-shell :is(.button, .btn, .clay-btn, .clay-btn-primary, .clay-btn-secondary, .btn-action,
+    .btn-aplicar, .btn-cancelar, .btn-guardar, .btn-eliminar) {
+    border-radius: 9px; font-family: inherit; font-weight: 600; box-shadow: none; text-shadow: none;
+}
+.erp-shell :is(.button-primary, .btn-primary, .clay-btn-primary, .btn-aplicar, .btn-guardar, .btn-edit, .btn-cart) {
+    background: var(--primary); color: #fff; border-color: var(--primary); box-shadow: 0 2px 5px #0866e81a;
+}
+.erp-shell :is(.button-primary, .btn-primary, .clay-btn-primary, .btn-aplicar, .btn-guardar):hover { background: var(--primary-strong); filter: none; transform: none; }
+.erp-shell :is(.button-secondary, .btn-secondary, .clay-btn-secondary, .btn-cancelar) { background: #fff; color: #334155; border: 1px solid var(--border); }
+.erp-shell :is(.button-danger, .btn-danger, .clay-btn-danger, .btn-eliminar, .btn-delete) { background: #dc3545; border-color: #dc3545; color: #fff; }
+.erp-shell :is(button, .button):disabled { opacity: .5; cursor: not-allowed; }
+.erp-shell main :is(table, .clay-table, .table-custom) { border-color: var(--border); }
+.erp-shell main :is(th, .hv-tabla-header, .carrito-header) { background: #f7fafd; color: #63748a; font-size: .72rem; font-weight: 700; letter-spacing: .025em; text-transform: uppercase; border-color: var(--border); }
+.erp-shell main :is(th, td) { padding: .85rem 1rem; font-family: Arial, Helvetica, sans-serif; overflow-wrap: normal; }
+.erp-shell main th { white-space: nowrap; }
+.erp-shell main .table-scroll > table { min-width: 760px; }
+.erp-shell main .table-panel[aria-label="Listado de clientes"] table { min-width: 1060px; }
+.erp-shell main .type-badge { white-space: nowrap; }
+.erp-shell main td { border-color: var(--border-light); }
+.erp-shell main tbody tr:hover { background-color: #f2f7ff; }
+.erp-shell main :is(.table-scroll, .table-responsive) { overflow-x: auto; }
+.erp-shell main :is(.hv-row.abierta, .hv-row:hover, .promo-row.row-selected) { background: #edf5ff; }
+.erp-shell main .hv-detalle { background: #f5f9fd; border-top-color: var(--border); }
+.erp-shell main .hv-detalle-tabla { background: #fff; border-radius: 12px; overflow: hidden; }
+.erp-shell main .hv-detalle-acciones { flex-wrap: wrap; gap: 8px; }
+.erp-shell main :is(.hv-row, .hv-tabla-header) { grid-template-columns: minmax(170px, 1.35fr) 100px minmax(120px, 1fr) minmax(110px, 1fr) 110px 125px 105px 40px; }
+.erp-shell main :is(.hv-tabla-header, .hv-grupo) { min-width: 1030px; }
+.erp-shell main .hv-tabla { overflow: auto; }
+.erp-shell main .hv-tabla-body { overflow: visible; }
+.erp-shell :is(.modal-content, .modal-card, .modal-desc, .clay-modal-content, .movimiento-dialog) { background: #fff; color: var(--text); border: 1px solid var(--border); border-radius: 20px; box-shadow: 0 22px 60px #172d4b30; }
+.erp-shell :is(.modal-header, .modal-footer, .modal-desc-header, .modal-desc-footer) { border-color: var(--border); }
+.erp-shell :is(.alert, .alerta) { border-radius: 12px; }
+.erp-shell .clay-header { background: #fff; color: var(--text); border: 1px solid var(--border); }
+.erp-shell .clay-title { color: var(--text); text-shadow: none; }
+.erp-shell :is(.module-tabs, .tab-bar) { background: #f6faff; border-color: var(--border); border-radius: 12px; }
+.erp-shell :is(.module-tabs, .tab-bar) > :is(a, button) { border-radius: 9px; }
+.erp-shell .erp-toolbar { background: #fff; border-bottom-color: var(--border); }
+.erp-shell .erp-toolbar .erp-icon-button { background: #fff; border-color: var(--border); border-radius: 10px; color: var(--primary); }
+.erp-shell .erp-sidebar { box-shadow: 2px 0 12px #234f8d0c; }
+.erp-shell .venta-feedback { border-radius: 12px; }
+.erp-shell .lista-mayorista { display: grid; gap: 6px; padding: 14px; border: 1px solid var(--border); border-radius: 12px; background: #f5f9fd; }
+.erp-shell .lista-mayorista label { display: flex; align-items: center; gap: 9px; cursor: pointer; font-weight: 600; }
+.erp-shell .lista-mayorista input { width: 18px; height: 18px; min-height: 0; }
+.erp-shell .lista-mayorista small { font-size: .8rem; color: var(--muted); }
+.erp-gift-dialog { max-width: min(560px, calc(100vw - 32px)); padding: 32px; border: 1px solid #fecaca; border-radius: 20px; background: #fff; color: #1e293b; box-shadow: 0 24px 80px #172d4b40; }
+.erp-gift-dialog::backdrop { background: #0f172a99; }
+.erp-gift-dialog h2 { margin: 0 0 16px; font-size: 1.8rem; line-height: 1.2; color: #b42318; }
+.erp-gift-dialog p { line-height: 1.6; }
+.erp-gift-dialog .gift-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 12px; margin-top: 24px; }
+.erp-gift-dialog .gift-actions button { min-height: 44px; padding: 10px 18px; border-radius: 10px; border: 1px solid #dce6f0; font: inherit; font-weight: 600; cursor: pointer; }
+.erp-gift-dialog [data-gift-accept] { background: #b42318; border-color: #b42318; color: #fff; }
+.erp-shell .clay-modal-backdrop.hidden, .erp-shell [role="dialog"].hidden { display: none !important; }
+.erp-public-theme.catalogo-page { --cat-cream: #ebf4fc; --cat-ink: #1e293b; --cat-navy: #1e3a5f; --cat-blue: #0866e8; background: #ebf4fc; }
+.erp-public-theme :is(.cat-header, .cat-sidebar, .cat-card, .cat-detail, .cat-detail-info, .cat-empty, .cat-art-package) { background: #fff; border-color: #dce6f0; }
+.erp-public-theme :is(.cat-card, .cat-sidebar, .cat-empty) { border-radius: 18px; box-shadow: 0 3px 14px #25466d0a; }
+.erp-public-theme :is(.cat-results-summary, .cat-card-footer, .cat-footer, .cat-sidebar-note) { border-color: #dce6f0; }
+.erp-public-theme .auth-card { border-radius: 20px; border-color: var(--border); box-shadow: var(--shadow); }
+@media (max-width: 720px) {
+    .erp-shell :is(.layout, .erp-main) { width: calc(100% - 24px); padding-block: 24px; }
+    .erp-shell main :is(.heading-with-actions, .erp-heading, .page-header) { flex-wrap: wrap; gap: 14px; }
+    .erp-shell main :is(.hv-filtros-grid, .hv-resumen) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .erp-shell main :is(th, td) { padding: .7rem .75rem; }
+    .erp-gift-dialog { padding: 24px; }
+}
+@media (prefers-reduced-motion: reduce) { .erp-shell * { scroll-behavior: auto !important; } }

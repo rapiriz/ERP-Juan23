@@ -9,7 +9,7 @@
 @if(!in_array($order->estado,['convertido','rechazado']))
 <form class="section-block form-grid" method="post" action="{{ route('catalogo.orders.review',$order->id) }}">@csrf
 <div><label for="order-client">Ficha del cliente verificado</label><select id="order-client" name="cliente_id"><option value="">Seleccioná para convertir</option>@foreach($clients as $client)<option value="{{ $client->id }}">{{ $client->nombre }} {{ $client->apellido_razon_social }} · {{ $client->dni_cuit }}</option>@endforeach</select></div>
-<div><label for="order-list">Lista de precios vigente</label><select id="order-list" name="lista"><option value="mayorista">Mayorista</option><option value="minorista">Minorista</option></select></div>
+<div><label for="order-list">Lista de precios vigente</label><select id="order-list" name="lista"><option value="minorista">Minorista</option><option value="mayorista">Mayorista (sólo para clientes mayoristas)</option></select></div>
 <div><label for="order-note">Nota de revisión / motivo del rechazo</label><textarea id="order-note" name="nota" maxlength="2000"></textarea></div>
 <label><input type="checkbox" name="confirmar_revision" value="1"> Verifiqué la identidad, las cantidades y la lista. Acepto recalcular con precios vigentes al convertir a venta.</label>
 <div class="form-actions"><button class="button button-secondary" name="accion" value="revisar">Marcar en revisión</button><button class="button button-secondary" name="accion" value="rechazar">Rechazar</button><button class="button button-primary" name="accion" value="convertir">Convertir a venta</button></div>

@@ -204,7 +204,7 @@ class CatalogLotsAndOrdersMySqlTest extends TestCase
         app(CatalogOrderService::class)->submit($this->order());
         $id = DB::table('g1_catalog_orders')->value('id');
         $this->postJson('/pedidos-catalogo/'.$id.'/revisar', ['accion' => 'revisar'])->assertOk()->assertJsonPath('data.estado', 'en_revision');
-        $client = Cliente::factory()->create(['creado_por' => $this->actor->id]);
+        $client = Cliente::factory()->create(['creado_por' => $this->actor->id, 'tipo_cliente' => 'mayorista']);
         $input = ['accion' => 'convertir', 'cliente_id' => $client->id, 'lista' => 'mayorista', 'confirmar_revision' => true];
         $response = $this->postJson('/pedidos-catalogo/'.$id.'/revisar', $input)->assertOk();
         $this->assertNotNull($response->json('data.venta_id'));

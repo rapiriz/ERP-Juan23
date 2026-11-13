@@ -57,6 +57,7 @@ class VentaResource extends JsonResource
                 'nombre' => $cliente['nombre'] ?? "Cliente #{$this->id_cliente}",
                 'cuit' => $cliente['cuit'] ?? null,
                 'zona_id' => $cliente['zona_id'] ?? null,
+                'tipo_cliente' => app(\App\Modules\Ventas\Services\SalePricePolicy::class)->customerType($cliente ?? ['id' => $this->id_cliente]),
             ],
             'usuario' => [
                 'id' => (int) $this->id_usuario,

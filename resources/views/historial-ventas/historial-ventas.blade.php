@@ -563,6 +563,7 @@
 @endsection
 
 @push('scripts')
+<script src="{{ asset('assets/js/sale-confirmation.js') }}"></script>
 <script>
     // ---------- BOTONES DE PRUEBA: modificar / eliminar / restaurar / cambiar estado ----------
     // Llaman a la API de app/Modules/Ventas/Controllers/VentaApiController.php (ver docs/VENTAS-BACKEND.md).
@@ -621,7 +622,8 @@
 
         // La venta no guarda la lista de precios: se deduce del precio del primer producto.
         const primero = venta.detalles[0];
-        const lista = primero && porId[primero.id_producto]
+        const esMayorista = venta.cliente.tipo_cliente === 'mayorista';
+        const lista = esMayorista && primero && porId[primero.id_producto]
             && Number(primero.precio_unitario) === Number(porId[primero.id_producto].precioMay)
             && porId[primero.id_producto].precioMay !== porId[primero.id_producto].precioMin
             ? 'mayorista' : 'minorista';
@@ -665,12 +667,9 @@
                 <section class="hv-editor" aria-label="Editar venta #${venta.id}">
                     <header class="hv-editor-header">
                         <h3 class="hv-editor-title">Modificar venta #${venta.id}</h3>
-                        <label class="hv-editor-label">
-                            Lista de precios
-                            <select class="hv-editor-input" data-campo="lista">
-                        <option value="minorista" ${editor.lista === 'minorista' ? 'selected' : ''}>Minorista</option>
-                        <option value="mayorista" ${editor.lista === 'mayorista' ? 'selected' : ''}>Mayorista</option>
-                            </select>
+                        <label class="hv-editor-label lista-mayorista">
+                            <span><input type="checkbox" data-campo="lista" ${editor.lista === 'mayorista' ? 'checked' : ''} ${esMayorista ? '' : 'disabled'}> Aplicar precio mayorista</span>
+                            <small>${esMayorista ? 'Sin marcar se utiliza la tarifa minorista.' : 'Cliente minorista: tarifa minorista.'}</small>
                         </label>
                     </header>
                     <div class="hv-editor-tabla-wrap">
@@ -712,7 +711,7 @@
         contenedor.onchange = e => {
             const campo = e.target.dataset.campo;
             if (!campo) return;
-            if (campo === 'lista') editor.lista = e.target.value;
+            if (campo === 'lista') editor.lista = e.target.checked && esMayorista ? 'mayorista' : 'minorista';
             if (campo === 'descuentoGlobal') editor.descuentoGlobal = Number(e.target.value) || 0;
             if (campo === 'cantidad' || campo === 'descuento') {
                 editor.items[e.target.dataset.i][campo] = Number(e.target.value) || 0;
@@ -744,7 +743,14 @@
             }
 
             if (t.hasAttribute('data-guardar')) {
-                const cuerpo = { lista: editor.lista, items: editor.items };
+                const subtotal = editor.items.reduce((s, it) => s + it.cantidad * (precio(it.id) - it.descuento), 0);
+                if (Number(editor.descuentoGlobal) > subtotal || editor.items.some(it => it.descuento > precio(it.id))) {
+                    alert('El descuento no puede superar el importe al que se aplica.');
+                    return;
+                }
+                const regalo = subtotal - Number(editor.descuentoGlobal || 0) === 0 || editor.items.some(it => it.descuento === precio(it.id));
+                if (regalo && !await window.erpSales.confirmGift()) return;
+                const cuerpo = { lista: editor.lista, aplicar_precio_mayorista: editor.lista === 'mayorista', confirmar_bonificacion: regalo, items: editor.items };
                 if (Number(editor.descuentoGlobal) > 0) {
                     cuerpo.descuento_global = { modo: 'monto', valor: Number(editor.descuentoGlobal) };
                 }

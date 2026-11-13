@@ -5,8 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Nueva contraseña | Sistema de gestión</title>
     <link rel="stylesheet" href="{{ asset('assets/css/styles.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/erp-theme.css') }}">
 </head>
-<body class="auth-page">
+<body class="auth-page erp-public-theme">
     <main class="auth-shell">
         <section class="auth-card" aria-labelledby="reset-title">
             <div class="brand-block">

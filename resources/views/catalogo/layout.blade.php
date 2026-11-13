@@ -9,8 +9,9 @@
     <link rel="stylesheet" href="{{ asset('assets/css/styles.css') }}">
     <link rel="stylesheet" href="{{ asset('assets/css/catalogo.css') }}">
 <link rel="stylesheet" href="{{ asset('assets/css/accessibility.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/erp-theme.css') }}">
 </head>
-<body class="catalogo-page">
+<body class="catalogo-page erp-public-theme">
     <a class="cat-skip" href="#catalogo-main">Saltar al contenido</a>
     <div class="cat-announcement"><span>Tu próxima compra empieza acá.</span><span>Catálogo de consulta · Sin registro</span></div>
     <header class="cat-header">

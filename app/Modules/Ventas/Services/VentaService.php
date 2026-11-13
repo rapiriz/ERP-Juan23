@@ -126,8 +126,9 @@ class VentaService
             $log?->ok("Estado \"{$estado->value}\": se puede modificar.");
 
             $log?->paso('Calcular el nuevo total', 'Se recalcula con los precios del servidor (CalculadoraVenta), igual que al crear la venta.');
+            app(SalePricePolicy::class)->validate(['id' => $clientId], $datos['lista'], (bool) ($datos['aplicar_precio_mayorista'] ?? false));
             app(PromotionSaleService::class)->validate($datos['items'], $catalogo, $datos['lista'] === 'mayorista' ? 'precioMay' : 'precioMin');
-            $calculo = $this->calculadora->calcular($datos['items'], $catalogo, $datos['lista'], $datos['descuento_global'] ?? null);
+            $calculo = $this->calculadora->calcular($datos['items'], $catalogo, $datos['lista'], $datos['descuento_global'] ?? null, (bool) ($datos['confirmar_bonificacion'] ?? false));
             $totalAnterior = (float) $venta->total;
             $log?->ok('Total anterior: '.VentaLogger::pesos($totalAnterior).' → total nuevo: '.VentaLogger::pesos($calculo['total']));
 
@@ -158,6 +159,8 @@ class VentaService
             $this->registrarHistorial($venta, VentaHistorial::MODIFICACION, $estado->value, $estado->value, null, [
                 'total_anterior' => $totalAnterior,
                 'total_nuevo' => $calculo['total'],
+                'lista' => $datos['lista'],
+                'confirmar_bonificacion' => (bool) ($datos['confirmar_bonificacion'] ?? false),
             ]);
             $log?->ok('Historial guardado.');
 

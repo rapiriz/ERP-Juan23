@@ -21,8 +21,8 @@ use Illuminate\Validation\ValidationException;
  *  - El descuento por producto es en $ por unidad y no puede superar el precio.
  *  - El descuento global se aplica DESPUÉS de los descuentos por producto:
  *      porcentaje → entre 0 y 100.
- *      monto      → si es mayor al subtotal se recorta al subtotal.
- *  - El total tiene que ser mayor a cero.
+ *      monto      → no puede superar el subtotal.
+ *  - Una bonificación completa exige confirmación explícita del operador.
  * Si algo no cumple, lanza ValidationException → Laravel responde 422.
  */
 class CalculadoraVenta
@@ -34,7 +34,7 @@ class CalculadoraVenta
      * @param  array|null  $descuentoGlobal  ['modo' => 'porcentaje'|'monto', 'valor' => 10] o null
      * @return array{detalles: list<array>, subtotal: float, descuento_global: float, total: float}
      */
-    public function calcular(array $items, array $catalogo, string $lista, ?array $descuentoGlobal): array
+    public function calcular(array $items, array $catalogo, string $lista, ?array $descuentoGlobal, bool $confirmarBonificacion = false): array
     {
         if (! in_array($lista, ['minorista', 'mayorista'], true)) {
             throw ValidationException::withMessages(['lista' => 'Lista de precios inválida.']);
@@ -101,6 +101,10 @@ class CalculadoraVenta
             ]);
         }
 
+        if ($modo === 'monto' && round($valor, 2) > $subtotal) {
+            throw ValidationException::withMessages(['descuento_global.valor' => 'El descuento no puede superar el subtotal.']);
+        }
+
         // Se pasa el descuento global a pesos.
         $montoDescuentoGlobal = $modo === 'porcentaje'
             ? round($subtotal * $valor / 100, 2)
@@ -112,9 +116,14 @@ class CalculadoraVenta
         if ($total > 9999999999.99 || collect($detalles)->contains(fn ($d) => $d['subtotal'] > 9999999999.99)) {
             throw ValidationException::withMessages(['items' => 'El importe excede la capacidad monetaria del sistema.']);
         }
-        if ($total <= 0) {
+        if ($total < 0) {
             throw ValidationException::withMessages([
-                'items' => ['La venta debe tener un total mayor a cero.'],
+                'items' => ['El total de la venta no puede ser negativo.'],
+            ]);
+        }
+        if (! $confirmarBonificacion && ($total === 0.0 || collect($detalles)->contains(fn ($d) => $d['subtotal'] === 0.0))) {
+            throw ValidationException::withMessages([
+                'confirmar_bonificacion' => 'Estás regalando productos. Confirmá expresamente la bonificación del 100% para continuar.',
             ]);
         }
 
