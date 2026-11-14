@@ -152,6 +152,9 @@ class RendicionesEndpointsTest extends TestCase
             'estado' => 'aprobada',
         ]);
 
+        $this->getJson('/api/v1/rendiciones')->assertUnauthorized();
+
+        $this->autenticarComo(UserRole::ADMINISTRATIVO);
         $res = $this->getJson('/api/v1/rendiciones');
         $res->assertOk();
         $res->assertJsonStructure(['data', 'meta' => ['current_page', 'last_page', 'total']]);

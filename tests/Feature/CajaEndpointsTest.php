@@ -425,7 +425,7 @@ class CajaEndpointsTest extends TestCase
         $this->cargarMovimientosDelDia();
 
         $respuesta = $this->conTokenDeServicio()->getJson('/api/v1/caja/2026-11-03')->assertOk();
-        $json = $respuesta->json();
+        $json = $respuesta->json('data');
 
         $this->assertSame('2026-11-03', $json['fecha']);
         $this->assertEquals(500, $json['ingresos']);
@@ -445,7 +445,7 @@ class CajaEndpointsTest extends TestCase
 
     public function test_api_v1_caja_diaria_de_un_dia_sin_movimientos_devuelve_ceros(): void
     {
-        $json = $this->conTokenDeServicio()->getJson('/api/v1/caja/2026-12-31')->assertOk()->json();
+        $json = $this->conTokenDeServicio()->getJson('/api/v1/caja/2026-12-31')->assertOk()->json('data');
 
         $this->assertEquals(0, $json['ingresos']);
         $this->assertEquals(0, $json['egresos']);
