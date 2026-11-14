@@ -20,6 +20,7 @@ use Illuminate\Support\Facades\Schema;
  *
  * En SQLite (tests) no hace nada: ahí la columna es texto libre.
  */
+
 return new class extends Migration
 {
     public function up(): void
