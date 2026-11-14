@@ -255,10 +255,30 @@ class EntregaService
         }
 
         $montoEfectivo = $montoCobrado ?? $totalPedido;
+        $idRepartidor = (int) ($entrega['id_repartidor'] ?? $idUsuarioAuditoria);
 
         DB::beginTransaction();
         try {
             $this->entregaRepo->marcarPedidoComoEntregado($idEntrega, $idVenta, $observaciones, $medioPago, $montoEfectivo);
+
+            if (
+                $medioPago === 'efectivo'
+                && $montoEfectivo > 0
+                && \Illuminate\Support\Facades\Schema::hasTable('CAJA')
+            ) {
+                $cajaService = app(\App\Modules\Caja\Services\CajaService::class);
+                $resCaja = $cajaService->registrarCobroEnEfectivo(
+                    $idRepartidor,
+                    \App\Modules\Caja\Models\Caja::ROL_REPARTIDOR,
+                    (float) $montoEfectivo,
+                    "Cobro en entrega #{$idEntrega} - Pedido #{$idVenta}",
+                    null
+                );
+                if (is_array($resCaja) && !empty($resCaja['error'])) {
+                    throw new Exception($resCaja['mensaje'] ?? 'No tenés una caja abierta. Abrila antes de registrar el cobro.');
+                }
+            }
+
             DB::commit();
 
             // 2. Precargar automáticamente la rendición en estado 'pendiente' para administración

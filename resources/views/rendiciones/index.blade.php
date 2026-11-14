@@ -93,7 +93,7 @@
 </style>
 @endpush
 @section('content')
-<div class="g2-page" data-g2-role="{{ \App\Modules\Shared\Auth\G2Identity::role() }}">
+<div class="g2-page" data-g2-role="{{ \App\Modules\Shared\Auth\G2Identity::role() }}" data-g2-user-id="{{ \App\Modules\Shared\Auth\G2Identity::id() }}">
 <div class="g2-content">
 
         <!-- ENCABEZADO -->
@@ -318,10 +318,17 @@
                         <label for="formRepartidor" class="form-label">
                             Chofer Repartidor <span class="required" aria-hidden="true">*</span>
                         </label>
-                        <select id="formRepartidor" class="clay-select" required aria-required="true"><option value="">Seleccionar repartidor</option>
+                        @php
+                            $esAdminRend = \App\Modules\Shared\Auth\G2Identity::role() === 'admin';
+                            $idUsuarioActualRend = \App\Modules\Shared\Auth\G2Identity::id();
+                        @endphp
+                        <select id="formRepartidor" class="clay-select" required aria-required="true" {{ $esAdminRend ? '' : 'disabled' }}>
+@if ($esAdminRend)
+    <option value="">Seleccionar repartidor</option>
+@endif
 @foreach (\App\Modules\Shared\Services\UsuarioService::obtenerRepartidores() as $driver)
-    @if (\App\Modules\Shared\Auth\G2Identity::role() === 'admin' || $driver['id_usuario'] === \App\Modules\Shared\Auth\G2Identity::id())
-        <option value="{{ $driver['id_usuario'] }}">{{ $driver['nombre'] }}</option>
+    @if ($esAdminRend || $driver['id_usuario'] === $idUsuarioActualRend)
+        <option value="{{ $driver['id_usuario'] }}" {{ !$esAdminRend && $driver['id_usuario'] === $idUsuarioActualRend ? 'selected' : '' }}>{{ $driver['nombre'] }}</option>
     @endif
 @endforeach</select>
                     </div>

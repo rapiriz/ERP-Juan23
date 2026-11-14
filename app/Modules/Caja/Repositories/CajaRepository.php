@@ -37,6 +37,20 @@ class CajaRepository
     }
 
     /**
+     * Busca la caja abierta del usuario; si no tiene ninguna abierta,
+     * devuelve su última caja registrada (cerrada del día o más reciente).
+     */
+    public function buscarUltimaDeUsuario(int $idUsuario): ?Caja
+    {
+        return Caja::with('movimientos')
+            ->where('id_usuario', $idUsuario)
+            ->orderByRaw('CASE WHEN estado = ? THEN 0 ELSE 1 END', [Caja::ESTADO_ABIERTA])
+            ->orderByDesc('fecha')
+            ->orderByDesc('id_caja')
+            ->first();
+    }
+
+    /**
      * Puede haber varias cajas del mismo usuario el mismo dia (una se cierra
      * y se abre otra), por eso devuelve una lista.
      */

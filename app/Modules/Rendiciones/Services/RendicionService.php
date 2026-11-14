@@ -219,14 +219,37 @@ class RendicionService
             throw new InvalidArgumentException($resultadoValidacion['mensaje']);
         }
 
-        $cobro = $this->repository->agregarCobro($idRendicion, [
-            'id_cliente' => (int) $datos['id_cliente'],
-            'id_factura' => (int) $datos['id_factura'],
-            'monto'      => (float) $datos['monto'],
-            'medio_pago' => strtolower(trim($datos['medio_pago'])),
-        ]);
+        $medioPagoNorm = strtolower(trim($datos['medio_pago']));
+        $montoCobro = (float) $datos['monto'];
 
-        return $cobro->toArray();
+        return DB::transaction(function () use ($idRendicion, $rendicion, $datos, $medioPagoNorm, $montoCobro) {
+            if (
+                $medioPagoNorm === 'efectivo'
+                && $montoCobro > 0
+                && \Illuminate\Support\Facades\Schema::hasTable('CAJA')
+            ) {
+                $cajaService = app(\App\Modules\Caja\Services\CajaService::class);
+                $resCaja = $cajaService->registrarCobroEnEfectivo(
+                    (int) $rendicion->id_repartidor,
+                    \App\Modules\Caja\Models\Caja::ROL_REPARTIDOR,
+                    $montoCobro,
+                    "Cobro en Rendición #{$idRendicion}",
+                    null
+                );
+                if (is_array($resCaja) && !empty($resCaja['error'])) {
+                    throw new InvalidArgumentException($resCaja['mensaje'] ?? 'No tenés una caja abierta. Abrila antes de registrar el cobro.');
+                }
+            }
+
+            $cobro = $this->repository->agregarCobro($idRendicion, [
+                'id_cliente' => (int) $datos['id_cliente'],
+                'id_factura' => (int) $datos['id_factura'],
+                'monto'      => $montoCobro,
+                'medio_pago' => $medioPagoNorm,
+            ]);
+
+            return $cobro->toArray();
+        });
     }
 
     // -------------------------------------------------------------------------
@@ -357,6 +380,17 @@ class RendicionService
                             && \Illuminate\Support\Facades\Schema::hasTable('CAJA')
                         ) {
                             $cajaService = app(\App\Modules\Caja\Services\CajaService::class);
+
+                            // 1) Descontar de la caja del repartidor (abierta o última caja registrada)
+                            $cajaService->registrarEgresoPorRendicion(
+                                (int) $rendicion->id_repartidor,
+                                (float) $cobroItem->monto,
+                                "Entrega de efectivo por Rendición #{$rendicion->id_rendicion} - Cobro #{$cobroItem->id_rendicion_cobro}",
+                                (int) $cobroItem->id_rendicion_cobro,
+                                $idUsuarioValidador
+                            );
+
+                            // 2) Ingresar en la caja abierta del admin que aprueba la rendición
                             $resCaja = $cajaService->registrarCobroEnEfectivo(
                                 $idUsuarioValidador,
                                 \App\Modules\Caja\Models\Caja::ROL_ADMIN,
@@ -428,6 +462,13 @@ class RendicionService
                                 "Reversión por rechazo de Rendición #{$rendicion->id_rendicion} (Cobro #{$cobroItem->id_rendicion_cobro})",
                                 (int) $cobroItem->id_rendicion_cobro,
                                 \App\Modules\Caja\Models\CajaMovimiento::MEDIO_EFECTIVO
+                            );
+                            $cajaService->registrarIngresoPorReversionRendicion(
+                                (int) $rendicion->id_repartidor,
+                                (float) $cobroItem->monto,
+                                "Devolución por rechazo de Rendición #{$rendicion->id_rendicion} (Cobro #{$cobroItem->id_rendicion_cobro})",
+                                (int) $cobroItem->id_rendicion_cobro,
+                                $idUsuarioValidador
                             );
                         } catch (\Throwable $e) {
                             Log::info("No se requirió reversión inmediata en caja para cobro #{$cobroItem->id_rendicion_cobro}: " . $e->getMessage());

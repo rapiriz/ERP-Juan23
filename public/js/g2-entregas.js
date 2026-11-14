@@ -1,4 +1,7 @@
-const g2Admin = document.querySelector('[data-g2-role]')?.dataset.g2Role === 'admin';
+const g2PageEl = document.querySelector('[data-g2-role]');
+const g2Admin = g2PageEl?.dataset.g2Role === 'admin';
+const g2UserId = g2PageEl?.dataset.g2UserId ?? '';
+const g2OrigenDistribuidora = g2PageEl?.dataset.g2Origen || 'Avenida Jose P. Casella 802, Pigüé, Provincia de Buenos Aires, Argentina';
 /**
  * LÓGICA FRONTEND: MÓDULO ENTREGAS (HU #1 y HU #2)
  * ERP DISTRIBUIDORA JUAN XXIII
@@ -15,11 +18,10 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('fechaSalida').value = hoy;
 
     // Cargar datos iniciales
-    if (!g2Admin) document.querySelector('section.clay-card')?.setAttribute('hidden', '');
     if (!g2Admin) document.getElementById('btnVentasG4')?.setAttribute('hidden', '');
     cargarZonas();
     cargarRepartidores();
-    if (g2Admin) cargarPedidosPendientes();
+    cargarPedidosPendientes();
     cargarEntregas();
 });
 
@@ -60,8 +62,12 @@ async function cargarRepartidores() {
                 select.appendChild(opt);
             });
 
-            // Si hay uno solo (ej. Matías), seleccionarlo automáticamente
-            if (json.data.length === 1) {
+            // Si es repartidor, fijar y bloquear la selección a su propio usuario
+            if (!g2Admin && g2UserId) {
+                select.value = g2UserId;
+                select.disabled = true;
+            } else if (json.data.length === 1) {
+                // Si hay uno solo (ej. Matías), seleccionarlo automáticamente
                 select.value = json.data[0].id_usuario;
             }
         }
@@ -295,10 +301,13 @@ async function armarEntrega(event) {
         showToast(json.mensaje, 'success');
 
         // Recargar pedidos pendientes y lista de entregas
-        if (g2Admin) cargarPedidosPendientes();
+        cargarPedidosPendientes();
         cargarEntregas();
         document.getElementById('formArmarEntrega').reset();
         document.getElementById('fechaSalida').value = new Date().toISOString().split('T')[0];
+        if (!g2Admin && g2UserId) {
+            document.getElementById('repartidorSelect').value = g2UserId;
+        }
 
         // Abrir automáticamente el primer remito generado para ver/imprimir (con selector si son varios)
         if (json.data && json.data.remitos && json.data.remitos.length > 0) {
@@ -384,6 +393,8 @@ async function abrirModalHojaRuta(idEntrega) {
         hrEstado.textContent = e.estado.replace('_', ' ').toUpperCase();
 
         const pedidos = e.pedidos || [];
+        window._hojaRutaActual = e;
+        window._hojaRutaPedidosOrdenados = [...pedidos];
         document.getElementById('hrTotalPedidos').textContent = `${pedidos.length} pedido(s)`;
 
         let totalBultos = 0;
@@ -396,58 +407,7 @@ async function abrirModalHojaRuta(idEntrega) {
             ? `${totalBultos} bultos (+${totalSueltos} sueltas)`
             : `${totalBultos} bultos`;
 
-        const tbody = document.getElementById('hrPedidosTableBody');
-        tbody.innerHTML = '';
-
-        if (pedidos.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-muted);">No hay pedidos asignados a este viaje.</td></tr>`;
-        } else {
-            window._pedidosHojaRuta = {};
-            pedidos.forEach(p => {
-                window._pedidosHojaRuta[`${e.id_entrega}_${p.id_venta}`] = p;
-                const tr = document.createElement('tr');
-                const esEntregado = (p.estado_pedido_entrega === 'entregado');
-                const badgeEstado = esEntregado
-                    ? `<span class="badge badge-entregada">Entregado</span>`
-                    : `<span class="badge badge-en_camino">En Reparto</span>`;
-
-                const cobroInfo = esEntregado && p.monto_cobrado !== null && p.monto_cobrado !== undefined
-                    ? `<br><small style="color: var(--text-muted); font-weight: 500;">$${Number(p.monto_cobrado).toLocaleString('es-AR', { minimumFractionDigits: 2 })} (${p.medio_pago || 'efectivo'})</small>`
-                    : '';
-
-                const btnConfirmar = esEntregado
-                    ? `<span style="color: var(--success); font-weight: 700; font-size: 0.88rem;">Completado${cobroInfo}</span>`
-                    : `<button class="clay-btn clay-btn-success" style="min-height: 32px; padding: 0.3rem 0.75rem; font-size: 0.88rem;" onclick="confirmarEntregaPedido(${e.id_entrega}, ${p.id_venta})" title="Confirmar entrega física realizada">
-                        Confirmar Entrega
-                       </button>`;
-
-                const btnRemito = p.id_remito
-                    ? `<button class="clay-btn clay-btn-secondary" style="min-height: 32px; padding: 0.3rem 0.75rem; font-size: 0.88rem;" onclick="verRemito(${p.id_remito})" title="Ver remito oficial">
-                        Remito
-                       </button>`
-                    : '';
-
-                const cargaPedido = parseInt(p.total_sueltos || 0) > 0
-                    ? `<span class="badge-bultos">${p.total_bultos} b</span> <span class="badge-sueltos">+${p.total_sueltos} s</span>`
-                    : `<span class="badge-bultos">${p.total_bultos} b</span>`;
-
-                tr.innerHTML = `
-                    <td><strong style="color: var(--primary);">#PED-${p.id_venta.toString().padStart(4, '0')}</strong></td>
-                    <td><strong>${p.cliente_nombre}</strong></td>
-                    <td>${p.direccion}, ${p.localidad} <span class="badge-zona">${p.zona_nombre}</span></td>
-                    <td style="text-align: center;">${cargaPedido}</td>
-                    <td style="text-align: right; font-weight: 700; color: #1E3A8A;">$${Number(p.total).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
-                    <td style="text-align: center;">${badgeEstado}</td>
-                    <td style="text-align: center;">
-                        <div style="display: flex; gap: 0.35rem; justify-content: center; align-items: center; flex-wrap: wrap;">
-                            ${btnConfirmar}
-                            ${btnRemito}
-                        </div>
-                    </td>
-                `;
-                tbody.appendChild(tr);
-            });
-        }
+        renderizarTablaHojaRuta();
 
         // Mostrar botón para iniciar rendición si todos los pedidos ya fueron entregados
         const todosEntregados = pedidos.length > 0 && pedidos.every(p => p.estado_pedido_entrega === 'entregado');
@@ -462,6 +422,169 @@ async function abrirModalHojaRuta(idEntrega) {
         console.error(err);
         showToast('Error de comunicación con el servidor.', 'error');
     }
+}
+
+function renderizarTablaHojaRuta() {
+    const e = window._hojaRutaActual;
+    const pedidos = window._hojaRutaPedidosOrdenados || [];
+    const tbody = document.getElementById('hrPedidosTableBody');
+    tbody.innerHTML = '';
+
+    if (!e || pedidos.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-muted);">No hay pedidos asignados a este viaje.</td></tr>`;
+        return;
+    }
+
+    window._pedidosHojaRuta = {};
+    pedidos.forEach((p, idx) => {
+        window._pedidosHojaRuta[`${e.id_entrega}_${p.id_venta}`] = p;
+        const tr = document.createElement('tr');
+        const esEntregado = (p.estado_pedido_entrega === 'entregado');
+        const badgeEstado = esEntregado
+            ? `<span class="badge badge-entregada">Entregado</span>`
+            : `<span class="badge badge-en_camino">En Reparto</span>`;
+
+        const cobroInfo = esEntregado && p.monto_cobrado !== null && p.monto_cobrado !== undefined
+            ? `<br><small style="color: var(--text-muted); font-weight: 500;">$${Number(p.monto_cobrado).toLocaleString('es-AR', { minimumFractionDigits: 2 })} (${p.medio_pago || 'efectivo'})</small>`
+            : '';
+
+        const btnConfirmar = esEntregado
+            ? `<span style="color: var(--success); font-weight: 700; font-size: 0.88rem;">Completado${cobroInfo}</span>`
+            : `<button class="clay-btn clay-btn-success" style="min-height: 32px; padding: 0.3rem 0.75rem; font-size: 0.88rem;" onclick="confirmarEntregaPedido(${e.id_entrega}, ${p.id_venta})" title="Confirmar entrega física realizada">
+                Confirmar Entrega
+               </button>`;
+
+        const btnRemito = p.id_remito
+            ? `<button class="clay-btn clay-btn-secondary" style="min-height: 32px; padding: 0.3rem 0.75rem; font-size: 0.88rem;" onclick="verRemito(${p.id_remito})" title="Ver remito oficial">
+                Remito
+               </button>`
+            : '';
+
+        const cargaPedido = parseInt(p.total_sueltos || 0) > 0
+            ? `<span class="badge-bultos">${p.total_bultos} b</span> <span class="badge-sueltos">+${p.total_sueltos} s</span>`
+            : `<span class="badge-bultos">${p.total_bultos} b</span>`;
+
+        const btnOrden = pedidos.length > 1
+            ? `<span style="display: inline-flex; flex-direction: column; gap: 2px; margin-right: 0.4rem; vertical-align: middle;">
+                <button type="button" class="clay-btn clay-btn-secondary" style="min-height: 18px; padding: 0 5px; font-size: 0.65rem; line-height: 1;" onclick="moverParadaHojaRuta(${idx}, -1)" ${idx === 0 ? 'disabled' : ''} title="Subir parada">▲</button>
+                <button type="button" class="clay-btn clay-btn-secondary" style="min-height: 18px; padding: 0 5px; font-size: 0.65rem; line-height: 1;" onclick="moverParadaHojaRuta(${idx}, 1)" ${idx === pedidos.length - 1 ? 'disabled' : ''} title="Bajar parada">▼</button>
+               </span>`
+            : '';
+
+        tr.innerHTML = `
+            <td>${btnOrden}<strong style="color: var(--primary);">#PED-${p.id_venta.toString().padStart(4, '0')}</strong></td>
+            <td><strong>${p.cliente_nombre}</strong></td>
+            <td>${p.direccion}, ${p.localidad} <span class="badge-zona">${p.zona_nombre}</span></td>
+            <td style="text-align: center;">${cargaPedido}</td>
+            <td style="text-align: right; font-weight: 700; color: #1E3A8A;">$${Number(p.total).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
+            <td style="text-align: center;">${badgeEstado}</td>
+            <td style="text-align: center;">
+                <div style="display: flex; gap: 0.35rem; justify-content: center; align-items: center; flex-wrap: wrap;">
+                    ${btnConfirmar}
+                    ${btnRemito}
+                </div>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function moverParadaHojaRuta(index, delta) {
+    const lista = window._hojaRutaPedidosOrdenados || [];
+    const nuevoIdx = index + delta;
+    if (nuevoIdx < 0 || nuevoIdx >= lista.length) return;
+    [lista[index], lista[nuevoIdx]] = [lista[nuevoIdx], lista[index]];
+    renderizarTablaHojaRuta();
+}
+
+function ordenarPedidosHojaRutaPorLocalidad() {
+    const lista = window._hojaRutaPedidosOrdenados || [];
+    if (lista.length <= 1) return;
+    lista.sort((a, b) => {
+        const locA = (a.localidad || '').localeCompare(b.localidad || '', 'es', { sensitivity: 'base' });
+        if (locA !== 0) return locA;
+        return (a.direccion || '').localeCompare(b.direccion || '', 'es', { sensitivity: 'base' });
+    });
+    renderizarTablaHojaRuta();
+    showToast('Paradas ordenadas por dirección/localidad.', 'info');
+}
+
+async function ordenarPedidosHojaRutaPorDistancia() {
+    if (!entregaActualId) return;
+    const btn = document.getElementById('btnOrdenarDistancia');
+    const textoOriginal = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span>Calculando distancias…</span>';
+    }
+
+    try {
+        const res = await g2Fetch(`${API_BASE}/entregas/${entregaActualId}/ruta-optimizada`);
+        const json = await res.json();
+        if (json.error || !json.data) {
+            showToast(json.mensaje || 'No se pudieron calcular las distancias.', 'error');
+            return;
+        }
+
+        const { pedidos, geocodificados, sin_coordenadas, ordenado_por_distancia } = json.data;
+        if (Array.isArray(pedidos)) {
+            window._hojaRutaPedidosOrdenados = pedidos;
+            renderizarTablaHojaRuta();
+        }
+
+        if (!ordenado_por_distancia) {
+            showToast('No se pudieron geolocalizar las direcciones en el mapa; podés ordenarlas manualmente.', 'warning');
+        } else if (sin_coordenadas > 0) {
+            showToast(`Ruta ordenada (${geocodificados} ubicadas, ${sin_coordenadas} sin coordenadas al final).`, 'info');
+        } else {
+            showToast(`Ruta ordenada por distancia (${geocodificados} paradas).`, 'success');
+        }
+    } catch (err) {
+        console.error(err);
+        showToast('Error al calcular el orden por distancia.', 'error');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = textoOriginal;
+        }
+    }
+}
+
+function abrirRutaGoogleMaps() {
+    const lista = window._hojaRutaPedidosOrdenados || [];
+    const pendientes = lista.filter(p => p.estado_pedido_entrega !== 'entregado');
+    const objetivo = pendientes.length > 0 ? pendientes : lista;
+
+    const direcciones = objetivo
+        .map(p => [p.direccion, p.localidad, 'Provincia de Buenos Aires, Argentina']
+            .map(v => (v || '').trim())
+            .filter(Boolean)
+            .join(', '))
+        .filter(Boolean);
+
+    if (direcciones.length === 0) {
+        showToast('No hay direcciones cargadas para armar la ruta.', 'warning');
+        return;
+    }
+
+    let paradas = direcciones;
+    if (direcciones.length > 10) {
+        showToast('Google Maps admite hasta 10 paradas por URL; se incluirán las primeras 10.', 'warning');
+        paradas = direcciones.slice(0, 10);
+    }
+
+    const params = new URLSearchParams({
+        api: '1',
+        origin: g2OrigenDistribuidora,
+        destination: paradas[paradas.length - 1],
+        travelmode: 'driving',
+    });
+
+    if (paradas.length > 1) {
+        params.set('waypoints', paradas.slice(0, -1).join('|'));
+    }
+
+    window.open(`https://www.google.com/maps/dir/?${params.toString()}`, '_blank', 'noopener,noreferrer');
 }
 
 let entregaActualId = null;
@@ -632,7 +755,7 @@ async function enviarConfirmacionEntrega(e) {
         abrirModalHojaRuta(idEntrega);
         // Refrescar listado de viajes y pedidos pendientes
         cargarEntregas();
-        if (g2Admin) cargarPedidosPendientes();
+        cargarPedidosPendientes();
 
     } catch (err) {
         console.error(err);
@@ -779,7 +902,9 @@ async function verRemito(idRemito, listaRemitos = null) {
             }
         }
 
-        document.getElementById('modalRemito').style.display = 'flex';
+        const modalRemitoEl = document.getElementById('modalRemito');
+        modalRemitoEl.classList.add('active');
+        modalRemitoEl.style.display = 'flex';
 
     } catch (err) {
         console.error(err);
@@ -791,7 +916,9 @@ async function verRemito(idRemito, listaRemitos = null) {
  * Cerrar modal de remito
  */
 function cerrarModalRemito() {
-    document.getElementById('modalRemito').style.display = 'none';
+    const modalRemitoEl = document.getElementById('modalRemito');
+    modalRemitoEl.classList.remove('active');
+    modalRemitoEl.style.display = 'none';
 }
 
 /**

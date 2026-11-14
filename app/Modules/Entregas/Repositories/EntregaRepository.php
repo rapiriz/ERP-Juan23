@@ -408,9 +408,10 @@ class EntregaRepository
     }
 
     /**
-     * Calcula el saldo actual de la cuenta corriente del cliente.
+     * Calcula el saldo actual de la cuenta corriente del cliente usando
+     * la misma fuente y fórmula que CuentaCorrienteController (/saldo):
+     * movimientos base de ClienteGateway + cuenta_corriente_movimientos.
      * Negativo = debe dinero, 0 = al día, Positivo = saldo a favor.
-     * Retorna null si las tablas de cuenta corriente o ventas no están disponibles.
      */
     public function obtenerSaldoCliente(int $idCliente): ?float
     {
@@ -419,22 +420,24 @@ class EntregaRepository
         }
 
         try {
-            $pagos = 0.0;
-            if (\Illuminate\Support\Facades\Schema::hasTable('cuenta_corriente_movimientos')) {
-                $pagos = (float) \Illuminate\Support\Facades\DB::table('cuenta_corriente_movimientos')
+            $tieneTabla = \Illuminate\Support\Facades\Schema::hasTable('cuenta_corriente_movimientos');
+            $clienteApi = app(\App\Modules\Ventas\Contracts\ClienteGateway::class)->buscar($idCliente);
+
+            if (! $tieneTabla && $clienteApi === null) {
+                return null;
+            }
+
+            $saldoBase = $clienteApi !== null
+                ? (float) array_sum(array_column($clienteApi['movimientos'] ?? [], 'monto'))
+                : 0.0;
+
+            $movimientos = $tieneTabla
+                ? (float) \Illuminate\Support\Facades\DB::table('cuenta_corriente_movimientos')
                     ->where('cliente_id', $idCliente)
-                    ->sum('importe');
-            }
+                    ->sum('importe')
+                : 0.0;
 
-            $deudaVentas = 0.0;
-            if (\Illuminate\Support\Facades\Schema::hasTable('venta')) {
-                $deudaVentas = (float) \Illuminate\Support\Facades\DB::table('venta')
-                    ->where('id_cliente', $idCliente)
-                    ->whereNotIn('estado', ['cancelada', 'anulada', 'borrador', 'pendiente'])
-                    ->sum('total');
-            }
-
-            return round($pagos - $deudaVentas, 2);
+            return round($saldoBase + $movimientos, 2);
         } catch (\Throwable $e) {
             return null;
         }

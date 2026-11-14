@@ -5,4 +5,8 @@ return [
     'ventas_url' => env('G2_VENTAS_API_URL'),
     'ventas_token' => env('G2_VENTAS_API_TOKEN'),
     'timeout' => 5,
+    'distribuidora_direccion' => env(
+        'G2_DISTRIBUIDORA_DIRECCION',
+        'Avenida Jose P. Casella 802, Pigüé, Provincia de Buenos Aires, Argentina'
+    ),
 ];

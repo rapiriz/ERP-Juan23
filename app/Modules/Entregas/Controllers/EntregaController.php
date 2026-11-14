@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use App\Modules\Shared\Http\Controllers\Controller;
 use App\Modules\Shared\Http\Response;
 use App\Modules\Entregas\Services\EntregaService;
+use App\Modules\Entregas\Services\RutaDistanciaService;
 
 class EntregaController extends Controller
 {
@@ -39,25 +40,34 @@ class EntregaController extends Controller
      */
     public function crearEntrega(Request $request)
     {
+        $idUsuario = G2Identity::id();
+        $esAdmin = G2Identity::role() === 'admin';
+
+        // Un repartidor no puede crear entregas para otro repartidor
+        if (! $esAdmin && $request->filled('repartidor_id') && (int) $request->input('repartidor_id') !== $idUsuario) {
+            abort(403, 'No podés crear entregas para otro repartidor.');
+        }
+
         $request->validate([
-            'repartidor_id' => ['required', 'integer', 'min:1'],
+            'repartidor_id' => $esAdmin ? ['required', 'integer', 'min:1'] : ['sometimes', 'integer', 'min:1'],
             'pedidos_ids' => ['required', 'array', 'min:1'],
             'pedidos_ids.*' => ['required', 'integer', 'min:1', 'distinct'],
             'fecha_salida' => ['sometimes', 'date_format:Y-m-d'],
             'observaciones' => ['nullable', 'string', 'max:1000'],
         ]);
-        abort_unless((UsuarioService::obtenerUsuario((int) $request->input('repartidor_id'))['rol'] ?? null) === 'repartidor', 422, 'Seleccioná un repartidor activo.');
+
+        // Un repartidor solo puede crear entregas asignadas a su propio usuario
+        $idRepartidor = $esAdmin ? (int) $request->input('repartidor_id') : $idUsuario;
+        abort_unless((UsuarioService::obtenerUsuario($idRepartidor)['rol'] ?? null) === 'repartidor', 422, 'Seleccioná un repartidor activo.');
         try {
             $body = $request->all();
             if (!$body) {
                 return Response::error("El cuerpo de la petición no contiene datos válidos.", 400);
             }
 
-            $idRepartidor = (int)($body['repartidor_id'] ?? 0);
             $pedidosIds = (array)($body['pedidos_ids'] ?? []);
             $fechaSalida = (string)($body['fecha_salida'] ?? date('Y-m-d'));
             $observaciones = $body['observaciones'] ?? null;
-            $idUsuario = G2Identity::id();
 
             $resultado = $this->service->armarEntrega(
                 $idRepartidor,
@@ -107,6 +117,23 @@ class EntregaController extends Controller
     }
 
     /**
+     * GET /g2/api/entregas/{id}/ruta-optimizada
+     * Ordena los pedidos de la entrega por proximidad desde la distribuidora
+     */
+    public function rutaOptimizada(int $id, RutaDistanciaService $rutaService)
+    {
+        try {
+            $detalle = $this->service->obtenerEntrega($id);
+            $origen = (string) config('g2.distribuidora_direccion', 'Avenida Jose P. Casella 802, Pigüé, Provincia de Buenos Aires, Argentina');
+            $resultado = $rutaService->ordenarPedidosPorDistancia($detalle['pedidos'] ?? [], $origen);
+
+            return Response::json($resultado, 200);
+        } catch (Exception $e) {
+            return Response::error($e->getMessage(), 400);
+        }
+    }
+
+    /**
      * GET /api/v1/remitos/{id}
      * Consulta y visualización de un remito
      */
@@ -141,6 +168,13 @@ class EntregaController extends Controller
     {
         try {
             $repartidores = $this->service->obtenerRepartidores();
+            if (G2Identity::role() !== 'admin') {
+                $idUsuario = G2Identity::id();
+                $repartidores = array_values(array_filter(
+                    $repartidores,
+                    fn (array $u): bool => (int) ($u['id_usuario'] ?? 0) === $idUsuario
+                ));
+            }
             return Response::json($repartidores, 200);
         } catch (Exception $e) {
             return Response::error($e->getMessage(), 500);

@@ -1,4 +1,6 @@
-const g2Admin = document.querySelector('[data-g2-role]')?.dataset.g2Role === 'admin';
+const g2PageEl = document.querySelector('[data-g2-role]');
+const g2Admin = g2PageEl?.dataset.g2Role === 'admin';
+const g2UserId = g2PageEl?.dataset.g2UserId ?? '';
 /**
  * LÓGICA FRONTEND: MÓDULO DE RENDICIONES & COBROS (GRUPO 2)
  * ERP DISTRIBUIDORA JUAN XXIII — Versión 2.0
@@ -372,6 +374,11 @@ function alEscribirCliente(valor) {
    ========================================================== */
 async function abrirModalNuevaRendicion(idEntregaPrevia = null) {
     document.getElementById('formNuevaRendicion').reset();
+    const formRepartidorEl = document.getElementById('formRepartidor');
+    if (formRepartidorEl && !g2Admin && g2UserId) {
+        formRepartidorEl.value = g2UserId;
+        formRepartidorEl.disabled = true;
+    }
     document.getElementById('seccionCobrosDinamicos').style.display = 'none';
     document.getElementById('seccionCobroManual').style.display = 'block';
     document.getElementById('tablaCobrosDinamicosBody').innerHTML = '';

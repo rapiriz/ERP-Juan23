@@ -68,7 +68,7 @@
 </style>
 @endpush
 @section('content')
-<div class="g2-page" data-g2-role="{{ \App\Modules\Shared\Auth\G2Identity::role() }}">
+<div class="g2-page" data-g2-role="{{ \App\Modules\Shared\Auth\G2Identity::role() }}" data-g2-user-id="{{ \App\Modules\Shared\Auth\G2Identity::id() }}" data-g2-origen="{{ config('g2.distribuidora_direccion') }}">
 <div class="g2-content">
 
         <!-- ENCABEZADO -->
@@ -456,7 +456,20 @@
                 <span id="hrMensajeFooter" style="font-size: 0.85rem; color: var(--success); font-weight: 600;">
                     Los pedidos entregados se precargan automáticamente en Rendiciones para la administración.
                 </span>
-                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                    <button type="button" id="btnOrdenarDistancia" class="clay-btn clay-btn-secondary" onclick="ordenarPedidosHojaRutaPorDistancia()" title="Ordenar paradas por distancia desde la distribuidora">
+                        <span>Ordenar por distancia</span>
+                    </button>
+                    <button type="button" class="clay-btn clay-btn-secondary" onclick="ordenarPedidosHojaRutaPorLocalidad()" title="Agrupar paradas por dirección y localidad">
+                        <span>Ordenar por dirección/localidad</span>
+                    </button>
+                    <button type="button" id="btnRutaGoogleMaps" class="clay-btn clay-btn-secondary" onclick="abrirRutaGoogleMaps()" title="Abrir recorrido en Google Maps desde la distribuidora">
+                        <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                            <circle cx="12" cy="10" r="3"/>
+                        </svg>
+                        <span>Abrir Ruta en Google Maps</span>
+                    </button>
                     <button id="btnIrARendicion" class="clay-btn clay-btn-success" style="display: none;" onclick="irARendirEntrega()">
                         <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true">
                             <path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
