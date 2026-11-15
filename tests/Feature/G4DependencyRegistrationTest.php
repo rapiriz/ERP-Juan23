@@ -68,6 +68,50 @@ class G4DependencyRegistrationTest extends TestCase
         Http::assertNothingSent();
     }
 
+    public function test_product_picker_returns_only_active_products(): void
+    {
+        $this->sessionAsAdmin();
+        config([
+            'ventas.integracion' => 'http',
+            'ventas.servicios.productos.url' => 'http://g3.test',
+            'ventas.servicios.stock.url' => 'http://g3.test',
+            'services.internal_api.token' => 'g4-registration-test',
+        ]);
+        Http::fake([
+            'g3.test/api/v1/productos' => Http::response(['data' => [
+                ['id' => 56, 'codigo' => 'P056', 'nombre' => 'Producto activo', 'estado' => 'activo', 'precio_minorista' => 100],
+                ['id' => 57, 'codigo' => 'P057', 'nombre' => 'Producto inactivo', 'estado' => 'inactivo', 'precio_minorista' => 200],
+            ]]),
+            'g3.test/api/v1/stock/56' => Http::response(['disponible' => 8]),
+            'g3.test/api/v1/stock/57' => Http::response(['message' => 'Producto inactivo'], 400),
+        ]);
+
+        $this->getJson('/api/ventas/productos')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', 56);
+    }
+
+    public function test_promotions_reject_inactive_product_ids(): void
+    {
+        $productos = Mockery::mock(ProductoGateway::class);
+        $productos->shouldReceive('todos')->once()->andReturn([
+            ['id' => 56, 'estado' => 'activo'],
+            ['id' => 57, 'estado' => 'inactivo'],
+        ]);
+        $this->app->instance(ProductoGateway::class, $productos);
+
+        $this->postJson('/api/promociones', [
+            'nombre' => 'Promoción de prueba',
+            'vigencia_desde' => now()->toDateString(),
+            'vigencia_hasta' => now()->addDay()->toDateString(),
+            'tipo_descuento' => 'porcentaje',
+            'valor' => 10,
+            'productos' => [['id_producto' => 57, 'cantidad' => 1]],
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors('productos.0.id_producto');
+    }
+
     public function test_sales_screen_dispatches_the_real_controller_with_original_mock_catalogues(): void
     {
         $this->sessionAsAdmin();
