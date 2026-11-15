@@ -64,8 +64,6 @@ Route::prefix('v1')->group(function (): void {
 
         Route::get('/conciliacion/movimientos', [ConciliacionApiController::class, 'movimientos'])
             ->middleware('api.audience:administrativo,contador');
-        Route::get('/conciliacion/cheques', [ConciliacionApiController::class, 'cheques'])
-            ->middleware('api.audience:administrativo,contador');
     });
 
     Route::middleware(['api.access', 'throttle:60,1'])->group(function (): void {

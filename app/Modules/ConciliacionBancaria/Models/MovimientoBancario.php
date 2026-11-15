@@ -2,6 +2,7 @@
 
 namespace App\Modules\ConciliacionBancaria\Models;
 
+use App\Modules\Rendiciones\Models\RendicionCobro;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -21,15 +22,23 @@ class MovimientoBancario extends Model
         'cuit_extraido',
         'tipo_movimiento',
         'estado_conciliacion',
+        'id_rendicion_cobro',
+        'id_caja_movimiento',
+        'observaciones_conciliacion',
     ];
 
     protected $casts = [
-        'fecha_operacion' => 'date',
+        'fecha_operacion' => 'date:Y-m-d',
         'monto' => 'decimal:2',
     ];
 
     public function archivoImportado(): BelongsTo
     {
         return $this->belongsTo(ArchivoImportadoLog::class, 'id_archivo_importado_log', 'id_archivo_importado_log');
+    }
+
+    public function rendicionCobro(): BelongsTo
+    {
+        return $this->belongsTo(RendicionCobro::class, 'id_rendicion_cobro', 'id_rendicion_cobro');
     }
 }

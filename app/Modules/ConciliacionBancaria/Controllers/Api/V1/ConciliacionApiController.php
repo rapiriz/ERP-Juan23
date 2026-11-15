@@ -3,7 +3,6 @@
 namespace App\Modules\ConciliacionBancaria\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
-use App\Modules\ConciliacionBancaria\Models\Cheque;
 use App\Modules\ConciliacionBancaria\Models\MovimientoBancario;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -61,6 +60,8 @@ class ConciliacionApiController extends Controller
                     'cuit_extraido' => $mov->cuit_extraido,
                     'tipo_movimiento' => $mov->tipo_movimiento,
                     'estado_conciliacion' => $mov->estado_conciliacion,
+                    'id_rendicion_cobro' => $mov->id_rendicion_cobro,
+                    'fecha_conciliacion' => $mov->estado_conciliacion === 'matcheado' ? $mov->updated_at?->toDateTimeString() : null,
                 ];
             })->values()->all(),
             'meta' => [
@@ -74,59 +75,6 @@ class ConciliacionApiController extends Controller
                 'last' => $movimientos->url($movimientos->lastPage()),
                 'prev' => $movimientos->previousPageUrl(),
                 'next' => $movimientos->nextPageUrl(),
-            ],
-        ])->header('Cache-Control', 'no-store');
-    }
-
-    public function cheques(Request $request): JsonResponse
-    {
-        if (!Schema::hasTable('CHEQUE')) {
-            return $this->tablaNoDisponible('CHEQUE');
-        }
-
-        $validated = $request->validate([
-            'estado' => ['nullable', 'string', 'max:40'],
-            'id_cobro' => ['nullable', 'integer', 'min:1'],
-            'per_page' => ['nullable', 'integer', 'between:1,100'],
-            'page' => ['nullable', 'integer', 'min:1'],
-        ]);
-
-        $query = Cheque::query();
-
-        if (!empty($validated['estado'])) {
-            $query->where('estado', $validated['estado']);
-        }
-        if (!empty($validated['id_cobro'])) {
-            $query->where('id_cobro', (int) $validated['id_cobro']);
-        }
-
-        $perPage = (int) ($validated['per_page'] ?? 20);
-        $cheques = $query->orderByDesc('id_cheque')->paginate($perPage);
-
-        return response()->json([
-            'data' => $cheques->getCollection()->map(function (Cheque $cheque) {
-                return [
-                    'id_cheque' => (int) $cheque->id_cheque,
-                    'id_cobro' => $cheque->id_cobro !== null ? (int) $cheque->id_cobro : null,
-                    'numero_cheque' => $cheque->numero_cheque,
-                    'banco_emisor' => $cheque->banco_emisor,
-                    'fecha_cobro' => $cheque->fecha_cobro?->toDateString(),
-                    'estado' => $cheque->estado,
-                    'fecha_deposito' => $cheque->fecha_deposito?->toDateString(),
-                    'fecha_rechazo' => $cheque->fecha_rechazo?->toDateString(),
-                ];
-            })->values()->all(),
-            'meta' => [
-                'current_page' => $cheques->currentPage(),
-                'last_page' => $cheques->lastPage(),
-                'per_page' => $cheques->perPage(),
-                'total' => $cheques->total(),
-            ],
-            'links' => [
-                'first' => $cheques->url(1),
-                'last' => $cheques->url($cheques->lastPage()),
-                'prev' => $cheques->previousPageUrl(),
-                'next' => $cheques->nextPageUrl(),
             ],
         ])->header('Cache-Control', 'no-store');
     }

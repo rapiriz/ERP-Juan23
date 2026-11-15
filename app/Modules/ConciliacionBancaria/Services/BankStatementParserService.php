@@ -10,18 +10,42 @@ class BankStatementParserService
     public const CUIT_REGEX = '/(20|23|27|30|33|34)-\d{8}-\d{1}|\b(20|23|27|30|33|34)\d{9}\b/';
 
     /**
-     * Normaliza la descripción bancaria (mayúsculas, sin acentos, espacios limpios).
+     * Limpia espacios múltiples, expande abreviaturas bancarias frecuentes y pasa a mayúsculas.
      */
-    public function normalizarDescripcion(string $desc): string
+    private function normalizarDescripcion(string $descripcion): string
     {
-        $desc = mb_strtoupper($desc, 'UTF-8');
-        $desc = str_replace(
-            ['Á', 'É', 'Í', 'Ó', 'Ú', 'Ü', 'Ñ'],
-            ['A', 'E', 'I', 'O', 'U', 'U', 'N'],
-            $desc
-        );
-        $desc = preg_replace('/\s+/', ' ', $desc);
-        return trim((string)$desc);
+        $limpia = mb_strtoupper(trim($descripcion), 'UTF-8');
+        $limpia = preg_replace('/[^\p{L}\p{N}\s\-\/\.\,\(\)]/u', ' ', $limpia);
+        $limpia = preg_replace('/\s+/', ' ', $limpia);
+
+        $abreviaturas = [
+            '/\bTRANSF\.?\b/u' => 'TRANSFERENCIA',
+            '/\bTRF\.?\b/u' => 'TRANSFERENCIA',
+            '/\bDEB\.?\b/u' => 'DEBITO',
+            '/\bCRED\.?\b/u' => 'CREDITO',
+            '/\bIMP\.?\b/u' => 'IMPUESTO',
+            '/\bCOM\.?\b/u' => 'COMISION',
+            '/\bCHQ\.?\b/u' => 'CHEQUE',
+            '/\bECHEQ\.?\b/u' => 'E-CHEQ',
+            '/\bDEP\.?\b/u' => 'DEPOSITO',
+            '/\bSERV\.?\b/u' => 'SERVICIO',
+            '/\bAUT\.?\b/u' => 'AUTOMATICO',
+            '/\bMANT\.?\b/u' => 'MANTENIMIENTO',
+            '/\bCTA\.?\b/u' => 'CUENTA',
+            '/\bCTE\.?\b/u' => 'CORRIENTE',
+            '/\bBCO\.?\b/u' => 'BANCO',
+            '/\bINTERBANC\.?\b/u' => 'INTERBANCARIA',
+            '/\bACRED\.?\b/u' => 'ACREDITACION',
+            '/\bLIQ\.?\b/u' => 'LIQUIDACION',
+            '/\bRET\.?\b/u' => 'RETENCION',
+            '/\bPERC\.?\b/u' => 'PERCEPCION',
+            '/\bING\.?\s*BRUTOS\b/u' => 'INGRESOS BRUTOS',
+            '/\bII\.?\s*BB\.?\b/u' => 'INGRESOS BRUTOS',
+            '/\bVAR\.?\b/u' => 'VARIOS',
+        ];
+
+        $limpia = preg_replace(array_keys($abreviaturas), array_values($abreviaturas), $limpia);
+        return trim(preg_replace('/\s+/', ' ', $limpia));
     }
 
     /**
