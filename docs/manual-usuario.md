@@ -34,6 +34,8 @@ El sistema cuenta con control de acceso basado en roles (**RBAC**). Cada perfil 
    - **Parámetros de Stock:** Defina el *Stock Inicial* y el *Stock Mínimo* (umbral que dispara alertas amarillas/rojas).
 4. Presione **`Guardar Producto`**. El sistema validará la unicidad del código y creará el registro con auditoría de fecha y usuario.
 
+> **Protección contra pérdidas de datos:** El formulario modal cuenta con bloqueo de cierre por clic exterior; si se hace clic accidentalmente fuera de la ventana, los datos cargados permanecen intactos. Para descartar o salir, debe presionarse expresamente el botón **`Cancelar`** o la cruz **`✕`** superior.
+
 ### 2.2. Aumentos Masivos de Precios con Filtro por Proveedor y Base de Costo (P07)
 Permite actualizar rápidamente listas de precios ante variaciones inflacionarias, subas de proveedores o cambios de lista:
 1. En la vista de Inventario, presione **`Aumento Masivo`**.

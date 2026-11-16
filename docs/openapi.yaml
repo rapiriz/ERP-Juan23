@@ -497,6 +497,39 @@ paths:
         '200':
           description: Listado de cobros imputados
 
+  /caja/cierres:
+    get:
+      summary: Listar cierres de caja y estados de arqueo (Inter-grupos G2)
+      responses:
+        '200':
+          description: Colección histórica de cierres de caja
+
+  /entregas:
+    get:
+      summary: Listado de entregas y repartos despachados (Inter-grupos G2)
+      responses:
+        '200':
+          description: Estado de entregas a clientes
+
+  /remitos/{id}:
+    get:
+      summary: Consulta de remito oficial emitido para entrega (Inter-grupos G2)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Detalle del remito de entrega
+
+  /conciliacion/movimientos:
+    get:
+      summary: Movimientos bancarios importados para conciliación (Inter-grupos G2)
+      responses:
+        '200':
+          description: Lista de transacciones bancarias conciliadas y pendientes
+
 components:
   schemas:
     ProductoComercial:
