@@ -4,47 +4,6 @@
 <link rel="stylesheet" href="{{ asset('css/g2.css') }}">
 <link rel="stylesheet" href="{{ asset('css/pigue-claymorphism.css') }}">
 <style>
-    /* Asegurar que el contenedor principal aproveche el ancho disponible sin scroll horizontal */
-    .layout:has(.g2-page),
-    main.layout:has(.g2-page) {
-        width: calc(100% - 32px) !important;
-        max-width: 1560px !important;
-        padding-top: 24px !important;
-    }
-
-    .g2-page {
-        padding: 1rem 1.25rem !important;
-    }
-
-    .g2-page .clay-card {
-        padding: 1.25rem !important;
-    }
-
-    /* Tablas fluidas y bien proporcionadas */
-    .g2-page table.clay-table {
-        table-layout: auto;
-        width: 100%;
-        min-width: 100%;
-        font-size: 0.84rem;
-    }
-
-    .g2-page table.clay-table th {
-        padding: 0.55rem 0.55rem;
-        font-size: 0.72rem;
-        letter-spacing: 0.02em;
-    }
-
-    .g2-page table.clay-table td {
-        padding: 0.55rem 0.55rem;
-        font-size: 0.84rem;
-    }
-
-    .g2-page .table-responsive {
-        box-shadow: none;
-        border: 1px solid var(--border-light, #E2E8F0);
-        overflow-x: auto;
-    }
-
     .col-obs-entrega {
         max-width: 160px;
         white-space: nowrap;
@@ -133,18 +92,18 @@
                 <table class="clay-table" aria-live="polite">
                     <thead>
                         <tr>
-                            <th style="width: 44px; text-align: center;">
+                            <th scope="col" style="width: 44px; text-align: center;">
                                 <input type="checkbox" id="selectAll" class="custom-checkbox"
                                     onchange="toggleSelectAll(this)" title="Seleccionar todos" aria-label="Seleccionar todos los pedidos">
                             </th>
-                            <th style="width: 105px;">Nº Pedido</th>
-                            <th>Cliente / Razón Social</th>
-                            <th style="width: 110px;">Zona</th>
-                            <th>Dirección de Entrega</th>
-                            <th style="text-align: center; width: 130px;">Carga Física</th>
-                            <th style="text-align: center; width: 115px;">Artículos</th>
-                            <th style="text-align: right; width: 110px;">Total $</th>
-                            <th>Obs.</th>
+                            <th scope="col" style="width: 105px;">Nº Pedido</th>
+                            <th scope="col">Cliente / Razón Social</th>
+                            <th scope="col" style="width: 110px;">Zona</th>
+                            <th scope="col">Dirección de Entrega</th>
+                            <th scope="col" style="text-align: center; width: 130px;">Carga Física</th>
+                            <th scope="col" style="text-align: center; width: 115px;">Artículos</th>
+                            <th scope="col" style="text-align: right; width: 110px;">Total $</th>
+                            <th scope="col">Obs.</th>
                         </tr>
                     </thead>
                     <tbody id="tablaPedidosBody">

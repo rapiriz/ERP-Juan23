@@ -723,3 +723,72 @@ body.erp-shell {
     display: none !important;
 }
 
+
+
+/* ===== Mejoras compartidas G2 (Entregas y Rendiciones) ===== */
+.layout:has(.g2-page),
+main.layout:has(.g2-page) {
+    width: calc(100% - 32px);
+    max-width: 1560px;
+    padding-top: 24px;
+}
+
+.g2-page {
+    padding: 1rem 1.25rem;
+}
+
+.g2-page .clay-card {
+    padding: 1.25rem;
+}
+
+.g2-page table.clay-table {
+    table-layout: auto;
+    width: 100%;
+    min-width: 100%;
+    font-size: 0.84rem;
+}
+
+.g2-page table.clay-table th {
+    padding: 0.55rem 0.5rem;
+    font-size: 0.72rem;
+    letter-spacing: 0.02em;
+}
+
+.g2-page table.clay-table td {
+    padding: 0.55rem 0.5rem;
+    font-size: 0.84rem;
+}
+
+.g2-page .table-responsive {
+    box-shadow: none;
+    border: 1px solid var(--border-light, #E2E8F0);
+    overflow-x: auto;
+}
+
+/* Validación progresiva: solo tras interacción del usuario */
+.g2-page .clay-input:user-invalid,
+.g2-page select.clay-input:user-invalid,
+.g2-page textarea.clay-input:user-invalid {
+    border-color: var(--danger, #DC2626);
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
+}
+
+/* Alineación uniforme de botones de acción en tablas (Entregas / Rendiciones) */
+.g2-page .acciones-btn-group {
+    display: inline-flex;
+    gap: 0.45rem;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: nowrap;
+}
+
+.g2-page .acciones-btn-group .clay-btn-xs {
+    padding: 0.3rem 0.7rem;
+    font-size: 0.82rem;
+    min-height: 30px;
+}
+
+.g2-page .acciones-btn-group .clay-btn-remito {
+    min-width: 96px;
+    justify-content: center;
+}

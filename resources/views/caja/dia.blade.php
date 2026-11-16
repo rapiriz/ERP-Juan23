@@ -35,13 +35,15 @@
 @endphp
 
 @push('styles')
+<link rel="stylesheet" href="{{ asset('css/g2.css') }}">
+<link rel="stylesheet" href="{{ asset('css/pigue-claymorphism.css') }}">
 <link rel="stylesheet" href="{{ asset('css/g2-finanzas.css') }}">
 @endpush
 
 @section('contenido')
 <div class="g2-page">
     @if ($porVencer)
-        <div class="alerta" style="background:#FFF4D6;color:#6B4E00;border:1px solid #F0D98A;margin-bottom:16px;">
+        <div class="alerta alerta-aviso" role="status">
             <strong>Recordatorio:</strong> esta caja vence el {{ $vencimiento->format('d/m/Y H:i') }} (faltan menos de 24 horas).
             Cerrala antes de esa hora{{ !empty($cierreAutomatico) ? ': de lo contrario se cerrará automáticamente.' : '.' }}
         </div>
@@ -103,10 +105,10 @@
         <table id="tabla-movimientos" class="tabla-clickeable" @if(empty($caja['movimientos'])) style="display:none" @endif>
             <thead>
                 <tr>
-                    <th>Tipo</th>
-                    <th>Medio</th>
-                    <th>Concepto</th>
-                    <th>Monto</th>
+                    <th scope="col">Tipo</th>
+                    <th scope="col">Medio</th>
+                    <th scope="col">Concepto</th>
+                    <th scope="col">Monto</th>
                 </tr>
             </thead>
             <tbody id="tabla-movimientos-body">

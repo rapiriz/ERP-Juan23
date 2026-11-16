@@ -258,3 +258,19 @@
 
 .g2-page { display:block; min-height:0; padding:1rem; border-radius:1rem; }
 
+
+
+/* Alerta de aviso y validación progresiva */
+.g2-page .alerta-aviso {
+    background: #FFF4D6;
+    color: #6B4E00;
+    border: 1px solid #F0D98A;
+    margin-bottom: 16px;
+}
+
+.g2-page .clay-input:user-invalid,
+.g2-page select.clay-input:user-invalid,
+.g2-page textarea.clay-input:user-invalid {
+    border-color: #DC2626;
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
+}

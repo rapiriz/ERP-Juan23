@@ -4,6 +4,8 @@
 @section('layout-class', 'layout-conciliacion')
 
 @push('styles')
+<link rel="stylesheet" href="{{ asset('css/g2.css') }}">
+<link rel="stylesheet" href="{{ asset('css/pigue-claymorphism.css') }}">
 <link rel="stylesheet" href="{{ asset('css/g2-finanzas.css') }}">
 
 <style>
@@ -37,7 +39,7 @@
 .conciliacion-header h1 {
     font-size: 1.75rem;
     font-weight: 700;
-    color: #1E293B;
+    color: var(--text-main, #1E293B);
 }
 .header-actions {
     display: flex;
@@ -56,11 +58,11 @@
     align-items: center;
     gap: 0.4rem;
 }
-.btn-primary { background: #2563EB; color: #FFFFFF; }
-.btn-primary:hover { background: #1D4ED8; }
-.btn-secondary { background: #E2E8F0; color: #334155; }
+.btn-primary { background: var(--primary, #2563EB); color: #FFFFFF; }
+.btn-primary:hover { background: var(--primary-strong, #1D4ED8); }
+.btn-secondary { background: var(--border-light, #E2E8F0); color: var(--text-main, #334155); }
 .btn-secondary:hover { background: #CBD5E1; }
-.btn-success { background: #16A34A; color: #FFFFFF; }
+.btn-success { background: var(--success, #16A34A); color: #FFFFFF; }
 .btn-success:hover { background: #15803D; }
 .btn-gear {
     background: #FFFFFF;

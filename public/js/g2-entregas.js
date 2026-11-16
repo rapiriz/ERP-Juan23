@@ -353,10 +353,10 @@ async function cargarEntregas() {
                     <td style="text-align: center;"><span class="badge badge-${e.estado}">${e.estado.replace('_', ' ').toUpperCase()}</span></td>
                     <td style="text-align: center;">
                         <div class="acciones-btn-group">
-                            <button class="clay-btn clay-btn-primary clay-btn-xs" style="padding: 0.25rem 0.65rem; font-size: 0.82rem;" onclick="abrirModalHojaRuta(${e.id_entrega})" title="Ver hoja de ruta y confirmar entregas">
+                            <button type="button" class="clay-btn clay-btn-primary clay-btn-xs" onclick="abrirModalHojaRuta(${e.id_entrega})" title="Ver hoja de ruta y confirmar entregas">
                                 Hoja de Ruta
                             </button>
-                            <button class="clay-btn clay-btn-secondary clay-btn-xs" style="padding: 0.25rem 0.65rem; font-size: 0.82rem;" onclick="verDetalleEntrega(${e.id_entrega})" title="Ver comprobantes de remito">
+                            <button type="button" class="clay-btn clay-btn-secondary clay-btn-xs clay-btn-remito" onclick="verDetalleEntrega(${e.id_entrega})" title="Ver comprobantes de remito">
                                 ${textoBtnRemito}
                             </button>
                         </div>
