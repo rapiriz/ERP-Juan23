@@ -475,6 +475,12 @@ async function alCambiarEntregaSelect(idEntrega) {
                 } else if (c.monto_total_pedido !== undefined) {
                     infoSaldo = `<br><small style="color:var(--text-muted);">Total pedido: $${Number(c.monto_total_pedido).toLocaleString('es-AR', {minimumFractionDigits: 2})}</small>`;
                 }
+                if (c.deuda_total_cliente !== null && c.deuda_total_cliente !== undefined) {
+                    infoSaldo += `<br><small style="color:#1E3A8A;font-weight:600;">Deuda total cliente: $${Number(c.deuda_total_cliente).toLocaleString('es-AR', {minimumFractionDigits: 2})}</small>`;
+                }
+                const maxAttr = (c.deuda_total_cliente !== null && c.deuda_total_cliente !== undefined)
+                    ? `max="${Number(c.deuda_total_cliente).toFixed(2)}"`
+                    : '';
 
                 tr.innerHTML = `
                     <td>
@@ -482,7 +488,7 @@ async function alCambiarEntregaSelect(idEntrega) {
                         ${c.numero_remito ? `<br><small style="color:var(--text-muted);">Remito: ${c.numero_remito}</small>` : ''}
                     </td>
                     <td style="text-align:right;">
-                        <input type="number" step="0.01" min="0" class="clay-input input-monto-dinamico"
+                        <input type="number" step="0.01" min="0" ${maxAttr} class="clay-input input-monto-dinamico"
                             value="${Number(c.monto).toFixed(2)}"
                             oninput="recalcularTotalDinamico()"
                             style="text-align:right; font-weight:700; color:#1E3A8A; padding:0.35rem 0.5rem; width:100%;">

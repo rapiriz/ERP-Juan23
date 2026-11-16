@@ -541,5 +541,5 @@
 @endsection
 @push('scripts')
 <script src="{{ asset('js/g2-http.js') }}" defer></script>
-<script src="{{ asset('js/g2-entregas.js') }}" defer></script>
+<script src="{{ asset('js/g2-entregas.js') }}?v={{ filemtime(public_path('js/g2-entregas.js')) }}" defer></script>
 @endpush

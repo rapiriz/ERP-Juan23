@@ -250,8 +250,17 @@ class EntregaService
         }
 
         $totalPedido = (float) ($pedidoEncontrado['total'] ?? 0.0);
-        if ($montoCobrado !== null && $totalPedido > 0 && round($montoCobrado, 2) > round($totalPedido, 2)) {
-            throw new Exception("El monto cobrado no puede superar el total del pedido ($" . number_format($totalPedido, 2, ',', '.') . ").");
+        $saldoCliente = $pedidoEncontrado['cliente_saldo'] ?? null;
+        if ($saldoCliente !== null) {
+            $deudaCliente = (float) $saldoCliente < 0 ? abs((float) $saldoCliente) : 0.0;
+        } else {
+            $idCliente = (int) ($pedidoEncontrado['id_cliente'] ?? 0);
+            $deudaCliente = $idCliente > 0 ? ($this->ventasClient->obtenerDeudaTotalCliente($idCliente) ?? 0.0) : 0.0;
+        }
+        $maxPermitido = max($totalPedido, $deudaCliente);
+        if ($montoCobrado !== null && $maxPermitido > 0 && round($montoCobrado, 2) > round($maxPermitido, 2)) {
+            $etiqueta = $deudaCliente > $totalPedido ? 'la deuda total del cliente' : 'el total del pedido';
+            throw new Exception("El monto cobrado no puede superar {$etiqueta} ($" . number_format($maxPermitido, 2, ',', '.') . ").");
         }
 
         $montoEfectivo = $montoCobrado ?? $totalPedido;

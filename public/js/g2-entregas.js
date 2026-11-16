@@ -698,8 +698,12 @@ async function confirmarEntregaPedido(idEntrega, idVenta) {
     document.getElementById('confMedioPago').value = 'efectivo';
     const inputMonto = document.getElementById('confMontoCobrado');
     inputMonto.value = total > 0 ? total.toFixed(2) : '0.00';
-    if (total > 0) {
-        inputMonto.max = total.toFixed(2);
+    const deudaCliente = (p && p.cliente_saldo !== null && p.cliente_saldo !== undefined && Number(p.cliente_saldo) < 0)
+        ? Math.abs(Number(p.cliente_saldo))
+        : 0;
+    const maxPermitido = Math.max(total, deudaCliente);
+    if (maxPermitido > 0) {
+        inputMonto.max = maxPermitido.toFixed(2);
     } else {
         inputMonto.removeAttribute('max');
     }

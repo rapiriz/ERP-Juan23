@@ -372,6 +372,23 @@ class VentasApiClient
     }
 
     /**
+     * Obtiene la deuda total actual del cliente consultando /api/v1/clientes/{id}.
+     * Retorna null si no se pudo obtener o si el endpoint no expone saldo.
+     */
+    public function obtenerDeudaTotalCliente(int $idCliente): ?float
+    {
+        if ($idCliente <= 0) {
+            return null;
+        }
+        $datos = $this->obtenerDatosCliente($idCliente);
+        if (is_array($datos) && array_key_exists('saldo_actual', $datos) && $datos['saldo_actual'] !== null) {
+            $saldo = (float) $datos['saldo_actual'];
+            return $saldo < 0 ? abs($saldo) : 0.0;
+        }
+        return null;
+    }
+
+    /**
      * Obtiene dirección, localidad y zona reales del cliente consultando la API de Clientes (/api/v1/clientes/{id}).
      *
      * @return array<string, mixed>|null
@@ -414,6 +431,7 @@ class VentasApiClient
                 'razon_social' => (string) ($data['apellido_razon_social'] ?? ''),
                 'id_zona' => $idZona,
                 'zona_nombre' => ($idZona !== null && isset($zonas[$idZona])) ? $zonas[$idZona] : null,
+                'saldo_actual' => isset($data['saldo_actual']) ? (float) $data['saldo_actual'] : (isset($data['saldo']) ? (float) $data['saldo'] : (isset($data['deuda_total']) ? (float) $data['deuda_total'] : null)),
             ];
         } catch (Throwable) {
             return $this->clientesCache[$idCliente] = null;

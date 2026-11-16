@@ -83,6 +83,10 @@ class RendicionService
                     "Se detectó un monto inválido dentro del listado de cobros de la rendición."
                 );
             }
+            $this->validarMontoContraDeudaCliente(
+                (int) ($cobro['id_cliente'] ?? 0),
+                (float) $cobro['monto']
+            );
             $totalRendido += (float) $cobro['monto'];
         }
 
@@ -221,6 +225,7 @@ class RendicionService
 
         $medioPagoNorm = strtolower(trim($datos['medio_pago']));
         $montoCobro = (float) $datos['monto'];
+        $this->validarMontoContraDeudaCliente((int) ($datos['id_cliente'] ?? 0), $montoCobro);
 
         return DB::transaction(function () use ($idRendicion, $rendicion, $datos, $medioPagoNorm, $montoCobro) {
             if (
@@ -572,6 +577,10 @@ class RendicionService
                 : 'efectivo';
             $idCliente = (int)($venta['id_cliente'] ?? 1);
             $clienteNombre = $venta['cliente_nombre'] ?? $venta['cliente']['nombre'] ?? "Cliente Pedido #{$p->id_venta}";
+            $deudaTotalCliente = $this->ventasClient->obtenerDeudaTotalCliente($idCliente);
+            if ($deudaTotalCliente !== null) {
+                $deudaTotalCliente = max($saldoPendiente, round($deudaTotalCliente, 2));
+            }
 
             $cobrosSugeridos[] = [
                 'id_venta' => $idVenta,
@@ -582,6 +591,7 @@ class RendicionService
                 'monto_total_pedido' => $montoPedido,
                 'monto_ya_rendido' => $yaAprobado,
                 'saldo_pendiente' => $saldoPendiente,
+                'deuda_total_cliente' => $deudaTotalCliente,
                 'medio_pago' => $medioPago,
                 'id_remito' => $p->id_remito,
                 'numero_remito' => $p->numero_remito,
@@ -709,5 +719,23 @@ class RendicionService
 
             return $ultimaRendicion;
         });
+    }
+
+    /**
+     * Valida en backend que el monto cobrado no supere la deuda total del cliente
+     * (evitando dejar saldo a favor), cuando la API de Clientes expone el saldo.
+     */
+    private function validarMontoContraDeudaCliente(int $idCliente, float $monto): void
+    {
+        if ($idCliente <= 0) {
+            return;
+        }
+
+        $deudaTotal = $this->ventasClient->obtenerDeudaTotalCliente($idCliente);
+        if ($deudaTotal !== null && $monto > $deudaTotal + 0.01) {
+            throw new InvalidArgumentException(
+                "El monto cobrado ($" . number_format($monto, 2, ',', '.') . ") supera la deuda total del cliente ($" . number_format($deudaTotal, 2, ',', '.') . "). No se puede dejar saldo a favor."
+            );
+        }
     }
 }
