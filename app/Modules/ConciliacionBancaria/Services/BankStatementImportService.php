@@ -48,7 +48,7 @@ class BankStatementImportService
             throw new Exception("El archivo ya fue importado anteriormente (Hash SHA-256 coincidente con importación #{$existeHash->id_archivo_importado_log} del {$existeHash->created_at}).");
         }
 
-        // Guardar archivo físico en almacenamiento privado de auditoría sin dependencia externa de finfo
+        // Guardar archivo físico en almacenamiento privado de auditoría
         $nombreOriginal = $archivo->getClientOriginalName();
         $targetDir = storage_path('app/extractos_bancarios');
         if (!is_dir($targetDir)) {
@@ -70,7 +70,7 @@ class BankStatementImportService
         $filasError = count($erroresParsing);
         $acreditacionesListas = 0;
 
-        // Registrar cabecera del lote de auditoría
+        // Registrar cabecera del lote de auditoría e insertar movimientos no duplicados
         return DB::transaction(function () use (
             $nombreOriginal,
             $rutaAlmacenada,
@@ -103,15 +103,20 @@ class BankStatementImportService
             ]);
 
             foreach ($movimientos as $mov) {
-                // Criterio de Aceptación 3: Omitir duplicados por fila (fecha + monto + signo + comprobante + descripcion)
-                $existeFila = MovimientoBancario::where('fecha_operacion', $mov['fecha_operacion'])
+                // Evitar duplicados entre distintos formatos (.xls y .txt) del mismo extracto bancario:
+                // Comparamos fecha_operacion + monto + signo_monto (que coinciden siempre en ambos formatos)
+                $queryDuplicado = MovimientoBancario::whereDate('fecha_operacion', $mov['fecha_operacion'])
                     ->where('monto', $mov['monto'])
-                    ->where('signo_monto', $mov['signo_monto'])
-                    ->where('nro_comprobante_extraido', $mov['nro_comprobante_extraido'])
-                    ->where('descripcion_normalizada', $mov['descripcion_normalizada'])
-                    ->exists();
+                    ->where('signo_monto', $mov['signo_monto']);
 
-                if ($existeFila) {
+                if (!empty($mov['cuit_extraido'])) {
+                    $queryDuplicado->where(function ($q) use ($mov) {
+                        $q->where('cuit_extraido', $mov['cuit_extraido'])
+                          ->orWhereNull('cuit_extraido');
+                    });
+                }
+
+                if ($queryDuplicado->exists()) {
                     $filasOmitidas++;
                     continue;
                 }

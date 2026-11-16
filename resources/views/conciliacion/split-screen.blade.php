@@ -5,7 +5,9 @@
 
 @push('styles')
 <link rel="stylesheet" href="{{ asset('css/g2-finanzas.css') }}">
+
 <style>
+
 /* Layout y Contenedor a ancho completo */
 .layout.layout-conciliacion,
 .layout:has(.conciliacion-container) {
@@ -567,14 +569,15 @@
         cursor: not-allowed;
         background: #F1F5F9;
     }
-    .per-page-selector {
+    .per-page-selector,
+    .per-page-selector span {
         flex: 1;
         display: inline-flex;
         align-items: center;
         justify-content: flex-end;
         gap: 0.4rem;
         font-size: 0.78rem;
-        color: #475569;
+        color: #1E293B !important;
         white-space: nowrap;
     }
     .per-page-selector select {
@@ -817,122 +820,420 @@
     border-left: 5px solid #16A34A;
 }
 
-/* Modales */
+/* Modal y Scroll Unificado General */
 .modal-overlay {
-    display: none;
-    position: fixed;
+    display: none !important;
+    position: fixed !important;
     top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(15, 23, 42, 0.6);
-    z-index: 1000;
-    align-items: center;
-    justify-content: center;
+    background: rgba(15, 23, 42, 0.6) !important;
+    z-index: 99999 !important;
+    align-items: center !important;
+    justify-content: center !important;
 }
-.modal-overlay.active { display: flex; }
+
+.modal-overlay.active {
+    display: flex !important;
+}
+.modal-box.maximized {
+    width: 96vw !important;
+    height: 92vh !important;
+    max-width: 96vw !important;
+    max-height: 92vh !important;
+}
 .modal-box {
     background: #FFFFFF;
     border-radius: 12px;
-    max-width: 650px;
-    width: 90%;
+    max-width: 1100px;
+    width: 94%;
     padding: 1.5rem;
     box-shadow: 0 20px 25px -5px rgba(0,0,0,0.25);
     max-height: 90vh;
-    overflow-y: auto;
+    overflow-y: auto; /* Única barra general del modal */
     transition: all 0.2s ease;
-}
-.modal-box.maximized {
-    max-width: 96vw;
-    width: 96vw;
-    height: 94vh;
-    max-height: 94vh;
+    position: relative;
 }
 .modal-header {
+    position: sticky;
+    top: -1.5rem;
+    background: #FFFFFF;
+    z-index: 10;
+    margin: -1.5rem -1.5rem 1rem -1.5rem;
+    padding: 1.5rem 1.5rem 0.75rem 1.5rem;
+    border-bottom: 1px solid #E2E8F0;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 1rem;
-    border-bottom: 1px solid #E2E8F0;
-    padding-bottom: 0.75rem;
 }
-.modal-header-actions {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-.icon-btn {
-    background: none;
-    border: none;
-    font-size: 1.15rem;
-    cursor: pointer;
-    color: #64748B;
-    padding: 0.2rem 0.4rem;
-    border-radius: 4px;
-}
-.icon-btn:hover { background: #F1F5F9; color: #0F172A; }
 
-/* Canvas y Conexiones en Ventana Organizar */
+/* Encabezados y contenedor de selección en el modal */
+.organizar-headers-row {
+    display: grid;
+    grid-template-columns: 1fr 150px 1fr;
+    align-items: center;
+    margin-bottom: 0.5rem;
+    padding: 0 0.35rem;
+}
+.organizar-col-header {
+    font-size: 0.82rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #334155;
+    text-align: center;
+}
+.organizar-scroll-viewport {
+    border: none;
+    background: transparent;
+    overflow: visible !important;
+    position: relative;
+    margin-bottom: 1.25rem;
+}
 .organizar-container {
     display: grid;
-    grid-template-columns: 1fr 140px 1fr;
-    gap: 1rem;
-    min-height: 400px;
+    grid-template-columns: 1fr 150px 1fr;
+    gap: 0;
+    padding: 0.25rem 0.35rem;
     position: relative;
+    align-items: stretch;
 }
 .organizar-col {
-    border: 1px solid #E2E8F0;
-    border-radius: 8px;
-    padding: 0.75rem;
-    background: #F8FAFC;
-    overflow-y: auto;
-    max-height: 60vh;
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    justify-content: flex-start;
+    gap: 0.6rem;
+    z-index: 2;
 }
 .organizar-item {
     background: #FFFFFF;
-    border: 1px solid #CBD5E1;
-    border-radius: 6px;
-    padding: 0.6rem;
-    font-size: 0.85rem;
+    border: 1.5px solid #CBD5E1;
+    border-radius: 8px;
+    padding: 0.55rem 0.7rem;
+    font-size: 0.82rem;
     cursor: pointer;
     user-select: none;
     position: relative;
     transition: all 0.15s;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
 }
-.organizar-item:hover { border-color: #2563EB; box-shadow: 0 2px 4px rgba(37,99,235,0.1); }
-.organizar-item.active-connect { border-color: #2563EB; background: #EFF6FF; }
+.organizar-item:hover {
+    border-color: #2563EB;
+    box-shadow: 0 3px 6px rgba(37,99,235,0.12);
+}
+.organizar-item.active-connect {
+    border-color: #2563EB;
+    background: #EFF6FF;
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.18);
+}
+.organizar-item.is-connected {
+    border-left: 4px solid #16A34A;
+}
+.organizar-item-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.2rem;
+}
+.organizar-item-desc {
+    font-size: 0.78rem;
+    color: #475569;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
 .connections-canvas-col {
     position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    z-index: 1;
 }
 #connectionsSvg {
     width: 100%;
     height: 100%;
     position: absolute;
-    top: 0; left: 0;
-    pointer-events: all;
+    top: 0;
+    left: 0;
+    pointer-events: none;
 }
 .conn-line {
+    fill: none;
     stroke: #2563EB;
     stroke-width: 2.5;
     cursor: pointer;
+    pointer-events: stroke;
     transition: stroke 0.15s, stroke-width 0.15s;
 }
-.conn-line:hover { stroke: #DC2626; stroke-width: 4; }
-
-/* Zona de subida */
-.drop-zone {
-    border: 2px dashed #94A3B8;
-    border-radius: 8px;
-    padding: 1.75rem;
-    text-align: center;
-    background: #F8FAFC;
-    cursor: pointer;
-    margin-bottom: 1rem;
+.conn-line:hover {
+    stroke: #DC2626;
+    stroke-width: 4;
 }
-.drop-zone:hover { border-color: #2563EB; background: #EFF6FF; }
+.organizar-preview-section {
+    margin-top: 1rem;
+    padding-top: 0.9rem;
+    border-top: 2px dashed #CBD5E1;
+}
+.organizar-preview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 0.6rem;
+    overflow: visible !important;
+    max-height: none !important;
+    padding-right: 2px;
+}
+.preview-group-card {
+    background: #FFFFFF;
+    border: 1px solid #CBD5E1;
+    border-left: 4px solid #16A34A;
+    border-radius: 7px;
+    padding: 0.5rem 0.65rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+.preview-group-card.incomplete {
+    background: #FFFBEB;
+    border-color: #FCD34D;
+    border-left: 4px solid #F59E0B;
+}
+
+/* Canvas y Conexiones en Ventana Organizar */
+.organizar-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+    flex-wrap: wrap;
+}
+.organizar-history-btns {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+.btn-history-icon {
+    background: #F8FAFC;
+    border: 1px solid #CBD5E1;
+    border-radius: 6px;
+    padding: 0.35rem 0.65rem;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #334155;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+.btn-history-icon:hover:not(:disabled) {
+    background: #EFF6FF;
+    border-color: #2563EB;
+    color: #1D4ED8;
+}
+.btn-history-icon:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+.organizar-headers-row {
+    display: grid;
+    grid-template-columns: 1fr 150px 1fr;
+    align-items: center;
+    margin-bottom: 0.45rem;
+    padding: 0 0.35rem;
+}
+.organizar-col-header {
+    font-size: 0.82rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #334155;
+    text-align: center;
+}
+.organizar-container {
+    display: grid;
+    grid-template-columns: 1fr 150px 1fr;
+    gap: 0;
+    padding: 0.25rem 0.35rem;
+    position: relative;
+    align-items: stretch;
+}
+.organizar-col {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.55rem;
+    z-index: 2;
+}
+.organizar-item {
+    background: #FFFFFF;
+    border: 1.5px solid #CBD5E1;
+    border-radius: 8px;
+    padding: 0.55rem 0.7rem;
+    font-size: 0.82rem;
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+    transition: all 0.15s;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+.organizar-item:hover {
+    border-color: #2563EB;
+    box-shadow: 0 3px 6px rgba(37,99,235,0.12);
+}
+.organizar-item.active-connect {
+    border-color: #2563EB;
+    background: #EFF6FF;
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.18);
+}
+.organizar-item.is-connected {
+    border-left: 4px solid #16A34A;
+}
+.organizar-item-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.2rem;
+}
+.organizar-item-desc {
+    font-size: 0.78rem;
+    color: #475569;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.connections-canvas-col {
+    position: relative;
+    z-index: 1;
+}
+#connectionsSvg {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+}
+.conn-line {
+    fill: none;
+    stroke: #2563EB;
+    stroke-width: 2.5;
+    cursor: pointer;
+    pointer-events: stroke;
+    transition: stroke 0.15s, stroke-width 0.15s;
+}
+.conn-line:hover {
+    stroke: #DC2626;
+    stroke-width: 4;
+}
+.organizar-preview-section {
+    margin-top: 1rem;
+    padding-top: 0.9rem;
+    border-top: 2px dashed #CBD5E1;
+}
+.organizar-preview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 0.6rem;
+    padding-right: 2px;
+}
+.preview-group-card {
+    background: #FFFFFF;
+    border: 1px solid #CBD5E1;
+    border-left: 4px solid #16A34A;
+    border-radius: 7px;
+    padding: 0.5rem 0.65rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+.preview-group-card.incomplete {
+    background: #FFFBEB;
+    border-color: #FCD34D;
+    border-left: 4px solid #F59E0B;
+}
+/* Pestañas de conciliación sin borde azul de foco */
+.nav-tab-btn:focus,
+.nav-tab-btn:focus-visible,
+.nav-tab-btn:active {
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+/* Tarjetas de grupos y propuestas compactas y profesionales */
+.group-card {
+    background: #FFFFFF;
+    border: 1px solid #CBD5E1;
+    border-radius: 8px;
+    padding: 0.65rem 0.85rem;
+    margin-bottom: 0.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+    font-size: 0.85rem;
+}
+.group-card.incomplete {
+    border-left: 4px solid #F59E0B;
+    background: #FFFBEB;
+}
+.group-card.complete {
+    border-left: 4px solid #16A34A;
+}
+.group-card input[type="checkbox"] {
+    width: 15px !important;
+    height: 15px !important;
+    min-width: 15px !important;
+    cursor: pointer;
+    margin: 0 !important;
+    outline: none !important;
+    box-shadow: none !important;
+}
+/* Estilos para el nuevo formato paralelo en Conciliación manual */
+.manual-match-row {
+    display: grid;
+    grid-template-columns: 1fr 60px 1fr;
+    align-items: center;
+    gap: 0.5rem;
+    background: #FFFFFF;
+    border: 1px solid #CBD5E1;
+    border-radius: 10px;
+    padding: 0.75rem;
+    margin-bottom: 0.75rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+    position: relative;
+}
+.manual-match-row.incomplete {
+    border-left: 5px solid #F59E0B;
+    background: #FFFBEB;
+}
+.manual-match-row.complete {
+    border-left: 5px solid #16A34A;
+}
+.manual-card-side {
+    background: #F8FAFC;
+    border: 1px solid #E2E8F0;
+    border-radius: 8px;
+    padding: 0.5rem 0.65rem;
+    font-size: 0.82rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-height: 55px;
+    justify-content: center;
+}
+.manual-line-connector {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    height: 100%;
+}
+.manual-line-connector::after {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 2px;
+    background: #94A3B8;
+}
+
 </style>
 @endpush
 
@@ -942,9 +1243,6 @@
     <div class="conciliacion-header">
         <div>
             <h1>Conciliación Bancaria</h1>
-            <p style="color:#64748B; font-size: 0.95rem;">
-                Módulo G2: Importación inmutable de extractos, cruce con Rendiciones y gestión visual de grupos.
-            </p>
         </div>
         <div class="header-actions">
             <button type="button" class="btn-gear" onclick="abrirConfiguracion()" title="Configuración de cuentas, apariencias y estados">⚙</button>
@@ -1352,26 +1650,15 @@
         </div>
     </div>
     
-    {{-- Aviso informativo para organizar selecciones --}}
-    <div class="selection-notice-banner">
-        <div class="selection-notice-icon">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="12" y1="16" x2="12" y2="12"></line>
-                <line x1="12" y1="8" x2="12.01" y2="8"></line>
-            </svg>
+    {{-- 5. Barra de Acciones Siempre Visible --}}
+    <div id="contextual_bar" class="contextual-bar" style="display:flex; background:#F8FAFC; color:#1E293B; border:1px solid #CBD5E1; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+        <div style="display:flex; align-items:center; gap:0.65rem;">
+            <span style="font-size:1.1rem;">☑️</span>
+            <span id="contextual_selection_text" style="font-weight:600; font-size:0.9rem; color:#334155;">0 movimientos y 0 cobranzas seleccionados</span>
         </div>
-        <div class="selection-notice-text">
-            <strong>Organización de selecciones:</strong> Seleccioná registros con las casillas de verificación en las tablas de <em>Movimientos bancarios</em> y <em>Cobranzas ERP</em> para habilitar la organización de selecciones y agrupar conciliaciones (1 a 1, 1 a N, N a 1 o N a N).
-        </div>
-    </div>
-
-    {{-- 5. Barra de Acciones Contextual --}}
-    <div id="contextual_bar" class="contextual-bar" style="display:none;">
-        <span id="contextual_selection_text">0 movimientos y 0 cobranzas seleccionados</span>
         <div style="display:flex; gap:0.75rem;">
-            <button type="button" class="btn-action btn-primary" onclick="abrirModalOrganizar()">Organizar selección</button>
-            <button type="button" class="btn-action btn-secondary" onclick="quitarSeleccion()">Quitar selección</button>
+            <button type="button" id="btn_quitar_seleccion" class="btn-action btn-secondary" onclick="quitarSeleccion()" disabled style="opacity:0.5; cursor:not-allowed;">Quitar selección</button>
+            <button type="button" id="btn_organizar_seleccion" class="btn-action btn-primary" onclick="abrirModalOrganizar()">Organizar selección</button>
         </div>
     </div>
 
@@ -1393,89 +1680,144 @@
     </div>
 </div>
 
-{{-- MODAL: Organizar Selección (Vinculación visual por líneas) --}}
+{{-- MODAL: Organizar Selección (Vinculación visual por líneas + Vista previa de grupos) --}}
 <div id="modal_organizar" class="modal-overlay">
-    <div class="modal-box" id="box_organizar" style="max-width:950px;">
+    <div class="modal-box" id="box_organizar">
         <div class="modal-header">
-            <h3 style="font-weight:700;">Organizar selección</h3>
+            <h3 style="font-weight:700; margin:0; color:#1E293B;">Organizar selección</h3>
             <div class="modal-header-actions">
                 <button type="button" class="icon-btn" onclick="toggleMaximizar('box_organizar')" title="Maximizar / Restaurar">⤢</button>
                 <button type="button" class="icon-btn" onclick="intentarCerrarOrganizar()" title="Cerrar">✕</button>
             </div>
         </div>
-        <p style="font-size:0.85rem; color:#64748B; margin-bottom:0.75rem;">
-            Arrastrá o hacé clic en un registro de la izquierda y luego en uno de la derecha para conectarlos.
-        </p>
 
-        <div class="organizar-container">
-            <div class="organizar-col" id="org_col_banco"></div>
-            <div class="connections-canvas-col">
-                <svg id="connectionsSvg"></svg>
+        <div class="organizar-toolbar">
+            <span style="font-size:0.85rem; color:#475569;">
+                Hacé clic en un registro de la izquierda y luego en uno de la derecha para conectarlos.
+            </span>
+            <div class="organizar-history-btns">
+                <button type="button" id="btn_org_undo" class="btn-history-icon" onclick="deshacerConexion()" title="Deshacer última acción" disabled>↶</button>
+                <button type="button" id="btn_org_redo" class="btn-history-icon" onclick="rehacerConexion()" title="Rehacer acción" disabled>↷</button>
+                <button type="button" class="btn-action btn-secondary" style="padding:0.35rem 0.7rem; font-size:0.8rem;" onclick="limpiarConexiones()">Limpiar conexiones</button>
             </div>
-            <div class="organizar-col" id="org_col_erp"></div>
         </div>
 
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:1.25rem;">
-            <div style="display:flex; gap:0.5rem;">
-                <button type="button" class="btn-action btn-secondary" onclick="deshacerConexion()">Deshacer</button>
-                <button type="button" class="btn-action btn-secondary" onclick="limpiarConexiones()">Limpiar conexiones</button>
+        {{-- Títulos fijos arriba y centrados en cada columna --}}
+        <div class="organizar-headers-row">
+            <div class="organizar-col-header">Movimientos bancarios</div>
+            <div></div>
+            <div class="organizar-col-header">Rendiciones a conciliar</div>
+        </div>
+
+        {{-- Área fluida sin scroll interno --}}
+        <div class="organizar-scroll-viewport" id="organizar_scroll_viewport">
+            <div class="organizar-container" id="organizar_container">
+                <div class="organizar-col" id="org_col_banco"></div>
+                <div class="connections-canvas-col">
+                    <svg id="connectionsSvg"></svg>
+                </div>
+                <div class="organizar-col" id="org_col_erp"></div>
             </div>
-            <div style="display:flex; gap:0.5rem;">
-                <button type="button" class="btn-action btn-secondary" onclick="cancelarOrganizar()">Cancelar</button>
-                <button type="button" class="btn-action btn-primary" onclick="guardarDistribucionGrupos()">Guardar distribución</button>
+        </div>
+
+        {{-- Sección de Vista Previa (Grupos Vinculados + Registros Aislados con Checkbox) --}}
+        <div class="organizar-preview-section">
+            {{-- Parte 1: Grupos Vinculados --}}
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.55rem;">
+                <span style="font-size:0.86rem; font-weight:700; color:#1E293B;">
+                    Grupos vinculados a crear (<span id="org_preview_count">0</span>)
+                </span>
+                <span style="font-size:0.77rem; color:#64748B;">
+                    Podés personalizar el nombre de cada grupo
+                </span>
             </div>
+            <div class="organizar-preview-grid" id="org_preview_grupos"></div>
+
+            {{-- Parte 2: Registros Aislados con Checkbox --}}
+            <div style="margin-top: 1.25rem; padding-top: 0.85rem; border-top: 1px dashed #CBD5E1;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.55rem;">
+                    <span style="font-size:0.86rem; font-weight:700; color:#1E293B;">
+                        Registros aislados disponibles (<span id="org_aislados_count">0</span>)
+                    </span>
+                    <span style="font-size:0.77rem; color:#64748B;">
+                        Marcá el check en los registros que quieras agregar como grupos individuales
+                    </span>
+                </div>
+                <div class="organizar-preview-grid" id="org_preview_aislados"></div>
+            </div>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; align-items:center; gap:0.6rem; margin-top:1.25rem; padding-top:0.75rem; border-top:1px solid #E2E8F0;">
+            <button type="button" class="btn-action btn-secondary" onclick="cancelarOrganizar()">Cancelar</button>
+            <button type="button" class="btn-action btn-primary" onclick="guardarDistribucionGrupos()">Guardar distribución</button>
         </div>
     </div>
 </div>
 
-{{-- MODAL: Subir Extracto Bancario --}}
-<div id="modal_extracto" class="modal-overlay">
-    <div class="modal-box" id="box_extracto">
-        <div class="modal-header">
-            <h3 style="font-weight:700;">Subir extracto bancario</h3>
-            <div class="modal-header-actions">
-                <button type="button" class="icon-btn" onclick="toggleMaximizar('box_extracto')" title="Maximizar / Restaurar">⤢</button>
-                <button type="button" class="icon-btn" onclick="cerrarModalExtracto()" title="Cerrar">✕</button>
+{{-- Modal de Importación de Extractos Bancarios (Redimensionable y Maximizable) --}}
+    <div id="modal_extracto" class="modal-overlay">
+        <div id="modal_extracto_box" class="modal-box" style="width: 600px; min-width: 440px; max-width: 96vw; min-height: 360px; max-height: 92vh; resize: both; overflow: auto; display: flex; flex-direction: column;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.35rem;">
+                <h3 style="margin:0; font-size:1.1rem; color:#1E293B;">📥 Importar extractos bancarios</h3>
+                <div style="display:flex; align-items:center; gap:0.35rem;">
+                    <button type="button" onclick="toggleMaximizar('modal_extracto_box')" title="Maximizar / Restaurar tamaño" style="background:#F1F5F9; border:1px solid #CBD5E1; border-radius:6px; padding:2px 8px; font-size:0.85rem; cursor:pointer; color:#334155;">⛶</button>
+                    <button type="button" onclick="intentarCerrarModalExtracto()" title="Cerrar" style="background:none; border:none; font-size:1.25rem; cursor:pointer; color:#64748B;">✕</button>
+                </div>
             </div>
+            <p style="margin:0 0 0.85rem 0; font-size:0.83rem; color:#64748B;">
+                Arrastrá uno o varios extractos bancarios acá o seleccionalos desde tu computadora (<code>.csv</code>, <code>.txt</code>, <code>.xls</code>, <code>.xlsx</code>).
+            </p>
+
+            <form id="form_importar_extracto" onsubmit="enviarExtractosMultiples(event)" style="display:flex; flex-direction:column; flex:1; min-height:0;">
+                {{-- Zona Drag & Drop --}}
+                <div id="dropzone_extracto"
+                     onclick="document.getElementById('input_archivo_extracto').click()"
+                     style="border: 2px dashed #93C5FD; background: #F8FAFC; border-radius: 10px; padding: 1.35rem 1rem; text-align: center; cursor: pointer; transition: all 0.15s;">
+                    <div style="font-size: 1.6rem; margin-bottom: 0.35rem;">📄</div>
+                    <div style="font-weight: 600; color: #1E293B; font-size: 0.9rem;">
+                        Soltá los archivos aquí o <span style="color: #2563EB; text-decoration: underline;">buscá en tu computadora</span>
+                    </div>
+                    <div style="font-size: 0.76rem; color: #64748B; margin-top: 0.25rem;">
+                        Podés cargar múltiples archivos juntos antes de subirlos
+                    </div>
+                    <input type="file" id="input_archivo_extracto" multiple accept=".csv,.txt,.xls,.xlsx" style="display:none;" onchange="archivosSeleccionados(this)">
+                </div>
+
+                {{-- Lista de archivos preparados --}}
+                <div id="lista_archivos_container" style="display:none; margin-top: 0.85rem; border: 1px solid #E2E8F0; border-radius: 8px; background: #FFFFFF; padding: 0.65rem 0.75rem; flex: 1; min-height: 110px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.45rem; padding-bottom:0.35rem; border-bottom:1px solid #F1F5F9;">
+                        <span id="contador_archivos_espera" style="font-size:0.82rem; font-weight:600; color:#334155;">Archivos listos para subir</span>
+                        <button type="button" class="btn-action btn-secondary" style="padding: 0.28rem 0.65rem; font-size: 0.78rem;" onclick="limpiarListaArchivos()">Limpiar lista</button>
+                    </div>
+                    <ul id="lista_archivos_ul" style="list-style:none; margin:0; padding:0; max-height: 220px; overflow-y: auto; font-size: 0.82rem; color: #334155;"></ul>
+                </div>
+
+                {{-- Estado de carga y resultados --}}
+                <div id="import_spinner" style="display:none; margin-top:0.75rem; padding:0.65rem; background:#EFF6FF; color:#1D4ED8; border-radius:8px; font-size:0.84rem; text-align:center;">
+                    Procesando extractos, aguarde un momento...
+                </div>
+                <div id="import_resultado" style="display:none; margin-top:0.75rem; flex: 1; min-height: 140px; overflow-y: auto; padding-right: 2px;"></div>
+
+                {{-- Pie fijo siempre abajo --}}
+                <div style="display:flex; justify-content:flex-end; align-items:center; gap:0.5rem; margin-top: auto; padding-top: 0.85rem; border-top: 1px solid #E2E8F0;">
+                    <button type="button" class="btn-action btn-secondary" onclick="intentarCerrarModalExtracto()">Cancelar</button>
+                    <button type="submit" id="btn_submit_extracto" class="btn-action btn-primary" disabled>Subir extractos</button>
+                </div>
+            </form>
         </div>
-
-        <form id="form_subir_extracto" onsubmit="enviarExtractosMultiples(event)">
-            @csrf
-            <div class="drop-zone" onclick="document.getElementById('input_archivo_extracto').click()">
-                <div style="margin-bottom:0.5rem; color:#64748B;">
-                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                        <polyline points="14 2 14 8 20 8"></polyline>
-                        <line x1="12" y1="18" x2="12" y2="12"></line>
-                        <line x1="9" y1="15" x2="15" y2="15"></line>
-                    </svg>
-                </div>
-                <div style="font-weight:600; color:#1E293B;">Arrastrá o buscá tus archivos (.xls o .txt)</div>
-                <div style="font-size:0.8rem; color:#64748B; margin-top:0.25rem;">Admite selección múltiple</div>
-                <input type="file" id="input_archivo_extracto" name="archivos[]" accept=".xls,.txt" multiple style="display:none;" onchange="archivosSeleccionados(this)">
-            </div>
-
-            <div id="lista_archivos_container" style="margin-bottom:1rem; display:none;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.4rem;">
-                    <span style="font-weight:600; font-size:0.85rem; color:#334155;">Archivos seleccionados:</span>
-                    <button type="button" onclick="limpiarListaArchivos()" style="background:none; border:none; color:#DC2626; font-size:0.8rem; cursor:pointer;">Limpiar lista</button>
-                </div>
-                <ul id="lista_archivos_ul" style="list-style:none; padding:0; margin:0; font-size:0.85rem; max-height:120px; overflow-y:auto;"></ul>
-            </div>
-
-            <div id="import_spinner" style="display:none; text-align:center; padding:1rem; font-weight:600; color:#2563EB;">
-                Procesando extracto bancario...
-            </div>
-
-            <div id="import_resultado" style="display:none; padding:1rem; border-radius:8px; margin-bottom:1rem; font-size:0.9rem;"></div>
-
-            <div style="display:flex; justify-content:flex-end; gap:0.75rem; margin-top:1rem;">
-                <button type="button" class="btn-action btn-secondary" onclick="cerrarModalExtracto()">Cerrar</button>
-                <button type="submit" id="btn_submit_extracto" class="btn-action btn-primary" disabled>Subir</button>
-            </div>
-        </form>
     </div>
-</div>
+
+{{-- Modal Propio de Confirmación (reemplaza confirm/prompt nativos del navegador) --}}
+    <div id="modal_confirmacion_sistema" class="modal-overlay" style="z-index: 9999;">
+        <div class="modal-box" style="max-width: 440px; text-align: left;">
+            <div style="display:flex; align-items:center; gap:0.6rem; margin-bottom:0.5rem;">
+                <span id="confirm_sys_icon" style="font-size:1.35rem;">⚠️</span>
+                <h3 id="confirm_sys_titulo" style="margin:0; font-size:1.05rem; color:#1E293B;">Confirmar acción</h3>
+            </div>
+            <p id="confirm_sys_mensaje" style="margin:0 0 1.15rem 0; font-size:0.86rem; color:#475569; line-height:1.45;"></p>
+            <div id="confirm_sys_botones" style="display:flex; justify-content:flex-end; flex-wrap:wrap; gap:0.5rem;"></div>
+        </div>
+    </div>
 
 {{-- Modal de Configuración de Apariencia y Colores por Estado --}}
     <div id="modal_config" class="modal-overlay" onclick="if(event.target === this) intentarCerrarConfiguracion()">
@@ -1607,7 +1949,42 @@ let state = {
 let archivosEnEspera = [];
 let reqIdBanco = 0;
 let reqIdErp = 0;
+let cacheBancoItems = {};
+let cacheErpItems = {};
+let historialConexiones = [[]];
+let indiceHistorialConexiones = 0;
+let nombresPreviewGrupos = {};
 let connectingBancoId = null;
+let activeRecord = { tipo: null, id: null }; // Registro actualmente activo
+let gruposIndividualesConfirmados = new Set(); // Almacena IDs de registros confirmados como aislados ("banco:43" o "erp:2")
+let aisladosChecks = {};
+
+/**
+ * MODAL PROPIO DE CONFIRMACIÓN (SIN ALERT/CONFIRM/PROMPT DEL NAVEGADOR)
+ */
+function mostrarConfirmacionSistema({ icono = '⚠️', titulo, mensaje, botones = [] }) {
+    const overlay = document.getElementById('modal_confirmacion_sistema');
+    document.getElementById('confirm_sys_icon').textContent = icono;
+    document.getElementById('confirm_sys_titulo').textContent = titulo;
+    document.getElementById('confirm_sys_mensaje').innerHTML = mensaje;
+
+    const contBotones = document.getElementById('confirm_sys_botones');
+    contBotones.innerHTML = '';
+
+    botones.forEach(btn => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = `btn-action ${btn.clase || 'btn-secondary'}`;
+        b.textContent = btn.texto;
+        b.onclick = () => {
+            overlay.classList.remove('active');
+            if (typeof btn.onClick === 'function') btn.onClick();
+        };
+        contBotones.appendChild(b);
+    });
+
+    overlay.classList.add('active');
+}
 
 function guardarEstadoEnSession() {
     const backup = {
@@ -1674,8 +2051,8 @@ function recuperarEstadoSession() {
                 medios: mediosErpRec,
                 colsContraidas: new Set(parsed.erp?.colsContraidas || [])
             },
-            seleccionBanco: new Set(parsed.seleccionBanco || []),
-            seleccionErp: new Set(parsed.seleccionErp || []),
+            seleccionBanco: new Set((parsed.seleccionBanco || []).map(Number)),
+            seleccionErp: new Set((parsed.seleccionErp || []).map(Number)),
             colores: { ...DEFAULT_COLORES, ...(parsed.colores || {}) }
         };
     } catch(e) { console.error("Error restaurando estado:", e); }
@@ -2016,6 +2393,9 @@ function expandirAbreviaturasDescripcion(texto) {
         [/\bPERC\.?\b/gi, 'PERCEPCION'],
         [/\bING\.?\s*BRUTOS\b/gi, 'INGRESOS BRUTOS'],
         [/\bVAR\.?\b/gi, 'VARIOS'],
+        [/\bDB\.?\s*DEBIN\b/gi, 'DEBITO DEBIN'],
+        [/\bCR\.?\s*DEBIN\b/gi, 'CREDITO DEBIN'],
+        [/\bCDNI\b/gi, 'CUENTA DNI'],
         [/\bII\.?\s*BB\.?\b/gi, 'INGRESOS BRUTOS']
     ];
     let resultado = texto;
@@ -2074,6 +2454,7 @@ async function cargarMovimientosBancarios() {
             tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:#94A3B8; padding:2rem;">No se encontraron movimientos bancarios con la configuración de filtros actual.</td></tr>';
             document.getElementById('banco_total_badge').innerText = '0 registros';
             actualizarFooterPaginacion('banco', 0, 1, state.banco.per_page, 0);
+            sincronizarCheckboxMaestro('banco');
             return;
         }
 
@@ -2081,6 +2462,7 @@ async function cargarMovimientosBancarios() {
         actualizarFooterPaginacion('banco', json.last_page, json.current_page, json.per_page, json.total);
 
         json.data.forEach(m => {
+            cacheBancoItems[m.id_movimiento_bancario] = m; // <-- Caché poblada
             const isSelected = state.seleccionBanco.has(m.id_movimiento_bancario);
             const tr = document.createElement('tr');
             tr.className = `row-state-${m.estado_conciliacion}`;
@@ -2110,6 +2492,7 @@ async function cargarMovimientosBancarios() {
         });
 
         aplicarColumnasContraidas('banco');
+        sincronizarCheckboxMaestro('banco');
     } catch(e) { console.error(e); }
 }
 
@@ -2141,6 +2524,7 @@ async function cargarCobranzasErp() {
             tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#94A3B8; padding:2rem;">No se encontraron rendiciones a conciliar con la configuración de filtros actual.</td></tr>';
             document.getElementById('erp_total_badge').innerText = '0 registros';
             actualizarFooterPaginacion('erp', 0, 1, state.erp.per_page, 0);
+            sincronizarCheckboxMaestro('erp');
             return;
         }
 
@@ -2148,6 +2532,7 @@ async function cargarCobranzasErp() {
         actualizarFooterPaginacion('erp', json.last_page, json.current_page, json.per_page, json.total);
 
         json.data.forEach(c => {
+            cacheErpItems[c.id_rendicion_cobro] = c; // <-- Caché poblada
             const isSelected = state.seleccionErp.has(c.id_rendicion_cobro);
             const estadoRaw = (c.estado || '').toLowerCase();
             const tr = document.createElement('tr');
@@ -2175,6 +2560,7 @@ async function cargarCobranzasErp() {
         });
 
         aplicarColumnasContraidas('erp');
+        sincronizarCheckboxMaestro('erp');
     } catch(e) { console.error(e); }
 }
 
@@ -2288,18 +2674,40 @@ function aplicarColumnasContraidas(tipo) {
 /**
  * SELECCIÓN TEMPORAL Y BARRA CONTEXTUAL
  */
+function sincronizarCheckboxMaestro(tipo) {
+    const masterId = tipo === 'banco' ? 'chk_all_banco' : 'chk_all_erp';
+    const tbodyId = tipo === 'banco' ? 'tbody_banco' : 'tbody_erp';
+    const master = document.getElementById(masterId);
+    if (!master) return;
+
+    const checkboxes = Array.from(document.querySelectorAll(`#${tbodyId} input[type="checkbox"]`));
+    if (checkboxes.length === 0) {
+        master.checked = false;
+        master.indeterminate = false;
+        return;
+    }
+
+    const marcados = checkboxes.filter(chk => chk.checked).length;
+    master.checked = (marcados === checkboxes.length);
+    master.indeterminate = (marcados > 0 && marcados < checkboxes.length);
+}
+
 function toggleSelectBanco(id, chk) {
-    if (chk.checked) state.seleccionBanco.add(id);
-    else state.seleccionBanco.delete(id);
+    const numId = Number(id);
+    if (chk.checked) state.seleccionBanco.add(numId);
+    else state.seleccionBanco.delete(numId);
     chk.closest('tr').classList.toggle('selected-row', chk.checked);
+    sincronizarCheckboxMaestro('banco');
     actualizarBarraContextual();
     guardarEstadoEnSession();
 }
 
 function toggleSelectErp(id, chk) {
-    if (chk.checked) state.seleccionErp.add(id);
-    else state.seleccionErp.delete(id);
+    const numId = Number(id);
+    if (chk.checked) state.seleccionErp.add(numId);
+    else state.seleccionErp.delete(numId);
     chk.closest('tr').classList.toggle('selected-row', chk.checked);
+    sincronizarCheckboxMaestro('erp');
     actualizarBarraContextual();
     guardarEstadoEnSession();
 }
@@ -2307,11 +2715,12 @@ function toggleSelectErp(id, chk) {
 function toggleSelectAllBanco(master) {
     document.querySelectorAll('#tbody_banco input[type="checkbox"]').forEach(chk => {
         chk.checked = master.checked;
-        const id = parseInt(chk.getAttribute('onchange').match(/\d+/)[0]);
+        const id = Number(chk.getAttribute('onchange').match(/\d+/)[0]);
         if (master.checked) state.seleccionBanco.add(id);
         else state.seleccionBanco.delete(id);
         chk.closest('tr').classList.toggle('selected-row', master.checked);
     });
+    master.indeterminate = false;
     actualizarBarraContextual();
     guardarEstadoEnSession();
 }
@@ -2319,33 +2728,46 @@ function toggleSelectAllBanco(master) {
 function toggleSelectAllErp(master) {
     document.querySelectorAll('#tbody_erp input[type="checkbox"]').forEach(chk => {
         chk.checked = master.checked;
-        const id = parseInt(chk.getAttribute('onchange').match(/\d+/)[0]);
+        const id = Number(chk.getAttribute('onchange').match(/\d+/)[0]);
         if (master.checked) state.seleccionErp.add(id);
         else state.seleccionErp.delete(id);
         chk.closest('tr').classList.toggle('selected-row', master.checked);
     });
+    master.indeterminate = false;
     actualizarBarraContextual();
     guardarEstadoEnSession();
 }
 
 function actualizarBarraContextual() {
-    const bar = document.getElementById('contextual_bar');
     const bCount = state.seleccionBanco.size;
     const eCount = state.seleccionErp.size;
+    const totalSel = bCount + eCount;
 
-    if (bCount > 0 || eCount > 0) {
-        bar.style.display = 'flex';
-        document.getElementById('contextual_selection_text').innerText = `${bCount} movimientos y ${eCount} cobranzas seleccionados`;
-    } else {
-        bar.style.display = 'none';
+    const txt = document.getElementById('contextual_selection_text');
+    const btnQuitar = document.getElementById('btn_quitar_seleccion');
+    if (txt) {
+        txt.innerText = `${bCount} movimiento(s) bancario(s) y ${eCount} rendición(es) seleccionado(s)`;
+    }
+    if (btnQuitar) {
+        btnQuitar.disabled = (totalSel === 0);
+        btnQuitar.style.opacity = (totalSel === 0) ? '0.5' : '1';
+        btnQuitar.style.cursor = (totalSel === 0) ? 'not-allowed' : 'pointer';
     }
 }
 
 function quitarSeleccion() {
     state.seleccionBanco.clear();
     state.seleccionErp.clear();
-    document.querySelectorAll('.table-erp input[type="checkbox"]').forEach(chk => chk.checked = false);
-    document.querySelectorAll('.table-erp tr').forEach(tr => tr.classList.remove('selected-row'));
+    const chkAllBanco = document.getElementById('chk_all_banco');
+    const chkAllErp = document.getElementById('chk_all_erp');
+    if (chkAllBanco) { chkAllBanco.checked = false; chkAllBanco.indeterminate = false; }
+    if (chkAllErp) { chkAllErp.checked = false; chkAllErp.indeterminate = false; }
+    document.querySelectorAll('#tbody_banco input[type="checkbox"], #tbody_erp input[type="checkbox"]').forEach(chk => {
+        chk.checked = false;
+    });
+    document.querySelectorAll('#tbody_banco tr, #tbody_erp tr').forEach(tr => {
+        tr.classList.remove('selected-row');
+    });
     actualizarBarraContextual();
     guardarEstadoEnSession();
 }
@@ -2354,130 +2776,205 @@ function quitarSeleccion() {
  * MODAL ORGANIZAR SELECCIÓN Y VINCULACIÓN VISUAL (SECCIÓN 8)
  */
 function abrirModalOrganizar() {
-    if (state.seleccionBanco.size === 0 && state.seleccionErp.size === 0) {
-        alert("Seleccioná al menos un movimiento o cobranza.");
-        return;
+    try {
+        if (state.seleccionBanco.size === 0 && state.seleccionErp.size === 0) {
+            mostrarConfirmacionSistema({
+                icono: 'ℹ️',
+                titulo: 'No hay registros seleccionados',
+                mensaje: 'Para organizar una conciliación, primero tildá al menos un movimiento bancario o una rendición a conciliar en las tablas superiores.',
+                botones: [{ texto: 'Entendido', clase: 'btn-primary' }]
+            });
+            return;
+        }
+
+        const colBanco = document.getElementById('org_col_banco');
+        const colErp = document.getElementById('org_col_erp');
+        if (!colBanco || !colErp) return;
+
+        colBanco.innerHTML = '';
+        colErp.innerHTML = '';
+
+        state.seleccionBanco.forEach(rawId => {
+            const id = Number(rawId);
+            const m = cacheBancoItems[id] || {};
+            const item = document.createElement('div');
+            item.className = 'organizar-item';
+            item.id = `org_item_banco_${id}`;
+
+            const fechaAr = formatearFechaAr(m.fecha_operacion || '');
+            const signoStr = m.signo_monto === 'egreso' ? '-' : '+';
+            const montoVal = m.monto !== undefined ? parseFloat(m.monto).toLocaleString('es-AR', { minimumFractionDigits: 2 }) : '0,00';
+            const montoStr = `${signoStr}$${montoVal}`;
+            const colorMonto = m.signo_monto === 'egreso' ? '#DC2626' : '#16A34A';
+            const desc = expandirAbreviaturasDescripcion(m.descripcion_normalizada || m.descripcion_original || `Movimiento #${id}`);
+            const cuitTxt = m.cuit_extraido ? `CUIT: ${m.cuit_extraido}` : '';
+
+            item.innerHTML = `
+                <div class="organizar-item-top">
+                    <span><strong>#${id}</strong> ${fechaAr ? '· <span style="color:#64748B;">' + fechaAr + '</span>' : ''} ${cuitTxt ? '· <span style="font-size:0.75rem; color:#475569;">' + escapeHtml(cuitTxt) + '</span>' : ''}</span>
+                    <strong style="color:${colorMonto};">${montoStr}</strong>
+                </div>
+                <div class="organizar-item-desc" title="${escapeHtml(desc)}">${escapeHtml(desc)}</div>
+            `;
+
+            item.onclick = () => seleccionarParaConectar(id, 'banco', item);
+            colBanco.appendChild(item);
+        });
+
+        state.seleccionErp.forEach(rawId => {
+            const id = Number(rawId);
+            const c = cacheErpItems[id] || {};
+            const item = document.createElement('div');
+            item.className = 'organizar-item';
+            item.id = `org_item_erp_${id}`;
+
+            const fechaAr = formatearFechaAr(c.fecha || '');
+            const montoVal = c.monto !== undefined ? parseFloat(c.monto).toLocaleString('es-AR', { minimumFractionDigits: 2 }) : '0,00';
+            const montoStr = `$${montoVal}`;
+            const cliente = c.cliente_nombre || `Rendición #${id}`;
+            const medio = ETIQUETAS_MEDIO_ERP[c.medio_pago] || c.medio_pago || '';
+            const cuitTxt = c.cliente_cuit ? `CUIT: ${c.cliente_cuit}` : '';
+
+            item.innerHTML = `
+                <div class="organizar-item-top">
+                    <span><strong>#${id}</strong> ${fechaAr ? '· <span style="color:#64748B;">' + fechaAr + '</span>' : ''} ${cuitTxt ? '· <span style="font-size:0.75rem; color:#475569;">' + escapeHtml(cuitTxt) + '</span>' : ''}</span>
+                    <strong style="color:#1E293B;">${montoStr}</strong>
+                </div>
+                <div class="organizar-item-desc" title="${escapeHtml(cliente)} ${medio ? '(' + escapeHtml(medio) + ')' : ''}">
+                    ${escapeHtml(cliente)} ${medio ? '· <span style="color:#64748B;">' + escapeHtml(medio) + '</span>' : ''}
+                </div>
+            `;
+
+            item.onclick = () => seleccionarParaConectar(id, 'erp', item);
+            colErp.appendChild(item);
+        });
+
+        state.conexionesTemp = [];
+        historialConexiones = [[]];
+        indiceHistorialConexiones = 0;
+        nombresPreviewGrupos = {};
+        aisladosChecks = {};
+
+        const modal = document.getElementById('modal_organizar');
+        if (modal) modal.classList.add('active');
+
+        actualizarBotonesHistorial();
+        renderVistaPreviaGrupos();
+        requestAnimationFrame(() => dibujarLineasConexion());
+
+    } catch (err) {
+        console.error("Error crítico al intentar abrir el modal de organizar:", err);
     }
-
-    const colBanco = document.getElementById('org_col_banco');
-    const colErp = document.getElementById('org_col_erp');
-    colBanco.innerHTML = '<strong style="font-size:0.85rem; color:#475569;">Movimientos bancarios</strong>';
-    colErp.innerHTML = '<strong style="font-size:0.85rem; color:#475569;">Cobranzas ERP</strong>';
-
-    state.seleccionBanco.forEach(id => {
-        const item = document.createElement('div');
-        item.className = 'organizar-item';
-        item.id = `org_item_banco_${id}`;
-        item.innerText = `MB-${id}`;
-        item.onclick = () => seleccionarParaConectar(id, 'banco', item);
-        colBanco.appendChild(item);
-    });
-
-    state.seleccionErp.forEach(id => {
-        const item = document.createElement('div');
-        item.className = 'organizar-item';
-        item.id = `org_item_erp_${id}`;
-        item.innerText = `CE-${id}`;
-        item.onclick = () => seleccionarParaConectar(id, 'erp', item);
-        colErp.appendChild(item);
-    });
-
-    state.conexionesTemp = [];
-    dibujarLineasConexion();
-    document.getElementById('modal_organizar').classList.add('active');
 }
 
 function seleccionarParaConectar(id, tipo, el) {
-    if (tipo === 'banco') {
-        document.querySelectorAll('#org_col_banco .organizar-item').forEach(i => i.classList.remove('active-connect'));
-        el.classList.add('active-connect');
-        connectingBancoId = id;
-    } else if (tipo === 'erp' && connectingBancoId !== null) {
-        state.conexionesTemp.push([connectingBancoId, id]);
-        document.querySelectorAll('#org_col_banco .organizar-item').forEach(i => i.classList.remove('active-connect'));
-        connectingBancoId = null;
-        dibujarLineasConexion();
+    const numId = Number(id);
+
+    // Caso B: Clic consecutivo en el mismo lado (genera grupo individual provisional/confirmado del anterior)
+    if (activeRecord.tipo === tipo) {
+        if (activeRecord.id === numId) {
+            // Clic repetido sobre el mismo desmarca la actividad actual
+            el.classList.remove('active-connect');
+            activeRecord = { tipo: null, id: null };
+            renderVistaPreviaGrupos();
+            return;
+        }
+        // El registro anterior pasa a ser grupo individual confirmado
+        gruposIndividualesConfirmados.add(`${activeRecord.tipo}:${activeRecord.id}`);
+        // Limpiamos su estilo activo anterior
+        const prevEl = document.getElementById(`org_item_${activeRecord.tipo}_${activeRecord.id}`);
+        if (prevEl) prevEl.classList.remove('active-connect');
     }
+
+    // Si el nuevo registro ya tenía un grupo individual confirmado, lo removemos para permitir su vinculación
+    gruposIndividualesConfirmados.delete(`${tipo}:${numId}`);
+
+    if (activeRecord.tipo && activeRecord.tipo !== tipo) {
+        // Caso A: Conexión cruzada (Movimiento <-> Rendición)
+        const bId = activeRecord.tipo === 'banco' ? activeRecord.id : numId;
+        const eId = activeRecord.tipo === 'erp' ? activeRecord.id : numId;
+
+        const yaExiste = state.conexionesTemp.some(([b, e]) => Number(b) === bId && Number(e) === eId);
+        if (!yaExiste) {
+            state.conexionesTemp.push([bId, eId]);
+            registrarEstadoConexiones();
+        }
+
+        document.querySelectorAll('.organizar-item').forEach(i => i.classList.remove('active-connect'));
+        activeRecord = { tipo: null, id: null };
+    } else {
+        // Establecer nuevo registro activo
+        document.querySelectorAll('.organizar-item').forEach(i => i.classList.remove('active-connect'));
+        el.classList.add('active-connect');
+        activeRecord = { tipo, id: numId };
+    }
+
+    renderVistaPreviaGrupos();
 }
 
 function dibujarLineasConexion() {
     const svg = document.getElementById('connectionsSvg');
+    const container = document.getElementById('organizar_container');
+    if (!svg || !container) return;
+
     svg.innerHTML = '';
+
+    // Marcar tarjetas conectadas
+    document.querySelectorAll('.organizar-item').forEach(el => el.classList.remove('is-connected'));
+
+    const svgRect = svg.getBoundingClientRect();
+    if (svgRect.width === 0 || svgRect.height === 0) return;
 
     state.conexionesTemp.forEach(([bId, eId], index) => {
         const bEl = document.getElementById(`org_item_banco_${bId}`);
         const eEl = document.getElementById(`org_item_erp_${eId}`);
         if (!bEl || !eEl) return;
 
-        const containerRect = svg.getBoundingClientRect();
+        bEl.classList.add('is-connected');
+        eEl.classList.add('is-connected');
+
         const bRect = bEl.getBoundingClientRect();
         const eRect = eEl.getBoundingClientRect();
 
-        const y1 = (bRect.top + bRect.height / 2) - containerRect.top;
-        const y2 = (eRect.top + eRect.height / 2) - containerRect.top;
+        const x1 = 0;
+        const y1 = (bRect.top + bRect.height / 2) - svgRect.top;
+        const x2 = svgRect.width;
+        const y2 = (eRect.top + eRect.height / 2) - svgRect.top;
+        const cx = svgRect.width / 2;
 
-        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-        line.setAttribute('x1', '0');
-        line.setAttribute('y1', y1.toString());
-        line.setAttribute('x2', '140');
-        line.setAttribute('y2', y2.toString());
-        line.setAttribute('class', 'conn-line');
-        line.title = "Clic para eliminar esta conexión";
-        line.onclick = () => {
+        // Curva Bézier suave de extremo a extremo
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', `M ${x1} ${y1} C ${cx} ${y1}, ${cx} ${y2}, ${x2} ${y2}`);
+        path.setAttribute('class', 'conn-line');
+        path.title = 'Clic para eliminar esta conexión';
+        path.onclick = (ev) => {
+            ev.stopPropagation();
             state.conexionesTemp.splice(index, 1);
-            dibujarLineasConexion();
+            registrarEstadoConexiones();
         };
-        svg.appendChild(line);
+        svg.appendChild(path);
     });
 }
 
-function deshacerConexion() {
-    state.conexionesTemp.pop();
-    dibujarLineasConexion();
-}
-
-function limpiarConexiones() {
-    state.conexionesTemp = [];
-    dibujarLineasConexion();
-}
-
 function intentarCerrarOrganizar() {
-    if (state.conexionesTemp.length > 0) {
-        if (confirm("Tenés modificaciones sin guardar. ¿Deseás guardar la distribución antes de salir?")) {
-            guardarDistribucionGrupos();
-            return;
-        }
+    if (state.conexionesTemp.length > 0 || gruposIndividualesConfirmados.size > 0 || (activeRecord.tipo && activeRecord.id)) {
+        mostrarConfirmacionSistema({
+            icono: '🔗',
+            titulo: 'Tenés cambios sin guardar',
+            mensaje: '¿Qué querés hacer con la distribución de grupos que armaste?',
+            botones: [
+                { texto: 'Seguir editando', clase: 'btn-secondary' },
+                { texto: 'Descartar cambios', clase: 'btn-secondary', onClick: () => cancelarOrganizar() },
+                { texto: 'Guardar distribución', clase: 'btn-primary', onClick: () => guardarDistribucionGrupos() }
+            ]
+        });
+        return;
     }
     cancelarOrganizar();
 }
 
 function cancelarOrganizar() {
     document.getElementById('modal_organizar').classList.remove('active');
-}
-
-function guardarDistribucionGrupos() {
-    const nuevoGrupoId = state.gruposManuales.length + 1;
-    const bancoIds = new Set();
-    const erpIds = new Set();
-
-    state.conexionesTemp.forEach(([bId, eId]) => {
-        bancoIds.add(bId);
-        erpIds.add(eId);
-    });
-
-    if (bancoIds.size > 0 || erpIds.size > 0) {
-        state.gruposManuales.push({
-            id: nuevoGrupoId,
-            nombre: `Grupo ${nuevoGrupoId}`,
-            bancoIds: Array.from(bancoIds),
-            erpIds: Array.from(erpIds),
-            checked: false
-        });
-    }
-
-    document.getElementById('modal_organizar').classList.remove('active');
-    guardarEstadoEnSession();
-    renderGruposManuales();
 }
 
 /**
@@ -2495,15 +2992,17 @@ function cambiarPestana(pestana, btn) {
     } else if (pestana === 'alta_confianza' || pestana === 'para_revisar') {
         cargarPropuestasMatching(pestana);
     } else if (pestana === 'historial') {
-        area.innerHTML = '<p style="margin-top:0.5rem; color:#64748B;">Para consultar movimientos conciliados con fecha y comprobante, usá el filtro "Estado conciliación = Matcheado" en la tabla superior.</p>';
+        cargarHistorialConciliaciones(); // <--- Reemplazamos el texto estático por la función de carga
     }
 }
 
 function renderGruposManuales() {
+    repararInformacionGruposGuardados(); // Asegura que ningún grupo pierda su información al renderizar
+
     const area = document.getElementById('tab_content_area');
     if (state.gruposManuales.length === 0) {
         area.innerHTML = `
-            <p style="margin-top:0.5rem; color:#64748B;">
+            <p style="margin-top:0.5rem; color:#64748B; font-size:0.88rem;">
                 No hay grupos organizados todavía. Seleccioná movimientos y cobranzas en las tablas superiores y pulsá <strong>"Organizar selección"</strong>.
             </p>
         `;
@@ -2514,35 +3013,114 @@ function renderGruposManuales() {
     const completos = state.gruposManuales.filter(g => g.bancoIds.length > 0 && g.erpIds.length > 0);
     const ordenados = [...incompletos, ...completos];
 
+    const todosSeleccionados = completos.length > 0 && completos.every(g => g.checked);
+
     let html = `
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
-            <label style="font-size:0.85rem; font-weight:600; cursor:pointer;">
-                <input type="checkbox" onchange="seleccionarTodosConciliables(this)"> Seleccionar todos los conciliables
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem; padding-bottom:0.5rem; border-bottom:1px solid #E2E8F0;">
+            <label style="font-size:0.84rem; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:0.4rem; color:#334155;">
+                <input type="checkbox" style="width:15px; height:15px; outline:none !important; box-shadow:none !important;" ${todosSeleccionados ? 'checked' : ''} onchange="seleccionarTodosConciliables(this)"> Seleccionar todos los conciliables
             </label>
-            <button type="button" class="btn-action btn-success" onclick="confirmarGruposSeleccionados()">Confirmar conciliaciones seleccionadas</button>
         </div>
+        <div style="display:flex; flex-direction:column; gap:0.5rem; margin-bottom:1rem;">
     `;
 
     ordenados.forEach(g => {
         const esIncompleto = g.bancoIds.length === 0 || g.erpIds.length === 0;
+        
+        let bancoHtml = '<span style="color:#94A3B8; font-style:italic;">Sin movimiento asignado</span>';
+        if (g.bancoItemsInfo && g.bancoItemsInfo.length > 0) {
+            bancoHtml = g.bancoItemsInfo.map(m => {
+                const id = m.id_movimiento_bancario || m.id;
+                const fechaAr = formatearFechaAr(m.fecha_operacion || m.fecha || '');
+                const signoStr = m.signo_monto === 'egreso' ? '-' : '+';
+                const montoVal = m.monto !== undefined ? parseFloat(m.monto).toLocaleString('es-AR', { minimumFractionDigits: 2 }) : '0,00';
+                const montoStr = `${signoStr}$${montoVal}`;
+                const colorMonto = m.signo_monto === 'egreso' ? '#DC2626' : '#16A34A';
+                const desc = expandirAbreviaturasDescripcion(m.descripcion_normalizada || m.descripcion_original || `Movimiento #${id}`);
+                const cuitTxt = m.cuit_extraido ? `CUIT: ${m.cuit_extraido}` : '';
+
+                return `
+                    <div style="display:flex; flex-direction:column; gap:0.1rem;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <span><strong>#${id}</strong> ${fechaAr ? '· ' + fechaAr : ''} ${cuitTxt ? '· ' + escapeHtml(cuitTxt) : ''}</span>
+                            <strong style="color:${colorMonto};">${montoStr}</strong>
+                        </div>
+                        <div style="font-size:0.75rem; color:#475569; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${escapeHtml(desc)}">
+                            ${escapeHtml(desc)}
+                        </div>
+                    </div>
+                `;
+            }).join('<hr style="border:0; border-top:1px dashed #CBD5E1; margin:4px 0;">');
+        }
+
+        let erpHtml = '<span style="color:#94A3B8; font-style:italic;">Sin rendición asignada</span>';
+        if (g.erpItemsInfo && g.erpItemsInfo.length > 0) {
+            erpHtml = g.erpItemsInfo.map(c => {
+                const id = c.id_rendicion_cobro || c.id;
+                const fechaAr = formatearFechaAr(c.fecha || '');
+                const montoVal = c.monto !== undefined ? parseFloat(c.monto).toLocaleString('es-AR', { minimumFractionDigits: 2 }) : '0,00';
+                const montoStr = `$${montoVal}`;
+                const cliente = c.cliente_nombre || `Rendición #${id}`;
+                const medio = ETIQUETAS_MEDIO_ERP[c.medio_pago] || c.medio_pago || '';
+                const cuitTxt = c.cliente_cuit ? `CUIT: ${c.cliente_cuit}` : '';
+
+                return `
+                    <div style="display:flex; flex-direction:column; gap:0.1rem;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <span><strong>#${id}</strong> ${fechaAr ? '· ' + fechaAr : ''} ${cuitTxt ? '· ' + escapeHtml(cuitTxt) : ''}</span>
+                            <strong style="color:#1E293B;">${montoStr}</strong>
+                        </div>
+                        <div style="font-size:0.75rem; color:#475569; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${escapeHtml(cliente)}">
+                            ${escapeHtml(cliente)} ${medio ? '· ' + escapeHtml(medio) : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('<hr style="border:0; border-top:1px dashed #CBD5E1; margin:4px 0;">');
+        }
+
         html += `
-            <div class="group-card ${esIncompleto ? 'incomplete' : 'complete'}">
-                <div style="display:flex; align-items:center; gap:0.75rem;">
-                    <input type="checkbox" ${esIncompleto ? 'disabled title="Necesita contraparte para conciliar"' : ''} ${g.checked ? 'checked' : ''} onchange="toggleGrupoCheck(${g.id}, this)">
-                    <div>
-                        <input type="text" value="${g.nombre}" onchange="renombrarGrupo(${g.id}, this.value)" style="border:1px dashed #CBD5E1; border-radius:4px; padding:2px 6px; font-weight:700; color:#1E293B;">
-                        <div style="font-size:0.8rem; color:#64748B; margin-top:2px;">
-                            ${g.bancoIds.length} movimientos bancarios · ${g.erpIds.length} cobranzas ERP
-                            ${esIncompleto ? '<strong>(Pendiente de contraparte)</strong>' : ''}
+            <div class="manual-match-row ${esIncompleto ? 'incomplete' : 'complete'}">
+                <div style="display:flex; align-items:flex-start; gap:0.5rem; min-width:0;">
+                    <input type="checkbox" style="width:15px; height:15px; margin-top:0.2rem; outline:none !important; box-shadow:none !important; flex-shrink:0;" ${esIncompleto ? 'disabled title="Necesita contraparte para conciliar"' : ''} ${g.checked ? 'checked' : ''} onchange="toggleGrupoCheck(${g.id}, this)">
+                    <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:0.35rem;">
+                        <div style="display:flex; align-items:center; justify-content:space-between; gap:0.4rem;">
+                            <input type="text" value="${escapeHtml(g.nombre)}" onchange="renombrarGrupo(${g.id}, this.value)" style="border:1px dashed #CBD5E1; border-radius:4px; padding:2px 6px; font-weight:700; color:#1E293B; font-size:0.82rem; width:100%; background:rgba(255,255,255,0.9);">
+                        </div>
+                        <div class="manual-card-side">
+                            ${bancoHtml}
                         </div>
                     </div>
                 </div>
-                <div style="display:flex; gap:0.4rem;">
-                    <button type="button" class="btn-action btn-secondary" style="padding:0.3rem 0.6rem; font-size:0.8rem;" onclick="eliminarGrupo(${g.id})">Eliminar</button>
+
+                <div class="manual-line-connector">
+                    <span style="background:#FFFFFF; border:1px solid #CBD5E1; border-radius:999px; padding:2px 6px; font-size:0.68rem; font-weight:700; color:#64748B; z-index:2;">↔</span>
+                </div>
+
+                <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:0.5rem; min-width:0;">
+                    <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:0.35rem;">
+                        <div style="display:flex; align-items:center; justify-content:space-between; gap:0.4rem; height:24px;">
+                            <span style="font-size:0.7rem; font-weight:700; padding:2px 6px; border-radius:999px; ${esIncompleto ? 'background:#FEF3C7; color:#92400E;' : 'background:#DCFCE7; color:#166534;'}">
+                                ${esIncompleto ? 'Pendiente' : 'Completo'}
+                            </span>
+                        </div>
+                        <div class="manual-card-side">
+                            ${erpHtml}
+                        </div>
+                    </div>
+                    <div style="display:flex; align-items:center; height:100%; padding-top:1.4rem;">
+                        <button type="button" class="btn-action btn-secondary" style="padding:0.25rem 0.55rem; font-size:0.78rem; height:32px;" onclick="eliminarGrupo(${g.id})">Eliminar</button>
+                    </div>
                 </div>
             </div>
         `;
     });
+    html += '</div>';
+
+    html += `
+        <div style="display:flex; justify-content:flex-end; align-items:center; padding-top:0.75rem; border-top:1px solid #E2E8F0;">
+            <button type="button" class="btn-action btn-success" style="padding:0.4rem 0.8rem; font-size:0.82rem;" onclick="confirmarGruposSeleccionados()">Confirmar conciliaciones seleccionadas</button>
+        </div>
+    `;
 
     area.innerHTML = html;
 }
@@ -2576,71 +3154,214 @@ function seleccionarTodosConciliables(master) {
 
 async function confirmarGruposSeleccionados() {
     const paraConfirmar = state.gruposManuales.filter(g => g.checked && g.bancoIds.length > 0 && g.erpIds.length > 0);
+    
     if (paraConfirmar.length === 0) {
-        alert("Seleccioná al menos un grupo completo con su casilla tildada.");
+        mostrarConfirmacionSistema({
+            icono: 'ℹ️',
+            titulo: 'Selección incompleta',
+            mensaje: 'Seleccioná al menos un grupo completo con su casilla tildada para poder conciliar.',
+            botones: [{ texto: 'Entendido', clase: 'btn-primary' }]
+        });
         return;
     }
 
-    if (!confirm(`¿Confirmar ${paraConfirmar.length} grupo(s) de conciliación?`)) return;
+    // Generamos la lista de nombres itemizada con viñetas
+    const listaGruposHtml = paraConfirmar.map(g => `• ${escapeHtml(g.nombre)}`).join('<br>');
 
-    for (const g of paraConfirmar) {
-        for (const bId of g.bancoIds) {
-            for (const eId of g.erpIds) {
-                try {
-                    await fetch('/api/conciliacion/manual', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                        },
-                        body: JSON.stringify({
-                            id_movimiento_bancario: bId,
-                            id_rendicion_cobro: eId,
-                            observaciones: `Conciliado en ${g.nombre}`
-                        })
+    mostrarConfirmacionSistema({
+        titulo: 'Confirmar conciliaciones',
+        mensaje: `¿Estás seguro de que querés confirmar ${paraConfirmar.length} grupo(s) de conciliación seleccionados?<br><br>${listaGruposHtml}`,
+        botones: [
+            { texto: 'Cancelar', clase: 'btn-secondary' },
+            {
+                texto: 'Sí, confirmar',
+                clase: 'btn-success',
+                onClick: async () => {
+                    for (const g of paraConfirmar) {
+                        for (const bId of g.bancoIds) {
+                            for (const eId of g.erpIds) {
+                                try {
+                                    await fetch('/api/conciliacion/manual', {
+                                        method: 'POST',
+                                        headers: {
+                                            'Content-Type': 'application/json',
+                                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                                        },
+                                        body: JSON.stringify({
+                                            id_movimiento_bancario: bId,
+                                            id_rendicion_cobro: eId,
+                                            observaciones: `Conciliado en ${g.nombre}`
+                                        })
+                                    });
+                                } catch(e) {}
+                            }
+                        }
+                    }
+
+                    mostrarConfirmacionSistema({
+                        icono: '✅',
+                        titulo: 'Conciliación exitosa',
+                        mensaje: 'Las conciliaciones seleccionadas fueron confirmadas correctamente.',
+                        botones: [{ texto: 'Aceptar', clase: 'btn-primary' }]
                     });
-                } catch(e) {}
-            }
-        }
-    }
 
-    alert("Conciliaciones confirmadas exitosamente.");
-    state.gruposManuales = state.gruposManuales.filter(g => !g.checked);
-    quitarSeleccion();
-    guardarEstadoEnSession();
-    cargarMovimientosBancarios();
-    cargarCobranzasErp();
-    renderGruposManuales();
+                    state.gruposManuales = state.gruposManuales.filter(g => !g.checked);
+                    quitarSeleccion();
+                    guardarEstadoEnSession();
+                    cargarMovimientosBancarios();
+                    cargarCobranzasErp();
+                    renderGruposManuales();
+                }
+            }
+        ]
+    });
 }
 
 async function cargarPropuestasMatching(pestana) {
     const area = document.getElementById('tab_content_area');
-    area.innerHTML = '<p style="margin-top:0.5rem;">Evaluando coincidencias automáticas...</p>';
+    area.innerHTML = '<p style="margin-top:0.5rem; color:#64748B; font-size:0.88rem;">Evaluando coincidencias automáticas...</p>';
     try {
         const res = await fetch('/api/conciliacion/propuestas');
         const json = await res.json();
         const propuestas = pestana === 'alta_confianza' ? json.data.alta_confianza : json.data.para_revisar;
 
         if (!propuestas || propuestas.length === 0) {
-            area.innerHTML = `<p style="margin-top:0.5rem; color:#64748B;">No hay propuestas de ${pestana === 'alta_confianza' ? 'alta confianza' : 'revisión'}.</p>`;
+            area.innerHTML = `<p style="margin-top:0.5rem; color:#64748B; font-size:0.88rem;">No hay propuestas de ${pestana === 'alta_confianza' ? 'alta confianza' : 'revisión'}.</p>`;
             return;
         }
 
         let html = '<div style="display:flex; flex-direction:column; gap:0.5rem; margin-top:0.5rem;">';
         propuestas.forEach(p => {
+            const montoMov = p.movimiento && p.movimiento.monto !== undefined ? `$${parseFloat(p.movimiento.monto).toLocaleString('es-AR', {minimumFractionDigits:2})}` : '';
+            const montoCobro = p.cobro && p.cobro.monto !== undefined ? `$${parseFloat(p.cobro.monto).toLocaleString('es-AR', {minimumFractionDigits:2})}` : '';
+            const clienteNom = p.cliente && p.cliente.nombre ? p.cliente.nombre : (p.cobro.cliente_nombre || `#${p.cobro.id_cliente}`);
+
             html += `
-                <div style="background:#F8FAFC; border:1px solid #E2E8F0; padding:0.75rem; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
-                    <div>
-                        <strong>Movimiento:</strong> $${p.movimiento.monto} (${p.movimiento.fecha_operacion}) - ${p.movimiento.descripcion_normalizada}<br>
-                        <strong>Cobro Rendición #${p.cobro.id_rendicion_cobro}:</strong> $${p.cobro.monto} (${p.cobro.fecha_registro.substring(0, 10)}) - Cliente: ${p.cliente ? p.cliente.nombre : '#' + p.cobro.id_cliente}
+                <div style="background:#FFFFFF; border:1px solid #CBD5E1; border-left:4px solid #2563EB; border-radius:8px; padding:0.65rem 0.85rem; display:flex; justify-content:space-between; align-items:center; box-shadow:0 1px 2px rgba(0,0,0,0.03); font-size:0.85rem;">
+                    <div style="display:flex; flex-direction:column; gap:0.2rem; flex:1; min-width:0;">
+                        <div style="font-size:0.78rem; color:#475569;">
+                            🏦 <strong>Mov. #${p.movimiento.id_movimiento_bancario}</strong> (${formatearFechaAr(p.movimiento.fecha_operacion)}) - ${escapeHtml(p.movimiento.descripcion_normalizada || p.movimiento.descripcion_original)} <strong style="color:#16A34A;">${montoMov}</strong>
+                        </div>
+                        <div style="font-size:0.78rem; color:#475569;">
+                            📊 <strong>Rend. #${p.cobro.id_rendicion_cobro}</strong> (${formatearFechaAr(p.cobro.fecha)}) - Cliente: ${escapeHtml(clienteNom)} <strong style="color:#1E293B;">${montoCobro}</strong>
+                        </div>
                     </div>
-                    <button type="button" class="btn-action btn-success" style="padding:0.35rem 0.75rem; font-size:0.8rem;" onclick="confirmarMatchIndividual(${p.movimiento.id_movimiento_bancario}, ${p.cobro.id_rendicion_cobro})">Confirmar</button>
+                    <div style="flex-shrink:0; margin-left:0.75rem;">
+                        <button type="button" class="btn-action btn-success" style="padding:0.3rem 0.7rem; font-size:0.78rem;" onclick="confirmarMatchIndividual(${p.movimiento.id_movimiento_bancario}, ${p.cobro.id_rendicion_cobro})">Confirmar</button>
+                    </div>
                 </div>
             `;
         });
         html += '</div>';
         area.innerHTML = html;
-    } catch(e) { area.innerHTML = '<p style="color:#DC2626;">Error al evaluar coincidencias.</p>'; }
+    } catch(e) { 
+        area.innerHTML = '<p style="color:#DC2626; font-size:0.88rem;">Error al evaluar coincidencias.</p>'; 
+    }
+}
+
+async function cargarHistorialConciliaciones() {
+    const area = document.getElementById('tab_content_area');
+    area.innerHTML = '<p style="margin-top:0.5rem; color:#64748B; font-size:0.88rem;">Cargando conciliaciones realizadas...</p>';
+    
+    try {
+        // Consultamos los movimientos matcheados (el backend ya incluye las rendiciones relacionadas)
+        const res = await fetch('/api/movimientos-bancarios?estado_conciliacion=matcheado&per_page=50');
+        const json = await res.json();
+
+        if (!json.data || json.data.length === 0) {
+            area.innerHTML = '<p style="margin-top:0.5rem; color:#64748B; font-size:0.88rem;">No hay conciliaciones realizadas registradas todavía.</p>';
+            return;
+        }
+
+        let html = '<div style="display:flex; flex-direction:column; gap:0.5rem; margin-top:0.5rem;">';
+        
+        json.data.forEach(m => {
+            const fechaBanco = formatearFechaAr(m.fecha_operacion);
+            const signoStr = m.signo_monto === 'egreso' ? '-' : '+';
+            const montoBancoVal = m.monto !== undefined ? parseFloat(m.monto).toLocaleString('es-AR', {minimumFractionDigits: 2}) : '0,00';
+            const montoBancoStr = `${signoStr}$${montoBancoVal}`;
+            const colorMonto = m.signo_monto === 'egreso' ? '#DC2626' : '#16A34A';
+            const descBanco = expandirAbreviaturasDescripcion(m.descripcion_normalizada || m.descripcion_original || `Movimiento #${m.id_movimiento_bancario}`);
+            const cuitBanco = m.cuit_extraido ? `CUIT: ${m.cuit_extraido}` : '';
+
+            // 1. Renderizado del lado izquierdo (Movimiento Bancario)
+            const bancoHtml = `
+                <div style="display:flex; flex-direction:column; gap:0.1rem;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span><strong>#${m.id_movimiento_bancario}</strong> ${fechaBanco ? '· ' + fechaBanco : ''} ${cuitBanco ? '· ' + escapeHtml(cuitBanco) : ''}</span>
+                        <strong style="color:${colorMonto};">${montoBancoStr}</strong>
+                    </div>
+                    <div style="font-size:0.75rem; color:#475569; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${escapeHtml(descBanco)}">
+                        ${escapeHtml(descBanco)}
+                    </div>
+                </div>
+            `;
+
+            // 2. Renderizado del lado derecho (Rendición/es ERP asociada/s real/es)
+            let erpHtml = '<span style="color:#94A3B8; font-style:italic;">Sin rendición asociada</span>';
+            const rendicionesAsociadas = m.rendiciones_cobro || m.rendicionesCobro || [];
+
+            if (rendicionesAsociadas.length > 0) {
+                erpHtml = rendicionesAsociadas.map(c => {
+                    const idC = c.id_rendicion_cobro || c.id;
+                    const fechaErp = formatearFechaAr(c.fecha_registro || c.fecha || '');
+                    const montoErpVal = c.monto !== undefined ? parseFloat(c.monto).toLocaleString('es-AR', {minimumFractionDigits: 2}) : '0,00';
+                    const clienteNom = c.cliente_nombre || `Rendición #${idC}`;
+                    const medio = ETIQUETAS_MEDIO_ERP[c.medio_pago] || c.medio_pago || '';
+                    const cuitErp = c.cliente_cuit ? `CUIT: ${c.cliente_cuit}` : '';
+
+                    return `
+                        <div style="display:flex; flex-direction:column; gap:0.1rem;">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <span><strong>#${idC}</strong> ${fechaErp ? '· ' + fechaErp : ''} ${cuitErp ? '· ' + escapeHtml(cuitErp) : ''}</span>
+                                <strong style="color:#1E293B;">$${montoErpVal}</strong>
+                            </div>
+                            <div style="font-size:0.75rem; color:#475569; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${escapeHtml(clienteNom)}">
+                                ${escapeHtml(clienteNom)} ${medio ? '· ' + escapeHtml(medio) : ''}
+                            </div>
+                        </div>
+                    `;
+                }).join('<hr style="border:0; border-top:1px dashed #CBD5E1; margin:4px 0;">');
+            }
+
+            // Estructura en paralelo idéntica a la conciliación manual (.manual-match-row.complete)
+            html += `
+                <div class="manual-match-row complete">
+                    <div style="display:flex; align-items:flex-start; gap:0.5rem; min-width:0; width:100%;">
+                        <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:0.35rem;">
+                            <div style="display:flex; align-items:center; justify-content:space-between; height:24px;">
+                                <span style="font-size:0.7rem; font-weight:700; color:#1E293B;">Movimiento Bancario</span>
+                                <span style="font-size:0.7rem; font-weight:700; padding:2px 6px; border-radius:999px; background:#DCFCE7; color:#166534;">Matcheado</span>
+                            </div>
+                            <div class="manual-card-side">
+                                ${bancoHtml}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="manual-line-connector">
+                        <span style="background:#FFFFFF; border:1px solid #CBD5E1; border-radius:999px; padding:2px 6px; font-size:0.68rem; font-weight:700; color:#64748B; z-index:2;">↔</span>
+                    </div>
+
+                    <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:0.5rem; min-width:0; width:100%;">
+                        <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:0.35rem;">
+                            <div style="display:flex; align-items:center; justify-content:space-between; height:24px;">
+                                <span style="font-size:0.7rem; font-weight:700; color:#1E293B;">Rendición ERP Conciliada</span>
+                            </div>
+                            <div class="manual-card-side">
+                                ${erpHtml}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        area.innerHTML = html;
+    } catch(e) {
+        area.innerHTML = '<p style="color:#DC2626; font-size:0.88rem;">Error al cargar el historial de conciliaciones.</p>';
+    }
 }
 
 async function confirmarMatchIndividual(idMov, idCobro) {
@@ -2680,25 +3401,495 @@ async function ejecutarAutoMatching() {
         cargarCobranzasErp();
     } catch(e) { alert("Error: " + e.message); }
 }
+/**Funciones pa no se que */
+function registrarEstadoConexiones() {
+    historialConexiones = historialConexiones.slice(0, indiceHistorialConexiones + 1);
+    historialConexiones.push(state.conexionesTemp.map(par => [...par]));
+    indiceHistorialConexiones++;
+    actualizarBotonesHistorial();
+    renderVistaPreviaGrupos();
+    dibujarLineasConexion();
+}
 
+function actualizarBotonesHistorial() {
+    const btnUndo = document.getElementById('btn_org_undo');
+    const btnRedo = document.getElementById('btn_org_redo');
+    if (btnUndo) btnUndo.disabled = (indiceHistorialConexiones <= 0);
+    if (btnRedo) btnRedo.disabled = (indiceHistorialConexiones >= historialConexiones.length - 1);
+}
+
+function deshacerConexion() {
+    if (indiceHistorialConexiones <= 0) return;
+    indiceHistorialConexiones--;
+    state.conexionesTemp = historialConexiones[indiceHistorialConexiones].map(par => [...par]);
+    actualizarBotonesHistorial();
+    renderVistaPreviaGrupos();
+    dibujarLineasConexion();
+}
+
+function rehacerConexion() {
+    if (indiceHistorialConexiones >= historialConexiones.length - 1) return;
+    indiceHistorialConexiones++;
+    state.conexionesTemp = historialConexiones[indiceHistorialConexiones].map(par => [...par]);
+    actualizarBotonesHistorial();
+    renderVistaPreviaGrupos();
+    dibujarLineasConexion();
+}
+
+function calcularGruposVinculados() {
+    const bancoList = Array.from(state.seleccionBanco);
+    const erpList = Array.from(state.seleccionErp);
+
+    const adjBanco = {};
+    const adjErp = {};
+    bancoList.forEach(b => adjBanco[b] = new Set());
+    erpList.forEach(e => adjErp[e] = new Set());
+
+    state.conexionesTemp.forEach(([b, e]) => {
+        if (adjBanco[b]) adjBanco[b].add(e);
+        if (adjErp[e]) adjErp[e].add(b);
+    });
+
+    const visB = new Set();
+    const visE = new Set();
+    const grupos = [];
+
+    bancoList.forEach(bStart => {
+        if (visB.has(bStart) || adjBanco[bStart].size === 0) return;
+        const gB = [];
+        const gE = [];
+        const cola = [{ tipo: 'b', id: bStart }];
+        visB.add(bStart);
+
+        while (cola.length > 0) {
+            const actual = cola.shift();
+            if (actual.tipo === 'b') {
+                gB.push(actual.id);
+                adjBanco[actual.id].forEach(eNext => {
+                    if (!visE.has(eNext)) {
+                        visE.add(eNext);
+                        cola.push({ tipo: 'e', id: eNext });
+                    }
+                });
+            } else {
+                gE.push(actual.id);
+                adjErp[actual.id].forEach(bNext => {
+                    if (!visB.has(bNext)) {
+                        visB.add(bNext);
+                        cola.push({ tipo: 'b', id: bNext });
+                    }
+                });
+            }
+        }
+        grupos.push({ bancoIds: gB, erpIds: gE, completo: true });
+    });
+
+    return grupos;
+}
+
+function renderVistaPreviaGrupos() {
+    // 1. Renderizar Grupos Vinculados
+    const contGrupos = document.getElementById('org_preview_grupos');
+    const countGrupos = document.getElementById('org_preview_count');
+    if (contGrupos) {
+        const gruposVinculados = calcularGruposVinculados();
+        if (countGrupos) countGrupos.innerText = gruposVinculados.length;
+        const baseNum = state.gruposManuales.length + 1;
+        contGrupos.innerHTML = '';
+
+        if (gruposVinculados.length === 0) {
+            contGrupos.innerHTML = '<div style="font-size:0.8rem; color:#94A3B8; grid-column: 1 / -1; padding: 0.25rem 0;">No hay grupos vinculados creados aún. Conectá registros arriba.</div>';
+        } else {
+            gruposVinculados.forEach((g, idx) => {
+                const claveUnica = `B:${g.bancoIds.join(',')}|E:${g.erpIds.join(',')}`;
+                const nombreDefecto = `Grupo ${baseNum + idx}`;
+                const nombreActual = nombresPreviewGrupos[claveUnica] || nombreDefecto;
+                const bTxt = g.bancoIds.length > 0 ? `Mov. #${g.bancoIds.join(', #')}` : '';
+                const eTxt = g.erpIds.length > 0 ? `Rend. #${g.erpIds.join(', #')}` : '';
+
+                const card = document.createElement('div');
+                card.className = 'preview-group-card';
+                card.innerHTML = `
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:0.4rem;">
+                        <input type="text"
+                               value="${escapeHtml(nombreActual)}"
+                               onchange="nombresPreviewGrupos['${claveUnica}'] = this.value"
+                               oninput="nombresPreviewGrupos['${claveUnica}'] = this.value"
+                               style="font-weight:700; font-size:0.82rem; color:#1E293B; border:1px dashed #94A3B8; border-radius:4px; padding:2px 6px; width:100%; background:rgba(255,255,255,0.85);">
+                        <span style="flex-shrink:0; font-size:0.7rem; font-weight:700; padding:2px 6px; border-radius:999px; background:#DCFCE7; color:#166534;">Listo</span>
+                    </div>
+                    <div style="font-size:0.76rem; color:#475569;">${bTxt} ↔ ${eTxt}</div>
+                `;
+                contGrupos.appendChild(card);
+            });
+        }
+    }
+
+    // 2. Renderizar Registros Aislados con información completa y nombre editable
+    const contAislados = document.getElementById('org_preview_aislados');
+    const countAislados = document.getElementById('org_aislados_count');
+    if (contAislados) {
+        const idsConectadosBanco = new Set();
+        const idsConectadosErp = new Set();
+        state.conexionesTemp.forEach(([b, e]) => {
+            idsConectadosBanco.add(Number(b));
+            idsConectadosErp.add(Number(e));
+        });
+
+        const bancoAislados = Array.from(state.seleccionBanco).filter(id => !idsConectadosBanco.has(Number(id)));
+        const erpAislados = Array.from(state.seleccionErp).filter(id => !idsConectadosErp.has(Number(id)));
+        const totalAislados = bancoAislados.length + erpAislados.length;
+
+        if (countAislados) countAislados.innerText = totalAislados;
+        contAislados.innerHTML = '';
+
+        if (totalAislados === 0) {
+            contAislados.innerHTML = '<div style="font-size:0.8rem; color:#94A3B8; grid-column: 1 / -1; padding: 0.25rem 0;">No hay registros aislados disponibles.</div>';
+        } else {
+            bancoAislados.forEach(id => {
+                const key = `banco_${id}`;
+                const isChecked = !!aisladosChecks[key];
+                const m = cacheBancoItems[id] || {};
+                
+                const fechaAr = formatearFechaAr(m.fecha_operacion || '');
+                const signoStr = m.signo_monto === 'egreso' ? '-' : '+';
+                const montoVal = m.monto !== undefined ? parseFloat(m.monto).toLocaleString('es-AR', { minimumFractionDigits: 2 }) : '0,00';
+                const montoStr = `${signoStr}$${montoVal}`;
+                const colorMonto = m.signo_monto === 'egreso' ? '#DC2626' : '#16A34A';
+                const desc = expandirAbreviaturasDescripcion(m.descripcion_normalizada || m.descripcion_original || `Movimiento #${id}`);
+                const cuitTxt = m.cuit_extraido ? `CUIT: ${m.cuit_extraido}` : '';
+
+                const nombreDefecto = `Grupo Mov. #${id}`;
+                const claveNombre = `nombre_banco_${id}`;
+                const nombreActual = nombresPreviewGrupos[claveNombre] || nombreDefecto;
+
+                const card = document.createElement('div');
+                card.className = 'preview-group-card incomplete';
+                card.innerHTML = `
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:0.4rem; margin-bottom:0.25rem;">
+                        <label style="display:flex; align-items:center; gap:0.4rem; font-weight:600; font-size:0.82rem; color:#1E293B; cursor:pointer;">
+                            <input type="checkbox" style="width:15px; height:15px; min-width:15px; cursor:pointer; margin:0; outline:none !important; box-shadow:none !important;" ${isChecked ? 'checked' : ''} onchange="aisladosChecks['${key}'] = this.checked">
+                            <span style="font-size:0.75rem; color:#64748B;">Incluir</span>
+                        </label>
+                        <span style="font-size:0.7rem; font-weight:700; padding:2px 6px; border-radius:999px; background:#FEF3C7; color:#92400E;">Aislado</span>
+                    </div>
+                    <div style="margin-bottom:0.3rem;">
+                        <input type="text"
+                               value="${escapeHtml(nombreActual)}"
+                               onchange="nombresPreviewGrupos['${claveNombre}'] = this.value"
+                               oninput="nombresPreviewGrupos['${claveNombre}'] = this.value"
+                               style="font-weight:700; font-size:0.82rem; color:#1E293B; border:1px dashed #94A3B8; border-radius:4px; padding:2px 6px; width:100%; background:rgba(255,255,255,0.85);">
+                    </div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.78rem;">
+                        <span><strong>#${id}</strong> ${fechaAr ? '· ' + fechaAr : ''} ${cuitTxt ? '· ' + escapeHtml(cuitTxt) : ''}</span>
+                        <strong style="color:${colorMonto};">${montoStr}</strong>
+                    </div>
+                    <div style="font-size:0.75rem; color:#475569; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${escapeHtml(desc)}">
+                        ${escapeHtml(desc)}
+                    </div>
+                `;
+                contAislados.appendChild(card);
+            });
+
+            erpAislados.forEach(id => {
+                const key = `erp_${id}`;
+                const isChecked = !!aisladosChecks[key];
+                const c = cacheErpItems[id] || {};
+
+                const fechaAr = formatearFechaAr(c.fecha || '');
+                const montoVal = c.monto !== undefined ? parseFloat(c.monto).toLocaleString('es-AR', { minimumFractionDigits: 2 }) : '0,00';
+                const montoStr = `$${montoVal}`;
+                const cliente = c.cliente_nombre || `Rendición #${id}`;
+                const medio = ETIQUETAS_MEDIO_ERP[c.medio_pago] || c.medio_pago || '';
+                const cuitTxt = c.cliente_cuit ? `CUIT: ${c.cliente_cuit}` : '';
+
+                const nombreDefecto = `Grupo Rend. #${id}`;
+                const claveNombre = `nombre_erp_${id}`;
+                const nombreActual = nombresPreviewGrupos[claveNombre] || nombreDefecto;
+
+                const card = document.createElement('div');
+                card.className = 'preview-group-card incomplete';
+                card.innerHTML = `
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:0.4rem; margin-bottom:0.25rem;">
+                        <label style="display:flex; align-items:center; gap:0.4rem; font-weight:600; font-size:0.82rem; color:#1E293B; cursor:pointer;">
+                            <input type="checkbox" style="width:15px; height:15px; min-width:15px; cursor:pointer; margin:0; outline:none !important; box-shadow:none !important;" ${isChecked ? 'checked' : ''} onchange="aisladosChecks['${key}'] = this.checked">
+                            <span style="font-size:0.75rem; color:#64748B;">Incluir</span>
+                        </label>
+                        <span style="font-size:0.7rem; font-weight:700; padding:2px 6px; border-radius:999px; background:#FEF3C7; color:#92400E;">Aislado</span>
+                    </div>
+                    <div style="margin-bottom:0.3rem;">
+                        <input type="text"
+                               value="${escapeHtml(nombreActual)}"
+                               onchange="nombresPreviewGrupos['${claveNombre}'] = this.value"
+                               oninput="nombresPreviewGrupos['${claveNombre}'] = this.value"
+                               style="font-weight:700; font-size:0.82rem; color:#1E293B; border:1px dashed #94A3B8; border-radius:4px; padding:2px 6px; width:100%; background:rgba(255,255,255,0.85);">
+                    </div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.78rem;">
+                        <span><strong>#${id}</strong> ${fechaAr ? '· ' + fechaAr : ''} ${cuitTxt ? '· ' + escapeHtml(cuitTxt) : ''}</span>
+                        <strong style="color:#1E293B;">${montoStr}</strong>
+                    </div>
+                    <div style="font-size:0.75rem; color:#475569; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${escapeHtml(cliente)}">
+                        ${escapeHtml(cliente)} ${medio ? '· ' + escapeHtml(medio) : ''}
+                    </div>
+                `;
+                contAislados.appendChild(card);
+            });
+        }
+    }
+}
+
+function guardarDistribucionGrupos() {
+    const gruposVinculados = calcularGruposVinculados();
+    const baseNum = state.gruposManuales.length + 1;
+
+    let candidatosNuevos = [];
+
+    // 1. Grupos vinculados guardando la info completa de cada ítem
+    gruposVinculados.forEach((g, idx) => {
+        const claveUnica = `B:${g.bancoIds.join(',')}|E:${g.erpIds.join(',')}`;
+        const nombreFinal = (nombresPreviewGrupos[claveUnica] || `Grupo ${baseNum + idx}`).trim() || `Grupo ${baseNum + idx}`;
+
+        candidatosNuevos.push({
+            nombre: nombreFinal,
+            bancoIds: g.bancoIds,
+            erpIds: g.erpIds,
+            checked: true,
+            bancoItems: g.bancoIds.map(id => {
+                const m = cacheBancoItems[id] || {};
+                return {
+                    id_movimiento_bancario: id,
+                    fecha_operacion: m.fecha_operacion || '',
+                    signo_monto: m.signo_monto || 'ingreso',
+                    monto: m.monto !== undefined ? m.monto : 0,
+                    descripcion_original: m.descripcion_original || m.descripcion_normalizada || `Movimiento #${id}`,
+                    cuit_extraido: m.cuit_extraido || ''
+                };
+            }),
+            erpItems: g.erpIds.map(id => {
+                const c = cacheErpItems[id] || {};
+                return {
+                    id_rendicion_cobro: id,
+                    fecha: c.fecha || '',
+                    monto: c.monto !== undefined ? c.monto : 0,
+                    cliente_nombre: c.cliente_nombre || `Rendición #${id}`,
+                    medio_pago: c.medio_pago || '',
+                    cliente_cuit: c.cliente_cuit || ''
+                };
+            })
+        });
+    });
+
+    // 2. Registros aislados tildados guardando la info completa de cada ítem
+    let counterAislados = 1;
+    Object.keys(aisladosChecks).forEach(key => {
+        if (aisladosChecks[key]) {
+            const [tipo, idStr] = key.split('_');
+            const id = Number(idStr);
+            const claveNombre = `nombre_${tipo}_${id}`;
+
+            if (tipo === 'banco') {
+                const nombrePersonalizado = (nombresPreviewGrupos[claveNombre] || `Grupo Mov. #${id}`).trim() || `Grupo Mov. #${id}`;
+                const m = cacheBancoItems[id] || {};
+                candidatosNuevos.push({
+                    nombre: nombrePersonalizado,
+                    bancoIds: [id],
+                    erpIds: [],
+                    checked: false,
+                    bancoItems: [{
+                        id_movimiento_bancario: id,
+                        fecha_operacion: m.fecha_operacion || '',
+                        signo_monto: m.signo_monto || 'ingreso',
+                        monto: m.monto !== undefined ? m.monto : 0,
+                        descripcion_original: m.descripcion_original || m.descripcion_normalizada || `Movimiento #${id}`,
+                        cuit_extraido: m.cuit_extraido || ''
+                    }],
+                    erpItems: []
+                });
+            } else if (tipo === 'erp') {
+                const nombrePersonalizado = (nombresPreviewGrupos[claveNombre] || `Grupo Rend. #${id}`).trim() || `Grupo Rend. #${id}`;
+                const c = cacheErpItems[id] || {};
+                candidatosNuevos.push({
+                    nombre: nombrePersonalizado,
+                    bancoIds: [],
+                    erpIds: [id],
+                    checked: false,
+                    bancoItems: [],
+                    erpItems: [{
+                        id_rendicion_cobro: id,
+                        fecha: c.fecha || '',
+                        monto: c.monto !== undefined ? c.monto : 0,
+                        cliente_nombre: c.cliente_nombre || `Rendición #${id}`,
+                        medio_pago: c.medio_pago || '',
+                        cliente_cuit: c.cliente_cuit || ''
+                    }]
+                });
+            }
+        }
+    });
+
+    if (candidatosNuevos.length === 0) {
+        document.getElementById('modal_organizar').classList.remove('active');
+        return;
+    }
+
+    // Validación de duplicados (Caso B)
+    const idsBancoExistentes = new Set();
+    const idsErpExistentes = new Set();
+    state.gruposManuales.forEach(g => {
+        if (Array.isArray(g.bancoIds)) g.bancoIds.forEach(id => idsBancoExistentes.add(Number(id)));
+        if (Array.isArray(g.erpIds)) g.erpIds.forEach(id => idsErpExistentes.add(Number(id)));
+    });
+
+    let duplicadosDetectados = [];
+    candidatosNuevos.forEach(c => {
+        c.bancoIds.forEach(id => {
+            if (idsBancoExistentes.has(Number(id))) duplicadosDetectados.push(`Movimiento bancario #${id}`);
+        });
+        c.erpIds.forEach(id => {
+            if (idsErpExistentes.has(Number(id))) duplicadosDetectados.push(`Rendición ERP #${id}`);
+        });
+    });
+
+    if (duplicadosDetectados.length > 0) {
+        const unicos = [...new Set(duplicadosDetectados)];
+        mostrarConfirmacionSistema({
+            icono: '⚠️',
+            titulo: 'Registros ya cargados',
+            mensaje: `Los siguientes registros ya forman parte de otro grupo existente en la conciliación manual: ${unicos.join(', ')}. Desmarcalos o eliminalos del grupo anterior para poder continuar.`,
+            botones: [{ texto: 'Entendido', clase: 'btn-primary' }]
+        });
+        return;
+    }
+
+    candidatosNuevos.forEach((c, idx) => {
+        state.gruposManuales.push({
+            id: Date.now() + idx,
+            ...c
+        });
+    });
+
+    document.getElementById('modal_organizar').classList.remove('active');
+    quitarSeleccion();
+    guardarEstadoEnSession();
+    renderGruposManuales();
+}
+
+// Función auxiliar para reparar automáticamente grupos antiguos guardados sin respaldo al iniciar
+function repararInformacionGruposGuardados() {
+    if (!Array.isArray(state.gruposManuales)) return;
+    state.gruposManuales.forEach(g => {
+        if (!g.bancoItemsInfo || g.bancoItemsInfo.length === 0) {
+            g.bancoItemsInfo = (g.bancoIds || []).map(id => cacheBancoItems[id] || { id_movimiento_bancario: id, monto: 0, descripcion_original: `Movimiento #${id}` });
+        }
+        if (!g.erpItemsInfo || g.erpItemsInfo.length === 0) {
+            g.erpItemsInfo = (g.erpIds || []).map(id => cacheErpItems[id] || { id_rendicion_cobro: id, monto: 0, cliente_nombre: `Rendición #${id}` });
+        }
+    });
+}
 /**
- * IMPORTACIÓN DE EXTRACTOS MÚLTIPLES (SECCIÓN 11)
+ * IMPORTACIÓN DE EXTRACTOS MÚLTIPLES (DRAG & DROP + MENSAJES AMIGABLES)
  */
-function abrirModalExtracto() { document.getElementById('modal_extracto').classList.add('active'); }
-function cerrarModalExtracto() { document.getElementById('modal_extracto').classList.remove('active'); }
+function abrirModalExtracto() {
+    document.getElementById('import_resultado').style.display = 'none';
+    renderListaArchivos();
+    document.getElementById('modal_extracto').classList.add('active');
+}
+
+function intentarCerrarModalExtracto() {
+    if (archivosEnEspera.length > 0) {
+        mostrarConfirmacionSistema({
+            icono: '📥',
+            titulo: 'Tenés extractos sin subir',
+            mensaje: `Hay ${archivosEnEspera.length} archivo(s) preparado(s) en la lista. Si salís ahora, podés conservarlos enlistados para subirlos más tarde.`,
+            botones: [
+                { texto: 'Seguir acá', clase: 'btn-secondary' },
+                {
+                    texto: 'Descartar lista y salir',
+                    clase: 'btn-secondary',
+                    onClick: () => {
+                        limpiarListaArchivos();
+                        cerrarModalExtracto();
+                    }
+                },
+                {
+                    texto: 'Salir y mantener lista',
+                    clase: 'btn-primary',
+                    onClick: () => cerrarModalExtracto()
+                }
+            ]
+        });
+        return;
+    }
+    cerrarModalExtracto();
+}
+
+function cerrarModalExtracto() {
+    document.getElementById('modal_extracto').classList.remove('active');
+}
+
+function agregarArchivosALista(fileList) {
+    if (!fileList || fileList.length === 0) return;
+    const extensionesPermitidas = ['csv', 'txt', 'xls', 'xlsx'];
+
+    for (let i = 0; i < fileList.length; i++) {
+        const archivo = fileList[i];
+        const ext = (archivo.name.split('.').pop() || '').toLowerCase();
+        if (!extensionesPermitidas.includes(ext)) {
+            alert(`El archivo "${archivo.name}" no tiene un formato válido. Solo se permiten archivos CSV, TXT, XLS o XLSX.`);
+            continue;
+        }
+        const yaEnLista = archivosEnEspera.some(f => f.name === archivo.name && f.size === archivo.size);
+        if (!yaEnLista) {
+            archivosEnEspera.push(archivo);
+        }
+    }
+    renderListaArchivos();
+}
 
 function archivosSeleccionados(input) {
-    if (input.files && input.files.length > 0) {
-        for (let i = 0; i < input.files.length; i++) {
-            archivosEnEspera.push(input.files[i]);
-        }
-        renderListaArchivos();
-    }
+    agregarArchivosALista(input.files);
+    input.value = '';
+}
+
+function inicializarDragAndDropExtractos() {
+    // Evitar que el navegador descargue o abra archivos arrastrados sobre la ventana
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(evento => {
+        window.addEventListener(evento, e => {
+            e.preventDefault();
+        }, false);
+    });
+
+    const dropzone = document.getElementById('dropzone_extracto');
+    if (!dropzone) return;
+
+    ['dragenter', 'dragover'].forEach(evento => {
+        dropzone.addEventListener(evento, e => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.style.borderColor = '#2563EB';
+            dropzone.style.background = '#EFF6FF';
+        });
+    });
+
+    ['dragleave', 'drop'].forEach(evento => {
+        dropzone.addEventListener(evento, e => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.style.borderColor = '#93C5FD';
+            dropzone.style.background = '#F8FAFC';
+        });
+    });
+
+    dropzone.addEventListener('drop', e => {
+        const files = e.dataTransfer ? e.dataTransfer.files : null;
+        agregarArchivosALista(files);
+    });
 }
 
 function renderListaArchivos() {
     const ul = document.getElementById('lista_archivos_ul');
     const container = document.getElementById('lista_archivos_container');
+    const contador = document.getElementById('contador_archivos_espera');
     const btnSubmit = document.getElementById('btn_submit_extracto');
     ul.innerHTML = '';
 
@@ -2710,15 +3901,22 @@ function renderListaArchivos() {
 
     container.style.display = 'block';
     btnSubmit.disabled = false;
+    if (contador) {
+        contador.innerText = `${archivosEnEspera.length} archivo(s) listo(s) para subir`;
+    }
 
     archivosEnEspera.forEach((f, idx) => {
         const li = document.createElement('li');
         li.style.display = 'flex';
         li.style.justifyContent = 'space-between';
-        li.style.padding = '3px 0';
+        li.style.alignItems = 'center';
+        li.style.padding = '5px 4px';
+        li.style.borderBottom = '1px solid #F1F5F9';
         li.innerHTML = `
-            <span><strong>[Archivo]</strong> ${f.name} (${(f.size / 1024).toFixed(1)} KB)</span>
-            <button type="button" onclick="eliminarArchivoEspera(${idx})" style="background:none; border:none; color:#DC2626; cursor:pointer;">✕</button>
+            <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding-right:8px;">
+                📄 <strong>${escapeHtml(f.name)}</strong> <span style="color:#64748B;">(${(f.size / 1024).toFixed(1)} KB)</span>
+            </span>
+            <button type="button" onclick="eliminarArchivoEspera(${idx})" title="Quitar de la lista" style="background:none; border:none; color:#64748B; font-weight:700; cursor:pointer; padding:2px 6px;">✕</button>
         `;
         ul.appendChild(li);
     });
@@ -2734,6 +3932,35 @@ function limpiarListaArchivos() {
     renderListaArchivos();
 }
 
+function interpretarErrorImportacionAmigable(mensajeTecnico, statusHttp) {
+    const msg = String(mensajeTecnico || '');
+
+    if (msg.includes('ya fue importado anteriormente') || msg.includes('SHA-256')) {
+        return 'Este archivo ya fue subido anteriormente al sistema (extracto duplicado).';
+    }
+    if (statusHttp === 422 || msg.includes('The archivo field')) {
+        return 'El formato o el tamaño del archivo no es válido. Verificá que sea CSV, TXT, XLS o XLSX.';
+    }
+    if (statusHttp === 419) {
+        return 'Tu sesión expiró. Recargá la página e intentá subir el archivo nuevamente.';
+    }
+    if (msg.includes('Unexpected token') || statusHttp >= 500) {
+        return 'No se pudo leer la estructura interna del archivo. Puede que esté dañado o tenga un formato de columnas distinto al esperado.';
+    }
+    if (msg.toLowerCase().includes('vacío') || msg.toLowerCase().includes('sin filas')) {
+        return 'El archivo no contiene movimientos válidos para importar.';
+    }
+    return 'No se pudo procesar este archivo. Revisá que sea un extracto bancario válido.';
+}
+
+function obtenerBadgeTipoArchivo(nombreArchivo) {
+    const ext = (nombreArchivo.split('.').pop() || '').toLowerCase();
+    if (ext === 'xls' || ext === 'xlsx' || ext === 'csv') {
+        return `<span style="flex-shrink:0; font-size:0.72rem; font-weight:700; padding:2px 8px; border-radius:999px; background:#E0F2FE; color:#0369A1; border:1px solid #BAE6FD;">📊 EXCEL (.${ext})</span>`;
+    }
+    return `<span style="flex-shrink:0; font-size:0.72rem; font-weight:700; padding:2px 8px; border-radius:999px; background:#F1F5F9; color:#334155; border:1px solid #CBD5E1;">📝 TEXTO (.${ext})</span>`;
+}
+
 async function enviarExtractosMultiples(event) {
     event.preventDefault();
     if (archivosEnEspera.length === 0) return;
@@ -2746,38 +3973,137 @@ async function enviarExtractosMultiples(event) {
     resDiv.style.display = 'none';
     btnSubmit.disabled = true;
 
-    let exitosos = 0;
-    let resumenHtml = '';
+    let exitososConNuevos = 0;
+    let resumenHtml = '<div style="display:flex; flex-direction:column; gap:0.55rem;">';
 
-    for (const f of archivosEnEspera) {
+    for (let idx = 0; idx < archivosEnEspera.length; idx++) {
+        const f = archivosEnEspera[idx];
+        const numeroItem = idx + 1;
+        const badgeTipo = obtenerBadgeTipoArchivo(f.name);
         const formData = new FormData();
         formData.append('archivo', f);
+
         try {
             const res = await fetch('/api/extractos/importar', {
                 method: 'POST',
-                headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') },
+                headers: {
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                },
                 body: formData
             });
-            const data = await res.json();
-            if (res.ok && data.success) {
-                exitosos++;
-                resumenHtml += `<div><strong>[OK]</strong> <strong>${f.name}</strong>: ${data.filas_insertadas} insertadas, ${data.filas_omitidas} omitidas.</div>`;
-            } else {
-                resumenHtml += `<div><strong>[Error]</strong> <strong>${f.name}</strong>: ${data.mensaje || 'Error'}</div>`;
+
+            const rawText = await res.text();
+            let data = null;
+            try {
+                data = JSON.parse(rawText);
+            } catch (_) {
+                data = null;
             }
-        } catch(e) {
-            resumenHtml += `<div><strong>[Error]</strong> <strong>${f.name}</strong>: ${e.message}</div>`;
+
+            if (res.ok && data && data.success) {
+                const insertados = Number(data.filas_insertadas || 0);
+                const omitidos = Number(data.filas_omitidas || 0);
+
+                if (insertados > 0) {
+                    exitososConNuevos++;
+                    resumenHtml += `
+                        <div style="background:#ECFDF5; border:1px solid #A7F3D0; border-radius:8px; padding:0.65rem 0.75rem; color:#065F46;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; gap:0.75rem;">
+                                <div style="font-size:0.84rem;">
+                                    <strong>${numeroItem}. ${escapeHtml(f.name)}</strong>
+                                </div>
+                                ${badgeTipo}
+                            </div>
+                            <div style="margin-top:0.3rem; font-size:0.81rem;">
+                                ✅ Se cargaron <strong>${insertados}</strong> movimiento(s) nuevo(s)${omitidos > 0 ? ` y se omitieron <strong>${omitidos}</strong> ya existentes` : ''}.
+                            </div>
+                        </div>`;
+                } else {
+                    // Todos los movimientos ya estaban cargados previamente -> tarjeta gris neutra
+                    resumenHtml += `
+                        <div style="background:#F8FAFC; border:1px solid #CBD5E1; border-radius:8px; padding:0.65rem 0.75rem; color:#334155;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; gap:0.75rem;">
+                                <div style="font-size:0.84rem;">
+                                    <strong>${numeroItem}. ${escapeHtml(f.name)}</strong>
+                                </div>
+                                ${badgeTipo}
+                            </div>
+                            <div style="margin-top:0.3rem; font-size:0.81rem; color:#475569;">
+                                ℹ️ No se agregaron movimientos nuevos: los <strong>${omitidos}</strong> registro(s) de este extracto ya estaban cargados en el sistema.
+                            </div>
+                        </div>`;
+                }
+            } else {
+                const detalleBackend = (data && (data.mensaje || data.message))
+                    ? (data.mensaje || data.message)
+                    : rawText.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 220);
+
+                const esDuplicadoArchivo = detalleBackend.includes('ya fue importado anteriormente') || detalleBackend.includes('SHA-256');
+                const explicacionAmigable = interpretarErrorImportacionAmigable(detalleBackend, res.status);
+
+                if (esDuplicadoArchivo) {
+                    // Archivo duplicado por SHA-256 -> tarjeta gris neutra
+                    resumenHtml += `
+                        <div style="background:#F8FAFC; border:1px solid #CBD5E1; border-radius:8px; padding:0.65rem 0.75rem; color:#334155;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; gap:0.75rem;">
+                                <div style="font-size:0.84rem;">
+                                    <strong>${numeroItem}. ${escapeHtml(f.name)}</strong>
+                                </div>
+                                ${badgeTipo}
+                            </div>
+                            <div style="margin-top:0.3rem; font-size:0.81rem; color:#475569;">
+                                ℹ️ ${explicacionAmigable}
+                            </div>
+                            <details style="margin-top:4px; font-size:0.74rem; color:#64748B; cursor:pointer;">
+                                <summary>Ver detalle técnico</summary>
+                                <div style="margin-top:2px; font-family:monospace; word-break:break-word;">${escapeHtml(detalleBackend)}</div>
+                            </details>
+                        </div>`;
+                } else {
+                    // Error real de formato/procesamiento -> tarjeta roja
+                    resumenHtml += `
+                        <div style="background:#FEF2F2; border:1px solid #FECACA; border-radius:8px; padding:0.65rem 0.75rem; color:#991B1B;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; gap:0.75rem;">
+                                <div style="font-size:0.84rem;">
+                                    <strong>${numeroItem}. ${escapeHtml(f.name)}</strong>
+                                </div>
+                                ${badgeTipo}
+                            </div>
+                            <div style="margin-top:0.3rem; font-size:0.81rem;">
+                                ⚠️ ${explicacionAmigable}
+                            </div>
+                            <details style="margin-top:4px; font-size:0.74rem; color:#7F1D1D; cursor:pointer;">
+                                <summary>Ver detalle técnico</summary>
+                                <div style="margin-top:2px; font-family:monospace; word-break:break-word;">${escapeHtml(detalleBackend || `Error HTTP ${res.status}`)}</div>
+                            </details>
+                        </div>`;
+                }
+            }
+        } catch (e) {
+            resumenHtml += `
+                <div style="background:#FEF2F2; border:1px solid #FECACA; border-radius:8px; padding:0.65rem 0.75rem; color:#991B1B;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap:0.75rem;">
+                        <div style="font-size:0.84rem;"><strong>${numeroItem}. ${escapeHtml(f.name)}</strong></div>
+                        ${badgeTipo}
+                    </div>
+                    <div style="margin-top:0.3rem; font-size:0.81rem;">⚠️ No hubo conexión con el servidor al intentar subir el archivo.</div>
+                </div>`;
         }
     }
 
+    resumenHtml += '</div>';
+
     spinner.style.display = 'none';
-    resDiv.style.display = 'block';
-    resDiv.style.background = exitosos > 0 ? '#DCFCE7' : '#FEE2E2';
-    resDiv.style.color = exitosos > 0 ? '#166534' : '#991B1B';
+    resDiv.style.display = 'flex';
+    resDiv.style.flexDirection = 'column';
+    resDiv.style.background = 'transparent';
+    resDiv.style.border = 'none';
+    resDiv.style.padding = '0';
 
     const hayFiltros = (state.banco.estados.length > 0 || state.banco.tipos.length > 0 || state.banco.fecha_desde || state.banco.fecha_hasta || state.banco.monto_min !== '' || state.banco.monto_max !== '' || state.banco.signo || state.banco.cuit || state.banco.comprobante || state.banco.q);
-    if (hayFiltros) {
-        resumenHtml += '<p style="margin-top:0.5rem; font-size:0.8rem; font-style:italic;">Filtros activos. Los listados se actualizaron respetando los filtros activos. Algunos movimientos importados podrían no estar visibles.</p>';
+    if (hayFiltros && exitososConNuevos > 0) {
+        resumenHtml += '<p style="margin:0.55rem 0 0 0; padding:0.5rem 0.65rem; background:#EFF6FF; border:1px solid #BFDBFE; border-radius:6px; font-size:0.78rem; color:#1E40AF;">ℹ️ Tenés filtros activos en el listado; algunos movimientos recién importados pueden quedar ocultos hasta limpiar los filtros.</p>';
     }
 
     resDiv.innerHTML = resumenHtml;
@@ -2879,9 +4205,16 @@ function restaurarTodosPredeterminados() {
 
 function intentarCerrarConfiguracion() {
     if (state.configModificada) {
-        const accion = prompt("Tenés cambios sin guardar.\nEscribí:\n1: Guardar cambios y cerrar\n2: Descartar cambios y cerrar\n3: Volver");
-        if (accion === '1') guardarConfiguracion();
-        else if (accion === '2') cancelarConfiguracion();
+        mostrarConfirmacionSistema({
+            icono: '🎨',
+            titulo: 'Cambios de colores sin guardar',
+            mensaje: 'Modificaste la paleta de estados. ¿Querés guardar los cambios antes de salir?',
+            botones: [
+                { texto: 'Seguir editando', clase: 'btn-secondary' },
+                { texto: 'Descartar cambios', clase: 'btn-secondary', onClick: () => cancelarConfiguracion() },
+                { texto: 'Guardar cambios', clase: 'btn-primary', onClick: () => guardarConfiguracion() }
+            ]
+        });
         return;
     }
     cancelarConfiguracion();
@@ -2910,6 +4243,7 @@ function toggleMaximizar(boxId) {
  */
 document.addEventListener('DOMContentLoaded', () => {
     recuperarEstadoSession();
+    inicializarDragAndDropExtractos();
 
     // Sincronizar inputs básicos banco
     document.getElementById('banco_fecha_desde').value = state.banco.fecha_desde || '';
@@ -2967,5 +4301,13 @@ document.addEventListener('DOMContentLoaded', () => {
     cargarCobranzasErp();
     renderGruposManuales();
 });
+window.abrirModalOrganizar = abrirModalOrganizar;
+window.quitarSeleccion = quitarSeleccion;
+window.deshacerConexion = deshacerConexion;
+window.rehacerConexion = rehacerConexion;
+window.limpiarConexiones = limpiarConexiones;
+window.guardarDistribucionGrupos = guardarDistribucionGrupos;
+window.cancelarOrganizar = cancelarOrganizar;
+window.intentarCerrarOrganizar = intentarCerrarOrganizar;
 </script>
 @endpush
