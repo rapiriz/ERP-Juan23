@@ -128,6 +128,10 @@ class VentaApiController extends Controller
      */
     public function productos(ProductoGateway $productos, StockGateway $stock): JsonResponse
     {
+        $productosActivos = array_values(array_filter(
+            $productos->todos(),
+            fn (array $producto): bool => ($producto['estado'] ?? null) === 'activo'
+        ));
         $catalogo = array_map(function (array $p) use ($stock): array {
             $disponible = $stock->disponible((int) $p['id']);
 
@@ -139,7 +143,7 @@ class VentaApiController extends Controller
             'precioMay' => (float) $p['precioMay'],
             'stock' => $disponible ?? (isset($p['stock']) ? (int) $p['stock'] : null),
             ];
-        }, $productos->todos());
+        }, $productosActivos);
 
         return response()->json(['data' => array_values($catalogo)]);
     }

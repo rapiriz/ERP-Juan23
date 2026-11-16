@@ -18,7 +18,7 @@ class VentaController extends Controller
 {
     public function index(ClienteGateway $clientes, ProductoGateway $productos, StockGateway $stock)
     {
-        $productosDisponibles = collect($productos->todos())->map(function (array $producto) use ($stock): array {
+        $productosDisponibles = collect($this->productosActivos($productos))->map(function (array $producto) use ($stock): array {
             $disponible = $stock->disponible((int) $producto['id']);
             if ($disponible !== null) {
                 $producto['stock'] = $disponible;
@@ -34,7 +34,7 @@ class VentaController extends Controller
 
     public function obtenerProductosSimulados(ProductoGateway $productos, StockGateway $stock)
     {
-        $catalogo = collect($productos->todos())->map(function (array $producto) use ($stock): array {
+        $catalogo = collect($this->productosActivos($productos))->map(function (array $producto) use ($stock): array {
             $disponible = $stock->disponible((int) $producto['id']);
             if ($disponible !== null) {
                 $producto['stock'] = $disponible;
@@ -45,15 +45,23 @@ class VentaController extends Controller
         return response()->json($catalogo);
     }
 
+    private function productosActivos(ProductoGateway $productos): array
+    {
+        return array_values(array_filter(
+            $productos->todos(),
+            fn (array $producto): bool => ($producto['estado'] ?? null) === 'activo'
+        ));
+    }
+
     public function store(Request $request, ClienteGateway $clientes, ProductoGateway $productos, StockGateway $stock)
     {
-        $todosLosProductos = $productos->todos();
+        $productosActivos = $this->productosActivos($productos);
         $datos = $request->validate([
             'cliente_id' => ['required', 'integer'],
             'lista' => ['required', Rule::in(['minorista', 'mayorista'])],
             'observaciones' => ['nullable', 'string', 'max:150'],
             'items' => ['required', 'array', 'min:1', 'max:100'],
-            'items.*.id' => ['required', 'integer', Rule::in(array_column($todosLosProductos, 'id'))],
+            'items.*.id' => ['required', 'integer', Rule::in(array_column($productosActivos, 'id'))],
             'items.*.cantidad' => ['required', 'integer', 'min:1', 'max:9999'],
             'items.*.descuento' => ['required', 'numeric', 'min:0'],
             'items.*.id_promocion' => ['nullable', 'integer', 'exists:promocion,id_promocion'],
@@ -68,7 +76,7 @@ class VentaController extends Controller
                 'cliente_id' => ['Seleccioná un cliente válido.'],
             ]);
         }
-        $productosIndexados = collect($todosLosProductos)->keyBy('id');
+        $productosIndexados = collect($productosActivos)->keyBy('id');
         $lista = $datos['lista'] === 'mayorista' ? 'precioMay' : 'precioMin';
         foreach ($datos['items'] as $indice => $item) {
             $producto = $productosIndexados->get((int) $item['id']);
