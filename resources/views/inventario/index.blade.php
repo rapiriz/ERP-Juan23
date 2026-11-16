@@ -724,7 +724,7 @@
 <!-- ========================================== -->
 <!-- MODAL: INGRESO DE MERCADERÍA               -->
 <!-- ========================================== -->
-<div id="modalIngreso" class="clay-modal-backdrop hidden" onclick="if(event.target === this) cerrarModalIngreso()">
+<div id="modalIngreso" class="clay-modal-backdrop hidden">
     <div class="clay-modal-content max-w-lg p-6 space-y-4" onclick="event.stopPropagation()">
         <div class="flex items-center justify-between pb-3 border-b border-slate-100">
             <div>
@@ -784,7 +784,7 @@
 <!-- ========================================== -->
 <!-- MODAL: AJUSTE MANUAL DE STOCK              -->
 <!-- ========================================== -->
-<div id="modalAjuste" class="clay-modal-backdrop hidden" onclick="if(event.target === this) cerrarModalAjuste()">
+<div id="modalAjuste" class="clay-modal-backdrop hidden">
     <div class="clay-modal-content max-w-md p-6 space-y-4" onclick="event.stopPropagation()">
         <div class="flex items-center justify-between pb-3 border-b border-slate-100">
             <h3 class="text-base font-black text-slate-800">Ajuste Manual de Inventario</h3>
@@ -1152,7 +1152,7 @@
 <!-- ========================================== -->
 <!-- MODAL: GESTIÓN DE UBICACIONES       -->
 <!-- ========================================== -->
-<div id="modalUbicaciones" class="clay-modal-backdrop hidden" onclick="if(event.target === this) cerrarModalUbicaciones()">
+<div id="modalUbicaciones" class="clay-modal-backdrop hidden">
     <div class="clay-modal-content max-w-xl p-6 space-y-4" onclick="event.stopPropagation()">
         <div class="flex items-center justify-between pb-3 border-b border-slate-100">
             <div>
@@ -1303,7 +1303,7 @@
 <!-- ========================================== -->
 <!-- MODAL: REGISTRAR DEVOLUCIÓN         -->
 <!-- ========================================== -->
-<div id="modalDevolucion" class="clay-modal-backdrop hidden" onclick="if(event.target === this) cerrarModalDevolucion()">
+<div id="modalDevolucion" class="clay-modal-backdrop hidden">
     <div class="clay-modal-content max-w-md p-6 space-y-4" onclick="event.stopPropagation()">
         <div class="flex items-center justify-between pb-3 border-b border-slate-100">
             <h3 class="text-base font-black text-slate-800">Registrar Devolución</h3>
