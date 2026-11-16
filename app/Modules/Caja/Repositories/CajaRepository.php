@@ -15,7 +15,8 @@ class CajaRepository
 
     public function buscarAbiertaDeUsuario(int $idUsuario, string $fecha): ?Caja
     {
-        return Caja::where('id_usuario', $idUsuario)
+        return Caja::with('movimientos')
+            ->where('id_usuario', $idUsuario)
             ->where('fecha', $fecha)
             ->where('estado', Caja::ESTADO_ABIERTA)
             ->first();
@@ -28,9 +29,24 @@ class CajaRepository
      */
     public function buscarCualquierAbiertaDeUsuario(int $idUsuario): ?Caja
     {
-        return Caja::where('id_usuario', $idUsuario)
+        return Caja::with('movimientos')
+            ->where('id_usuario', $idUsuario)
             ->where('estado', Caja::ESTADO_ABIERTA)
             ->orderByDesc('fecha')
+            ->first();
+    }
+
+    /**
+     * Busca la caja abierta del usuario; si no tiene ninguna abierta,
+     * devuelve su última caja registrada (cerrada del día o más reciente).
+     */
+    public function buscarUltimaDeUsuario(int $idUsuario): ?Caja
+    {
+        return Caja::with('movimientos')
+            ->where('id_usuario', $idUsuario)
+            ->orderByRaw('CASE WHEN estado = ? THEN 0 ELSE 1 END', [Caja::ESTADO_ABIERTA])
+            ->orderByDesc('fecha')
+            ->orderByDesc('id_caja')
             ->first();
     }
 

@@ -1,4 +1,6 @@
-const g2Admin = document.querySelector('[data-g2-role]')?.dataset.g2Role === 'admin';
+const g2PageEl = document.querySelector('[data-g2-role]');
+const g2Admin = g2PageEl?.dataset.g2Role === 'admin';
+const g2UserId = g2PageEl?.dataset.g2UserId ?? '';
 /**
  * LÓGICA FRONTEND: MÓDULO DE RENDICIONES & COBROS (GRUPO 2)
  * ERP DISTRIBUIDORA JUAN XXIII — Versión 2.0
@@ -13,12 +15,6 @@ let _todasLasRendiciones = [];
 document.addEventListener('DOMContentLoaded', () => {
     cargarContadoresGlobales();
     cargarListadoRendiciones();
-    // Fecha hoy por defecto en filtro de fecha
-    const filtroFecha = document.getElementById('filtroFecha');
-    if (filtroFecha) {
-        const hoy = new Date().toISOString().split('T')[0];
-        filtroFecha.value = hoy;
-    }
 
     // Si viene redirigido desde Entregas con ?id_entrega=X, abrir modal precargada
     const urlParams = new URLSearchParams(window.location.search);
@@ -81,19 +77,21 @@ function showToast(mensaje, tipo = 'info') {
    ========================================================== */
 async function cargarListadoRendiciones() {
     const repartidorId = document.getElementById('filtroRepartidor')?.value || '';
+    const fecha = document.getElementById('filtroFecha')?.value || '';
     const tbody = document.getElementById('tablaRendicionesBody');
-    tbody.innerHTML = `<tr><td colspan="8"><div class="table-empty">Cargando rendiciones…</div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9"><div class="table-empty">Cargando rendiciones…</div></td></tr>`;
 
     let url = `${API_BASE}/rendiciones?1=1`;
     if (estadoFiltroActual) url += `&estado=${estadoFiltroActual}`;
     if (repartidorId)       url += `&id_repartidor=${repartidorId}`;
+    if (fecha)              url += `&fecha=${fecha}`;
 
     try {
         const res = await g2Fetch(url);
         const json = await res.json();
 
         if (json.error) {
-            tbody.innerHTML = `<tr><td colspan="8"><div class="table-empty" style="color:var(--danger);">${json.mensaje}</div></td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="9"><div class="table-empty" style="color:var(--danger);">${json.mensaje}</div></td></tr>`;
             return;
         }
 
@@ -105,7 +103,7 @@ async function cargarListadoRendiciones() {
 
     } catch (err) {
         console.error('Error al cargar rendiciones:', err);
-        tbody.innerHTML = `<tr><td colspan="8"><div class="table-empty" style="color:var(--danger);">Error de conexión con el servidor.</div></td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9"><div class="table-empty" style="color:var(--danger);">Error de conexión con el servidor.</div></td></tr>`;
     }
 }
 
@@ -113,13 +111,22 @@ function renderizarTabla(rendiciones) {
     const tbody = document.getElementById('tablaRendicionesBody');
 
     if (rendiciones.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8"><div class="table-empty">No se encontraron rendiciones para los filtros seleccionados.</div></td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9"><div class="table-empty">No se encontraron rendiciones para los filtros seleccionados.</div></td></tr>`;
         return;
     }
 
     tbody.innerHTML = '';
     rendiciones.forEach(r => {
         const tr = document.createElement('tr');
+        tr.style.cursor = 'pointer';
+        tr.title = 'Hacé clic para ver el detalle completo de esta rendición';
+        tr.onclick = (evt) => {
+            // Evitar que el clic en los botones de acción dispare también el modal de detalle
+            if (evt.target.closest('button') || evt.target.closest('a')) {
+                return;
+            }
+            verDetalleRendicion(r.id_rendicion);
+        };
 
         let badgeClass = 'badge-pendiente';
         let estadoTexto = 'Pendiente';
@@ -140,36 +147,58 @@ function renderizarTabla(rendiciones) {
             ? `<span class="badge badge-zona">Reparto #${r.id_entrega}</span>`
             : `<span style="color: var(--text-light); font-size: 0.8rem;">—</span>`;
 
+        // Extraer pedidos y clientes asociados a los cobros de esta rendición
+        const cobros = Array.isArray(r.cobros) ? r.cobros : [];
+        let pedidoClienteHtml = '';
+        if (cobros.length > 0) {
+            pedidoClienteHtml = cobros.map(c => {
+                const pedNum = c.id_factura ? `#PED-${c.id_factura.toString().padStart(4, '0')}` : 'Cobro';
+                const clienteNom = c.cliente_nombre || (c.cliente ? c.cliente.nombre : null) || '';
+                return `<div><strong style="color: var(--primary);">${pedNum}</strong>${clienteNom ? ` <small style="color: var(--text-muted);">(${clienteNom})</small>` : ''}</div>`;
+            }).join('');
+        } else {
+            // Si vino precargada y tiene el pedido en la observación (ej: "Pedido #PED-0012")
+            const matchPedido = (r.observaciones || '').match(/#PED-\d+/i);
+            pedidoClienteHtml = matchPedido
+                ? `<strong style="color: var(--primary);">${matchPedido[0]}</strong>`
+                : `<span style="color: var(--text-light); font-size: 0.8rem;">—</span>`;
+        }
+
         const totalFormateado = Number(r.total_rendido).toLocaleString('es-AR', { minimumFractionDigits: 2 });
         const obs = r.observaciones
-            ? `<span title="${r.observaciones}" style="max-width: 160px; display: inline-block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${r.observaciones}</span>`
+            ? `<span class="col-obs" title="${r.observaciones}">${r.observaciones}</span>`
             : `<span style="color: var(--text-light); font-size: 0.8rem;">—</span>`;
+
+        // Acciones: si está pendiente y es admin muestra Aprobar y Rechazar; si ya fue resuelta muestra estado o guión
+        let accionesHtml = '<span style="color: var(--text-light); font-size: 0.82rem;">—</span>';
+        if (g2Admin && r.estado === 'pendiente') {
+            accionesHtml = `
+                <div style="display: flex; gap: 0.4rem; justify-content: center; flex-wrap: wrap;">
+                    <button class="clay-btn clay-btn-xs" style="background: var(--success); color: white;" onclick="aprobarRapido(${r.id_rendicion})" title="Aprobar rendición y liquidar cobro">
+                        Aprobar
+                    </button>
+                    <button class="clay-btn clay-btn-xs" style="background: var(--danger); color: white;" onclick="rechazarRapido(${r.id_rendicion})" title="Rechazar rendición">
+                        Rechazar
+                    </button>
+                </div>
+            `;
+        }
 
         tr.innerHTML = `
             <td><strong style="color: var(--primary); font-family: monospace;">#REND-${r.id_rendicion.toString().padStart(4, '0')}</strong></td>
-            <td style="color: var(--text-muted); font-size: 0.875rem;">${fechaFormat}</td>
+            <td style="color: var(--text-muted); font-size: 0.82rem; white-space: nowrap;">${fechaFormat}</td>
             <td><strong>${nombreRepartidor}</strong></td>
-            <td>${entregaTag}</td>
-            <td style="text-align: right; font-weight: 800; color: var(--text-main); font-variant-numeric: tabular-nums;">
+            <td>${pedidoClienteHtml}</td>
+            <td style="text-align: center;">${entregaTag}</td>
+            <td style="text-align: right; font-weight: 800; color: var(--text-main); font-variant-numeric: tabular-nums; white-space: nowrap;">
                 $${totalFormateado}
             </td>
             <td style="text-align: center;">
                 <span class="badge ${badgeClass}">${estadoTexto}</span>
             </td>
-            <td style="font-size: 0.875rem;">${obs}</td>
+            <td>${obs}</td>
             <td style="text-align: center;">
-                <div style="display: flex; gap: 0.4rem; justify-content: center; flex-wrap: wrap;">
-                    <button class="clay-btn clay-btn-secondary clay-btn-xs" onclick="verDetalleRendicion(${r.id_rendicion})" title="Ver detalle y validar">
-                        Ver
-                    </button>
-                    ${g2Admin && r.estado === 'pendiente' ? `
-                    <button class="clay-btn clay-btn-xs" style="background: var(--success); color: white;" onclick="aprobarRapido(${r.id_rendicion})" title="Aprobar directamente">
-                        Aprobar
-                    </button>
-                    <button class="clay-btn clay-btn-xs" style="background: var(--danger); color: white;" onclick="rechazarRapido(${r.id_rendicion})" title="Rechazar">
-                        Rechazar
-                    </button>` : ''}
-                </div>
+                ${accionesHtml}
             </td>
         `;
         tbody.appendChild(tr);
@@ -193,7 +222,55 @@ function filtrarEstadoTab(estado) {
         activeTab.setAttribute('aria-selected', 'true');
     }
 
+    // Al seleccionar "Todas", también limpiamos el filtro de fecha para volver a ver el histórico completo
+    if (estado === '') {
+        const inputFecha = document.getElementById('filtroFecha');
+        if (inputFecha) inputFecha.value = '';
+    }
+
+    // Sincronizar indicador visual activo en los KPIs superiores
+    document.querySelectorAll('.kpi-card.kpi-card-clickable').forEach(card => card.classList.remove('active'));
+    if (estado === 'pendiente') {
+        document.getElementById('kpiCardPendiente')?.classList.add('active');
+    } else if (estado === 'aprobada') {
+        document.getElementById('kpiCardAprobada')?.classList.add('active');
+    } else if (estado === 'rechazada') {
+        document.getElementById('kpiCardRechazada')?.classList.add('active');
+    }
+
     cargarListadoRendiciones();
+}
+
+/**
+ * Permite filtrar la tabla al hacer clic en los bloques de estadísticas (KPI cards).
+ */
+function filtrarDesdeKpi(tipo) {
+    if (tipo === 'hoy') {
+        const inputFecha = document.getElementById('filtroFecha');
+        const hoy = new Date().toISOString().split('T')[0];
+        if (inputFecha) inputFecha.value = hoy;
+
+        // Limpiar tabs de estado para mostrar todas las de hoy
+        estadoFiltroActual = '';
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.remove('active');
+            btn.setAttribute('aria-selected', 'false');
+        });
+        const tabTodas = document.getElementById('tabTodas');
+        if (tabTodas) {
+            tabTodas.classList.add('active');
+            tabTodas.setAttribute('aria-selected', 'true');
+        }
+
+        document.querySelectorAll('.kpi-card.kpi-card-clickable').forEach(card => card.classList.remove('active'));
+        document.getElementById('kpiCardHoy')?.classList.add('active');
+
+        cargarListadoRendiciones();
+        return;
+    }
+
+    // Si es pendiente, aprobada o rechazada, delegamos a filtrarEstadoTab
+    filtrarEstadoTab(tipo);
 }
 
 function actualizarKPIs(rendiciones) {
@@ -251,21 +328,45 @@ async function buscarClientesApi(termino = '') {
 }
 
 function alEscribirCliente(valor) {
-    const valTrim = valor.trim();
-    const clienteMatch = _clientesCache.find(c => c.etiqueta === valTrim);
+    const valTrim = (valor || '').trim().toLowerCase();
     const hiddenId = document.getElementById('formClienteId');
+
+    // 1. Coincidencia directa con lo que ya está cargado en caché
+    const clienteMatch = _clientesCache.find(c => 
+        c.etiqueta.toLowerCase() === valTrim || 
+        c.nombre.toLowerCase() === valTrim ||
+        (c.cuit && c.cuit.includes(valTrim))
+    );
+
     if (clienteMatch) {
         hiddenId.value = clienteMatch.id;
     } else {
-        // Intentar buscar id si empieza por #
-        const matchNum = valTrim.match(/^#?(\d+)/);
-        hiddenId.value = matchNum ? matchNum[1] : '';
+        const parcialMatch = _clientesCache.find(c => 
+            c.nombre.toLowerCase().includes(valTrim) || 
+            c.etiqueta.toLowerCase().includes(valTrim)
+        );
+        if (parcialMatch && valTrim.length >= 2) {
+            hiddenId.value = parcialMatch.id;
+        } else {
+            const matchNum = valTrim.match(/^#?(\d+)/);
+            hiddenId.value = matchNum ? matchNum[1] : '';
+        }
     }
 
     clearTimeout(_debounceBusquedaCliente);
-    _debounceBusquedaCliente = setTimeout(() => {
-        buscarClientesApi(valTrim);
-    }, 250);
+    _debounceBusquedaCliente = setTimeout(async () => {
+        await buscarClientesApi(valTrim);
+        // Si aún no tenía ID y con los nuevos datos coincide, lo asigna
+        if (!hiddenId.value && valTrim.length >= 2) {
+            const recheck = _clientesCache.find(c =>
+                c.nombre.toLowerCase().includes(valTrim) ||
+                c.etiqueta.toLowerCase().includes(valTrim)
+            );
+            if (recheck) {
+                hiddenId.value = recheck.id;
+            }
+        }
+    }, 200);
 }
 
 /* ==========================================================
@@ -273,6 +374,11 @@ function alEscribirCliente(valor) {
    ========================================================== */
 async function abrirModalNuevaRendicion(idEntregaPrevia = null) {
     document.getElementById('formNuevaRendicion').reset();
+    const formRepartidorEl = document.getElementById('formRepartidor');
+    if (formRepartidorEl && !g2Admin && g2UserId) {
+        formRepartidorEl.value = g2UserId;
+        formRepartidorEl.disabled = true;
+    }
     document.getElementById('seccionCobrosDinamicos').style.display = 'none';
     document.getElementById('seccionCobroManual').style.display = 'block';
     document.getElementById('tablaCobrosDinamicosBody').innerHTML = '';
@@ -352,7 +458,7 @@ async function alCambiarEntregaSelect(idEntrega) {
         const cobrosSugeridos = data.cobros_sugeridos || [];
 
         if (cobrosSugeridos.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;padding:1rem;color:var(--text-muted);">Esta entrega no tiene pedidos confirmados como entregados.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;padding:1rem;color:var(--text-muted);">Todos los pedidos de esta entrega ya fueron rendidos y aprobados en su totalidad.</td></tr>';
         } else {
             cobrosSugeridos.forEach(c => {
                 const tr = document.createElement('tr');
@@ -361,19 +467,32 @@ async function alCambiarEntregaSelect(idEntrega) {
                 tr.dataset.factura = c.id_factura;
                 tr.dataset.monto = c.monto;
 
+                const medio = (c.medio_pago || 'efectivo').toLowerCase();
+                let infoSaldo = '';
+                if (c.monto_ya_rendido > 0) {
+                    infoSaldo = `<br><small style="color:var(--success);font-weight:600;">Ya rendido: $${Number(c.monto_ya_rendido).toLocaleString('es-AR', {minimumFractionDigits: 2})}</small>`
+                        + `<br><small style="color:var(--text-muted);">Saldo pendiente: $${Number(c.saldo_pendiente).toLocaleString('es-AR', {minimumFractionDigits: 2})}</small>`;
+                } else if (c.monto_total_pedido !== undefined) {
+                    infoSaldo = `<br><small style="color:var(--text-muted);">Total pedido: $${Number(c.monto_total_pedido).toLocaleString('es-AR', {minimumFractionDigits: 2})}</small>`;
+                }
+
                 tr.innerHTML = `
                     <td>
                         <strong>#PED-${c.id_venta.toString().padStart(4, '0')}</strong> — ${c.cliente_nombre}
                         ${c.numero_remito ? `<br><small style="color:var(--text-muted);">Remito: ${c.numero_remito}</small>` : ''}
                     </td>
-                    <td style="text-align:right; font-weight:700; color:#1E3A8A;">
-                        $${Number(c.monto).toLocaleString('es-AR', {minimumFractionDigits: 2})}
+                    <td style="text-align:right;">
+                        <input type="number" step="0.01" min="0" class="clay-input input-monto-dinamico"
+                            value="${Number(c.monto).toFixed(2)}"
+                            oninput="recalcularTotalDinamico()"
+                            style="text-align:right; font-weight:700; color:#1E3A8A; padding:0.35rem 0.5rem; width:100%;">
+                        ${infoSaldo}
                     </td>
                     <td>
                         <select class="clay-select select-medio-pago-dinamico" style="font-size:0.85rem; padding:0.35rem 0.5rem; width:100%;">
-                            <option value="efectivo">Efectivo (Caja)</option>
-                            <option value="transferencia">Transferencia (Banco)</option>
-                            <option value="cheque">Cheque Diferido</option>
+                            <option value="efectivo" ${medio === 'efectivo' ? 'selected' : ''}>Efectivo (Caja)</option>
+                            <option value="transferencia" ${medio === 'transferencia' ? 'selected' : ''}>Transferencia (Banco)</option>
+                            <option value="cheque" ${medio === 'cheque' ? 'selected' : ''}>Cheque Diferido</option>
                         </select>
                     </td>
                 `;
@@ -381,7 +500,7 @@ async function alCambiarEntregaSelect(idEntrega) {
             });
         }
 
-        document.getElementById('totalRendidoDinamicoTxt').textContent = `$${Number(data.total_esperado).toLocaleString('es-AR', {minimumFractionDigits: 2})}`;
+        recalcularTotalDinamico();
 
         seccionDinamica.style.display = 'block';
         seccionManual.style.display   = 'none';
@@ -389,6 +508,20 @@ async function alCambiarEntregaSelect(idEntrega) {
     } catch (err) {
         console.error(err);
         showToast('Error al conectar con el servidor para preparar la rendición.', 'error');
+    }
+}
+
+function recalcularTotalDinamico() {
+    let total = 0;
+    document.querySelectorAll('.input-monto-dinamico').forEach(inp => {
+        const val = parseFloat(inp.value);
+        if (!isNaN(val) && val > 0) {
+            total += val;
+        }
+    });
+    const txt = document.getElementById('totalRendidoDinamicoTxt');
+    if (txt) {
+        txt.textContent = `$${total.toLocaleString('es-AR', {minimumFractionDigits: 2})}`;
     }
 }
 
@@ -409,12 +542,16 @@ async function guardarNuevaRendicion(e) {
     if (seccionDinamica.style.display !== 'none') {
         const filas = document.querySelectorAll('.fila-cobro-dinamico');
         filas.forEach(f => {
-            cobros.push({
-                id_cliente: parseInt(f.dataset.cliente),
-                id_factura: parseInt(f.dataset.factura),
-                monto: parseFloat(f.dataset.monto),
-                medio_pago: f.querySelector('.select-medio-pago-dinamico').value
-            });
+            const inputMonto = f.querySelector('.input-monto-dinamico');
+            const monto = inputMonto ? parseFloat(inputMonto.value) : parseFloat(f.dataset.monto);
+            if (!isNaN(monto) && monto > 0) {
+                cobros.push({
+                    id_cliente: parseInt(f.dataset.cliente),
+                    id_factura: parseInt(f.dataset.factura),
+                    monto: monto,
+                    medio_pago: f.querySelector('.select-medio-pago-dinamico').value
+                });
+            }
         });
 
         if (cobros.length === 0) {
@@ -429,8 +566,12 @@ async function guardarNuevaRendicion(e) {
         let idCliente      = parseInt(hiddenId ? hiddenId.value : 0);
 
         if (!idCliente && inputCliente) {
-            const val = inputCliente.value.trim();
-            const clienteMatch = _clientesCache.find(c => c.etiqueta === val);
+            const val = inputCliente.value.trim().toLowerCase();
+            const clienteMatch = _clientesCache.find(c => 
+                c.etiqueta.toLowerCase() === val || 
+                c.nombre.toLowerCase() === val ||
+                c.etiqueta.toLowerCase().includes(val)
+            );
             if (clienteMatch) {
                 idCliente = clienteMatch.id;
             } else {
@@ -556,9 +697,13 @@ async function verDetalleRendicion(idRendicion) {
             cobros.forEach(c => {
                 const tr = document.createElement('tr');
                 const meta = medioPagoMeta[c.medio_pago] || { label: c.medio_pago, badge: 'badge-zona', destino: 'General' };
+                const esc = (str) => String(str ?? '').replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+                const nombreCliente = esc(c.cliente_nombre || `Cliente #${c.id_cliente}`);
+                const cuitHtml = c.cliente_cuit ? ` <span style="color:var(--text-muted);font-size:0.8rem;">(CUIT: ${esc(c.cliente_cuit)})</span>` : '';
+                const refFactura = c.id_factura ? `Fac. #${esc(c.id_factura)}` : 'Cobro Cta. Cte.';
 
                 tr.innerHTML = `
-                    <td><strong>Cliente #${c.id_cliente}</strong> — Fac. #${c.id_factura}</td>
+                    <td><strong>${nombreCliente}</strong>${cuitHtml} — ${refFactura}</td>
                     <td><span class="badge ${meta.badge}">${meta.label}</span></td>
                     <td style="text-align:right;font-weight:700;font-variant-numeric:tabular-nums;">
                         $${Number(c.monto).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
@@ -580,6 +725,11 @@ async function verDetalleRendicion(idRendicion) {
 function cerrarModalDetalle() {
     document.getElementById('modalDetalleRendicion').classList.remove('active');
     rendicionSeleccionadaId = null;
+}
+
+function imprimirRendicionActual() {
+    if (!rendicionSeleccionadaId) return;
+    window.open(`/rendiciones/${rendicionSeleccionadaId}/imprimir`, '_blank');
 }
 
 /* ==========================================================
@@ -717,5 +867,6 @@ document.querySelectorAll('.modal-overlay').forEach(overlay => {
 function limpiarFiltros() {
     document.getElementById('filtroRepartidor').value = '';
     document.getElementById('filtroFecha').value = '';
+    document.querySelectorAll('.kpi-card.kpi-card-clickable').forEach(card => card.classList.remove('active'));
     filtrarEstadoTab('');
 }

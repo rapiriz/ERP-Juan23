@@ -8,6 +8,7 @@ use App\Modules\Login\Models\User;
 use App\Modules\Ventas\Contracts\ClienteGateway;
 use App\Modules\Ventas\Contracts\ProductoGateway;
 use App\Modules\Ventas\Contracts\StockGateway;
+use App\Modules\Ventas\Controllers\VentaController;
 use App\Modules\Ventas\Integraciones\HttpClienteApi;
 use App\Modules\Ventas\Integraciones\HttpProductoApi;
 use App\Modules\Ventas\Integraciones\HttpStockApi;
@@ -16,7 +17,9 @@ use App\Services\MockClienteApi;
 use App\Services\MockProductoApi;
 use App\Services\MockUsuarioApi;
 use Illuminate\Database\Query\Builder;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\Http;
 use Mockery;
 use Tests\TestCase;
@@ -66,6 +69,90 @@ class G4DependencyRegistrationTest extends TestCase
         $this->assertInstanceOf(HttpProductoApi::class, app(ProductoGateway::class));
         $this->assertInstanceOf(HttpStockApi::class, app(StockGateway::class));
         Http::assertNothingSent();
+    }
+
+    public function test_product_picker_returns_only_active_products(): void
+    {
+        $this->sessionAsAdmin();
+        config([
+            'ventas.integracion' => 'http',
+            'ventas.servicios.productos.url' => 'http://g3.test',
+            'ventas.servicios.stock.url' => 'http://g3.test',
+            'services.internal_api.token' => 'g4-registration-test',
+        ]);
+        Http::fake([
+            'g3.test/api/v1/productos' => Http::response(['data' => [
+                ['id' => 56, 'codigo' => 'P056', 'nombre' => 'Producto activo', 'estado' => 'activo', 'precio_minorista' => 100],
+                ['id' => 57, 'codigo' => 'P057', 'nombre' => 'Producto inactivo', 'estado' => 'inactivo', 'precio_minorista' => 200],
+            ]]),
+            'g3.test/api/v1/stock/56' => Http::response(['disponible' => 8]),
+            'g3.test/api/v1/stock/57' => Http::response(['message' => 'Producto inactivo'], 400),
+        ]);
+
+        $this->getJson('/api/ventas/productos')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', 56);
+    }
+
+    public function test_sales_page_looks_up_stock_only_for_active_products(): void
+    {
+        $productos = Mockery::mock(ProductoGateway::class);
+        $productos->shouldReceive('todos')->once()->andReturn([
+            ['id' => 56, 'nombre' => 'Producto activo', 'estado' => 'activo'],
+            ['id' => 57, 'nombre' => 'Producto inactivo', 'estado' => 'inactivo'],
+        ]);
+        $clientes = Mockery::mock(ClienteGateway::class);
+        $clientes->shouldReceive('todos')->once()->andReturn([]);
+        $stock = Mockery::mock(StockGateway::class);
+        $stock->shouldReceive('disponible')->once()->with(56)->andReturn(8);
+
+        $view = (new VentaController)->index($clientes, $productos, $stock);
+
+        $this->assertCount(1, $view->getData()['productos']);
+        $this->assertSame(56, $view->getData()['productos'][0]['id']);
+        $this->assertSame(8, $view->getData()['productos'][0]['stock']);
+    }
+
+    public function test_sales_store_rejects_inactive_product_ids(): void
+    {
+        $productos = Mockery::mock(ProductoGateway::class);
+        $productos->shouldReceive('todos')->once()->andReturn([
+            ['id' => 56, 'estado' => 'activo'],
+            ['id' => 57, 'estado' => 'inactivo'],
+        ]);
+        $request = Request::create('/api/ventas', 'POST', [
+            'cliente_id' => 915736,
+            'lista' => 'minorista',
+            'items' => [['id' => 57, 'cantidad' => 1, 'descuento' => 0]],
+        ]);
+
+        try {
+            (new VentaController)->store($request, Mockery::mock(ClienteGateway::class), $productos, Mockery::mock(StockGateway::class));
+            $this->fail('Inactive products should not pass sales validation.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('items.0.id', $exception->errors());
+        }
+    }
+
+    public function test_promotions_reject_inactive_product_ids(): void
+    {
+        $productos = Mockery::mock(ProductoGateway::class);
+        $productos->shouldReceive('todos')->once()->andReturn([
+            ['id' => 56, 'estado' => 'activo'],
+            ['id' => 57, 'estado' => 'inactivo'],
+        ]);
+        $this->app->instance(ProductoGateway::class, $productos);
+
+        $this->postJson('/api/promociones', [
+            'nombre' => 'Promoción de prueba',
+            'vigencia_desde' => now()->toDateString(),
+            'vigencia_hasta' => now()->addDay()->toDateString(),
+            'tipo_descuento' => 'porcentaje',
+            'valor' => 10,
+            'productos' => [['id_producto' => 57, 'cantidad' => 1]],
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors('productos.0.id_producto');
     }
 
     public function test_sales_screen_dispatches_the_real_controller_with_original_mock_catalogues(): void

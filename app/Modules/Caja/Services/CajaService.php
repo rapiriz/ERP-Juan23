@@ -565,6 +565,90 @@ class CajaService
         return $movimiento->toArray();
     }
 
+    /**
+     * Registra un egreso en la caja del repartidor al aprobarse su rendición
+     * (usa la caja abierta o, si ya cerró, su última caja registrada).
+     */
+    public function registrarEgresoPorRendicion(
+        int $idRepartidor,
+        float $monto,
+        string $concepto,
+        ?int $idCobro = null,
+        ?int $idUsuarioAuditoria = null
+    ): ?array {
+        return $this->registrarMovimientoEnUltimaCaja(
+            $idRepartidor,
+            CajaMovimiento::TIPO_EGRESO,
+            $monto,
+            $concepto,
+            $idCobro,
+            $idUsuarioAuditoria ?? $idRepartidor
+        );
+    }
+
+    /**
+     * Reingresa el efectivo en la caja del repartidor si se revierte una
+     * rendición que ya había sido aprobada.
+     */
+    public function registrarIngresoPorReversionRendicion(
+        int $idRepartidor,
+        float $monto,
+        string $concepto,
+        ?int $idCobro = null,
+        ?int $idUsuarioAuditoria = null
+    ): ?array {
+        return $this->registrarMovimientoEnUltimaCaja(
+            $idRepartidor,
+            CajaMovimiento::TIPO_COBRO,
+            $monto,
+            $concepto,
+            $idCobro,
+            $idUsuarioAuditoria ?? $idRepartidor
+        );
+    }
+
+    private function registrarMovimientoEnUltimaCaja(
+        int $idUsuarioDueno,
+        string $tipo,
+        float $monto,
+        string $concepto,
+        ?int $idCobro,
+        int $idUsuarioAuditoria
+    ): ?array {
+        if ($monto <= 0) {
+            return null;
+        }
+
+        $caja = $this->repositorio->buscarUltimaDeUsuario($idUsuarioDueno);
+        if ($caja === null) {
+            return null;
+        }
+
+        $ahora = Carbon::now();
+        $movimiento = $this->repositorio->crearMovimiento([
+            'id_caja' => $caja->id_caja,
+            'id_cobro' => $idCobro,
+            'id_usuario' => $idUsuarioDueno,
+            'fecha' => $ahora->toDateString(),
+            'fecha_hora_carga' => $ahora,
+            'tipo' => $tipo,
+            'medio_pago' => CajaMovimiento::MEDIO_EFECTIVO,
+            'concepto' => $concepto,
+            'monto' => round($monto, 2),
+        ]);
+
+        $this->auditar(
+            'CAJA_MOVIMIENTO',
+            (int) $movimiento->id_movimiento_caja,
+            'INSERT',
+            null,
+            $this->datosMovimiento($movimiento),
+            $idUsuarioAuditoria
+        );
+
+        return $movimiento->toArray();
+    }
+
     public function obtenerMovimiento(int $idMovimiento): ?array
     {
         return $this->repositorio->buscarMovimientoPorId($idMovimiento)?->toArray();

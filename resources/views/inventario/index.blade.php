@@ -579,8 +579,8 @@
 <!-- ========================================== -->
 <!-- MODAL: ALTA / EDICIÓN DE PRODUCTO          -->
 <!-- ========================================== -->
-<div id="modalProducto" class="clay-modal-backdrop hidden" onclick="if(event.target === this) cerrarModalProducto()">
-    <div class="clay-modal-content max-w-xl p-6 space-y-5" onclick="event.stopPropagation()">
+<div id="modalProducto" class="clay-modal-backdrop hidden">
+    <div class="clay-modal-content max-w-xl p-6 space-y-5">
         <div class="flex items-center justify-between pb-3 border-b border-slate-100">
             <h3 id="modalProductoTitulo" class="text-base font-black text-slate-800">Nuevo Producto</h3>
             <button onclick="cerrarModalProducto()" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg">

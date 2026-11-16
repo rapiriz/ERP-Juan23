@@ -26,7 +26,7 @@ class CajaDiariaController extends Controller
         Validator::validate(['fecha' => $fecha], ['fecha' => ['required', 'date_format:Y-m-d']]);
 
         return response()
-            ->json($this->service->obtenerCajaDiaria($fecha))
+            ->json(['data' => $this->service->obtenerCajaDiaria($fecha)])
             ->header('Cache-Control', 'no-store');
     }
 }

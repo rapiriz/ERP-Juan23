@@ -1,4 +1,7 @@
-const g2Admin = document.querySelector('[data-g2-role]')?.dataset.g2Role === 'admin';
+const g2PageEl = document.querySelector('[data-g2-role]');
+const g2Admin = g2PageEl?.dataset.g2Role === 'admin';
+const g2UserId = g2PageEl?.dataset.g2UserId ?? '';
+const g2OrigenDistribuidora = g2PageEl?.dataset.g2Origen || 'Avenida Jose P. Casella 802, Pigüé, Provincia de Buenos Aires, Argentina';
 /**
  * LÓGICA FRONTEND: MÓDULO ENTREGAS (HU #1 y HU #2)
  * ERP DISTRIBUIDORA JUAN XXIII
@@ -15,11 +18,10 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('fechaSalida').value = hoy;
 
     // Cargar datos iniciales
-    if (!g2Admin) document.querySelector('section.clay-card')?.setAttribute('hidden', '');
     if (!g2Admin) document.getElementById('btnVentasG4')?.setAttribute('hidden', '');
     cargarZonas();
     cargarRepartidores();
-    if (g2Admin) cargarPedidosPendientes();
+    cargarPedidosPendientes();
     cargarEntregas();
 });
 
@@ -60,8 +62,12 @@ async function cargarRepartidores() {
                 select.appendChild(opt);
             });
 
-            // Si hay uno solo (ej. Matías), seleccionarlo automáticamente
-            if (json.data.length === 1) {
+            // Si es repartidor, fijar y bloquear la selección a su propio usuario
+            if (!g2Admin && g2UserId) {
+                select.value = g2UserId;
+                select.disabled = true;
+            } else if (json.data.length === 1) {
+                // Si hay uno solo (ej. Matías), seleccionarlo automáticamente
                 select.value = json.data[0].id_usuario;
             }
         }
@@ -104,7 +110,7 @@ async function cargarPedidosPendientes() {
         tbody.innerHTML = '';
         pedidosGlobales.forEach(p => {
             const tr = document.createElement('tr');
-            
+
             const bultos = parseInt(p.total_bultos || 0);
             const sueltos = parseInt(p.total_sueltos || 0);
             const itemsCount = (p.items || []).length;
@@ -115,29 +121,30 @@ async function cargarPedidosPendientes() {
                 cargaHtml += ` <span class="badge-sueltos">+${sueltos} sueltas</span>`;
             }
 
+            const obs = p.observaciones
+                ? `<span class="col-obs-entrega" title="${p.observaciones}">${p.observaciones}</span>`
+                : `<span style="color: var(--text-light); font-size: 0.8rem;">—</span>`;
+
             tr.innerHTML = `
                 <td style="text-align: center;">
                     <input type="checkbox" class="custom-checkbox pedido-checkbox" value="${p.id_venta}" data-bultos="${bultos}" data-sueltos="${sueltos}" onchange="togglePedido(this)">
                 </td>
-                <td><strong>#PED-${p.id_venta.toString().padStart(4, '0')}</strong></td>
+                <td><strong style="color: var(--primary);">#PED-${p.id_venta.toString().padStart(4, '0')}</strong></td>
                 <td>
-                    <strong>${p.cliente_nombre}</strong><br>
-                    <small style="color: var(--text-muted);">${p.razon_social || ''}</small>
+                    <strong>${p.cliente_nombre}</strong>${p.razon_social ? `<br><small style="color: var(--text-muted);">${p.razon_social}</small>` : ''}
                 </td>
                 <td><span class="badge-zona">${p.zona_nombre}</span></td>
                 <td>${p.direccion}, ${p.localidad}</td>
                 <td style="text-align: center;">${cargaHtml}</td>
                 <td style="text-align: center;">
-                    <button class="clay-btn clay-btn-secondary" style="min-height: 36px; padding: 0.35rem 0.85rem; font-size: 0.92rem;" onclick="abrirModalArticulos(${p.id_venta})">
-                        Ver Items (${itemsCount})
+                    <button class="clay-btn clay-btn-secondary clay-btn-xs" style="padding: 0.25rem 0.6rem; font-size: 0.82rem;" onclick="abrirModalArticulos(${p.id_venta})" title="Ver artículos de este pedido">
+                        Ver (${itemsCount})
                     </button>
                 </td>
-                <td style="text-align: right; font-weight: 800; color: #1E3A8A;">
-                    $${Number(p.total).toLocaleString('es-AR', {minimumFractionDigits: 2})}
+                <td style="text-align: right; font-weight: 800; color: #1E3A8A; white-space: nowrap;">
+                    $${Number(p.total).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                 </td>
-                <td>
-                    <small style="color: var(--text-muted);">${p.observaciones || 'Sin observaciones'}</small>
-                </td>
+                <td>${obs}</td>
             `;
             tbody.appendChild(tr);
         });
@@ -166,20 +173,20 @@ function abrirModalArticulos(idVenta) {
 
     (pedido.items || []).forEach(item => {
         const tr = document.createElement('tr');
-        const bultos = parseInt(item.bultos || 0);
-        const sueltos = parseInt(item.unidades_sueltas || 0);
+        const cantidad = parseInt(item.cantidad || 0);
+        const bultos = item.bultos !== undefined ? parseInt(item.bultos) : Math.floor(cantidad / 6);
 
         tr.innerHTML = `
             <td style="font-weight: 700;">${item.codigo || '-'}</td>
             <td>
-                <strong>${item.producto_nombre}</strong><br>
-                <small style="color: var(--text-muted);">${item.producto_descripcion || ''}</small>
+                <strong>${item.producto_nombre || item.producto || 'Artículo'}</strong>
+                ${item.producto_descripcion ? `<br><small style="color: var(--text-muted);">${item.producto_descripcion}</small>` : ''}
+            </td>
+            <td style="text-align: center; font-weight: 700; color: #1E3A8A;">
+                ${cantidad} un.
             </td>
             <td style="text-align: center;">
-                ${bultos > 0 ? `<span class="badge-bultos">${bultos} bulto(s)</span>` : '<span style="color: var(--text-muted);">-</span>'}
-            </td>
-            <td style="text-align: center;">
-                ${sueltos > 0 ? `<span class="badge-sueltos">+${sueltos} sueltas</span>` : '<span style="color: var(--text-muted);">-</span>'}
+                ${bultos > 0 ? `<span class="badge-bultos">${bultos} bulto(s)</span>` : '<span style="color: var(--text-muted);">Suelto</span>'}
             </td>
         `;
         tbody.appendChild(tr);
@@ -257,7 +264,7 @@ async function armarEntrega(event) {
     event.preventDefault();
 
     if (seleccionados.size === 0) {
-        alert('Por favor seleccioná al menos un pedido de la lista de pendientes.');
+        showToast('Por favor seleccioná al menos un pedido de la lista de pendientes.', 'warning');
         return;
     }
 
@@ -266,7 +273,7 @@ async function armarEntrega(event) {
     const observaciones = document.getElementById('observacionesEntrega').value;
 
     if (!repartidorId) {
-        alert('Por favor asigná un repartidor/chofer para el viaje.');
+        showToast('Por favor asigná un repartidor/chofer para el viaje.', 'warning');
         return;
     }
 
@@ -287,26 +294,29 @@ async function armarEntrega(event) {
         const json = await res.json();
 
         if (json.error) {
-            alert('Error al armar la entrega: ' + json.mensaje);
+            showToast('Error al armar la entrega: ' + json.mensaje, 'error');
             return;
         }
 
-        alert(json.mensaje);
+        showToast(json.mensaje, 'success');
 
         // Recargar pedidos pendientes y lista de entregas
-        if (g2Admin) cargarPedidosPendientes();
+        cargarPedidosPendientes();
         cargarEntregas();
         document.getElementById('formArmarEntrega').reset();
         document.getElementById('fechaSalida').value = new Date().toISOString().split('T')[0];
+        if (!g2Admin && g2UserId) {
+            document.getElementById('repartidorSelect').value = g2UserId;
+        }
 
-        // Abrir automáticamente el primer remito generado para ver/imprimir
+        // Abrir automáticamente el primer remito generado para ver/imprimir (con selector si son varios)
         if (json.data && json.data.remitos && json.data.remitos.length > 0) {
-            verRemito(json.data.remitos[0].id_remito);
+            verRemito(json.data.remitos[0].id_remito, json.data.remitos);
         }
 
     } catch (err) {
         console.error(err);
-        alert('Error de comunicación con el servidor.');
+        showToast('Error de comunicación con el servidor.', 'error');
     }
 }
 
@@ -329,20 +339,25 @@ async function cargarEntregas() {
             tbody.innerHTML = '';
             json.data.forEach(e => {
                 const tr = document.createElement('tr');
+                const sueltosHtml = parseInt(e.total_sueltos || 0) > 0
+                    ? ` <span class="badge-sueltos">+${e.total_sueltos} sueltas</span>`
+                    : '';
+                const cantPedidos = parseInt(e.cantidad_pedidos || 0);
+                const textoBtnRemito = cantPedidos > 1 ? `Remitos (${cantPedidos})` : 'Remito';
                 tr.innerHTML = `
-                    <td><strong>#ENT-${e.id_entrega.toString().padStart(4, '0')}</strong></td>
-                    <td>${e.fecha_salida || e.fecha_creacion}</td>
+                    <td><strong style="color: var(--primary);">#ENT-${e.id_entrega.toString().padStart(4, '0')}</strong></td>
+                    <td style="color: var(--text-muted); font-size: 0.82rem; white-space: nowrap;">${e.fecha_salida || e.fecha_creacion}</td>
                     <td><strong>${e.repartidor_nombre}</strong></td>
-                    <td>${e.cantidad_pedidos} pedidos</td>
-                    <td><span class="badge-bultos">${e.total_bultos} bultos</span></td>
-                    <td><span class="badge badge-${e.estado}">${e.estado.replace('_', ' ').toUpperCase()}</span></td>
-                    <td>
-                        <div style="display: flex; gap: 0.4rem; justify-content: center; flex-wrap: wrap;">
-                            <button class="clay-btn clay-btn-primary" style="min-height: 36px; padding: 0.35rem 0.85rem; font-size: 0.92rem;" onclick="abrirModalHojaRuta(${e.id_entrega})" title="Ver hoja de ruta y confirmar entregas">
+                    <td style="text-align: center;">${e.cantidad_pedidos} pedidos</td>
+                    <td style="text-align: center;"><span class="badge-bultos">${e.total_bultos} bultos</span>${sueltosHtml}</td>
+                    <td style="text-align: center;"><span class="badge badge-${e.estado}">${e.estado.replace('_', ' ').toUpperCase()}</span></td>
+                    <td style="text-align: center;">
+                        <div class="acciones-btn-group">
+                            <button class="clay-btn clay-btn-primary clay-btn-xs" style="padding: 0.25rem 0.65rem; font-size: 0.82rem;" onclick="abrirModalHojaRuta(${e.id_entrega})" title="Ver hoja de ruta y confirmar entregas">
                                 Hoja de Ruta
                             </button>
-                            <button class="clay-btn clay-btn-secondary" style="min-height: 36px; padding: 0.35rem 0.85rem; font-size: 0.92rem;" onclick="verDetalleEntrega(${e.id_entrega})" title="Ver comprobante de remito">
-                                Ver Remito
+                            <button class="clay-btn clay-btn-secondary clay-btn-xs" style="padding: 0.25rem 0.65rem; font-size: 0.82rem;" onclick="verDetalleEntrega(${e.id_entrega})" title="Ver comprobantes de remito">
+                                ${textoBtnRemito}
                             </button>
                         </div>
                     </td>
@@ -378,53 +393,27 @@ async function abrirModalHojaRuta(idEntrega) {
         hrEstado.textContent = e.estado.replace('_', ' ').toUpperCase();
 
         const pedidos = e.pedidos || [];
+        window._hojaRutaActual = e;
+        window._hojaRutaPedidosOrdenados = [...pedidos];
         document.getElementById('hrTotalPedidos').textContent = `${pedidos.length} pedido(s)`;
 
         let totalBultos = 0;
-        pedidos.forEach(p => totalBultos += parseInt(p.total_bultos || 0));
-        document.getElementById('hrTotalBultos').textContent = `${totalBultos} bultos`;
+        let totalSueltos = 0;
+        pedidos.forEach(p => {
+            totalBultos += parseInt(p.total_bultos || 0);
+            totalSueltos += parseInt(p.total_sueltos || 0);
+        });
+        document.getElementById('hrTotalBultos').textContent = totalSueltos > 0
+            ? `${totalBultos} bultos (+${totalSueltos} sueltas)`
+            : `${totalBultos} bultos`;
 
-        const tbody = document.getElementById('hrPedidosTableBody');
-        tbody.innerHTML = '';
+        renderizarTablaHojaRuta();
 
-        if (pedidos.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-muted);">No hay pedidos asignados a este viaje.</td></tr>`;
-        } else {
-            pedidos.forEach(p => {
-                const tr = document.createElement('tr');
-                const esEntregado = (p.estado_pedido_entrega === 'entregado');
-                const badgeEstado = esEntregado
-                    ? `<span class="badge badge-entregada">Entregado</span>`
-                    : `<span class="badge badge-en_camino">En Reparto</span>`;
-
-                const btnConfirmar = esEntregado
-                    ? `<span style="color: var(--success); font-weight: 700; font-size: 0.88rem;">Completado</span>`
-                    : `<button class="clay-btn clay-btn-success" style="min-height: 32px; padding: 0.3rem 0.75rem; font-size: 0.88rem;" onclick="confirmarEntregaPedido(${e.id_entrega}, ${p.id_venta})" title="Confirmar entrega física realizada">
-                        Confirmar Entrega
-                       </button>`;
-
-                const btnRemito = p.id_remito
-                    ? `<button class="clay-btn clay-btn-secondary" style="min-height: 32px; padding: 0.3rem 0.75rem; font-size: 0.88rem;" onclick="verRemito(${p.id_remito})" title="Ver remito oficial">
-                        Remito
-                       </button>`
-                    : '';
-
-                tr.innerHTML = `
-                    <td><strong style="color: var(--primary);">#PED-${p.id_venta.toString().padStart(4, '0')}</strong></td>
-                    <td><strong>${p.cliente_nombre}</strong></td>
-                    <td>${p.direccion}, ${p.localidad} <span class="badge-zona">${p.zona_nombre}</span></td>
-                    <td style="text-align: center;"><span class="badge-bultos">${p.total_bultos} b</span></td>
-                    <td style="text-align: right; font-weight: 700; color: #1E3A8A;">$${Number(p.total).toLocaleString('es-AR', {minimumFractionDigits: 2})}</td>
-                    <td style="text-align: center;">${badgeEstado}</td>
-                    <td style="text-align: center;">
-                        <div style="display: flex; gap: 0.35rem; justify-content: center; align-items: center; flex-wrap: wrap;">
-                            ${btnConfirmar}
-                            ${btnRemito}
-                        </div>
-                    </td>
-                `;
-                tbody.appendChild(tr);
-            });
+        // Mostrar botón para iniciar rendición si todos los pedidos ya fueron entregados
+        const todosEntregados = pedidos.length > 0 && pedidos.every(p => p.estado_pedido_entrega === 'entregado');
+        const btnRendicion = document.getElementById('btnIrARendicion');
+        if (btnRendicion) {
+            btnRendicion.style.display = todosEntregados ? 'inline-flex' : 'none';
         }
 
         document.getElementById('modalHojaRuta').style.display = 'flex';
@@ -435,7 +424,175 @@ async function abrirModalHojaRuta(idEntrega) {
     }
 }
 
+function renderizarTablaHojaRuta() {
+    const e = window._hojaRutaActual;
+    const pedidos = window._hojaRutaPedidosOrdenados || [];
+    const tbody = document.getElementById('hrPedidosTableBody');
+    tbody.innerHTML = '';
+
+    if (!e || pedidos.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-muted);">No hay pedidos asignados a este viaje.</td></tr>`;
+        return;
+    }
+
+    window._pedidosHojaRuta = {};
+    pedidos.forEach((p, idx) => {
+        window._pedidosHojaRuta[`${e.id_entrega}_${p.id_venta}`] = p;
+        const tr = document.createElement('tr');
+        const esEntregado = (p.estado_pedido_entrega === 'entregado');
+        const badgeEstado = esEntregado
+            ? `<span class="badge badge-entregada">Entregado</span>`
+            : `<span class="badge badge-en_camino">En Reparto</span>`;
+
+        const cobroInfo = esEntregado && p.monto_cobrado !== null && p.monto_cobrado !== undefined
+            ? `<br><small style="color: var(--text-muted); font-weight: 500;">$${Number(p.monto_cobrado).toLocaleString('es-AR', { minimumFractionDigits: 2 })} (${p.medio_pago || 'efectivo'})</small>`
+            : '';
+
+        const btnConfirmar = esEntregado
+            ? `<span style="color: var(--success); font-weight: 700; font-size: 0.88rem;">Completado${cobroInfo}</span>`
+            : `<button class="clay-btn clay-btn-success" style="min-height: 32px; padding: 0.3rem 0.75rem; font-size: 0.88rem;" onclick="confirmarEntregaPedido(${e.id_entrega}, ${p.id_venta})" title="Confirmar entrega física realizada">
+                Confirmar Entrega
+               </button>`;
+
+        const btnRemito = p.id_remito
+            ? `<button class="clay-btn clay-btn-secondary" style="min-height: 32px; padding: 0.3rem 0.75rem; font-size: 0.88rem;" onclick="verRemito(${p.id_remito})" title="Ver remito oficial">
+                Remito
+               </button>`
+            : '';
+
+        const cargaPedido = parseInt(p.total_sueltos || 0) > 0
+            ? `<span class="badge-bultos">${p.total_bultos} b</span> <span class="badge-sueltos">+${p.total_sueltos} s</span>`
+            : `<span class="badge-bultos">${p.total_bultos} b</span>`;
+
+        const btnOrden = pedidos.length > 1
+            ? `<span style="display: inline-flex; flex-direction: column; gap: 2px; margin-right: 0.4rem; vertical-align: middle;">
+                <button type="button" class="clay-btn clay-btn-secondary" style="min-height: 18px; padding: 0 5px; font-size: 0.65rem; line-height: 1;" onclick="moverParadaHojaRuta(${idx}, -1)" ${idx === 0 ? 'disabled' : ''} title="Subir parada">▲</button>
+                <button type="button" class="clay-btn clay-btn-secondary" style="min-height: 18px; padding: 0 5px; font-size: 0.65rem; line-height: 1;" onclick="moverParadaHojaRuta(${idx}, 1)" ${idx === pedidos.length - 1 ? 'disabled' : ''} title="Bajar parada">▼</button>
+               </span>`
+            : '';
+
+        tr.innerHTML = `
+            <td>${btnOrden}<strong style="color: var(--primary);">#PED-${p.id_venta.toString().padStart(4, '0')}</strong></td>
+            <td><strong>${p.cliente_nombre}</strong></td>
+            <td>${p.direccion}, ${p.localidad} <span class="badge-zona">${p.zona_nombre}</span></td>
+            <td style="text-align: center;">${cargaPedido}</td>
+            <td style="text-align: right; font-weight: 700; color: #1E3A8A;">$${Number(p.total).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
+            <td style="text-align: center;">${badgeEstado}</td>
+            <td style="text-align: center;">
+                <div style="display: flex; gap: 0.35rem; justify-content: center; align-items: center; flex-wrap: wrap;">
+                    ${btnConfirmar}
+                    ${btnRemito}
+                </div>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function moverParadaHojaRuta(index, delta) {
+    const lista = window._hojaRutaPedidosOrdenados || [];
+    const nuevoIdx = index + delta;
+    if (nuevoIdx < 0 || nuevoIdx >= lista.length) return;
+    [lista[index], lista[nuevoIdx]] = [lista[nuevoIdx], lista[index]];
+    renderizarTablaHojaRuta();
+}
+
+function ordenarPedidosHojaRutaPorLocalidad() {
+    const lista = window._hojaRutaPedidosOrdenados || [];
+    if (lista.length <= 1) return;
+    lista.sort((a, b) => {
+        const locA = (a.localidad || '').localeCompare(b.localidad || '', 'es', { sensitivity: 'base' });
+        if (locA !== 0) return locA;
+        return (a.direccion || '').localeCompare(b.direccion || '', 'es', { sensitivity: 'base' });
+    });
+    renderizarTablaHojaRuta();
+    showToast('Paradas ordenadas por dirección/localidad.', 'info');
+}
+
+async function ordenarPedidosHojaRutaPorDistancia() {
+    if (!entregaActualId) return;
+    const btn = document.getElementById('btnOrdenarDistancia');
+    const textoOriginal = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span>Calculando distancias…</span>';
+    }
+
+    try {
+        const res = await g2Fetch(`${API_BASE}/entregas/${entregaActualId}/ruta-optimizada`);
+        const json = await res.json();
+        if (json.error || !json.data) {
+            showToast(json.mensaje || 'No se pudieron calcular las distancias.', 'error');
+            return;
+        }
+
+        const { pedidos, geocodificados, sin_coordenadas, ordenado_por_distancia } = json.data;
+        if (Array.isArray(pedidos)) {
+            window._hojaRutaPedidosOrdenados = pedidos;
+            renderizarTablaHojaRuta();
+        }
+
+        if (!ordenado_por_distancia) {
+            showToast('No se pudieron geolocalizar las direcciones en el mapa; podés ordenarlas manualmente.', 'warning');
+        } else if (sin_coordenadas > 0) {
+            showToast(`Ruta ordenada (${geocodificados} ubicadas, ${sin_coordenadas} sin coordenadas al final).`, 'info');
+        } else {
+            showToast(`Ruta ordenada por distancia (${geocodificados} paradas).`, 'success');
+        }
+    } catch (err) {
+        console.error(err);
+        showToast('Error al calcular el orden por distancia.', 'error');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = textoOriginal;
+        }
+    }
+}
+
+function abrirRutaGoogleMaps() {
+    const lista = window._hojaRutaPedidosOrdenados || [];
+    const pendientes = lista.filter(p => p.estado_pedido_entrega !== 'entregado');
+    const objetivo = pendientes.length > 0 ? pendientes : lista;
+
+    const direcciones = objetivo
+        .map(p => [p.direccion, p.localidad, 'Provincia de Buenos Aires, Argentina']
+            .map(v => (v || '').trim())
+            .filter(Boolean)
+            .join(', '))
+        .filter(Boolean);
+
+    if (direcciones.length === 0) {
+        showToast('No hay direcciones cargadas para armar la ruta.', 'warning');
+        return;
+    }
+
+    let paradas = direcciones;
+    if (direcciones.length > 10) {
+        showToast('Google Maps admite hasta 10 paradas por URL; se incluirán las primeras 10.', 'warning');
+        paradas = direcciones.slice(0, 10);
+    }
+
+    const params = new URLSearchParams({
+        api: '1',
+        origin: g2OrigenDistribuidora,
+        destination: paradas[paradas.length - 1],
+        travelmode: 'driving',
+    });
+
+    if (paradas.length > 1) {
+        params.set('waypoints', paradas.slice(0, -1).join('|'));
+    }
+
+    window.open(`https://www.google.com/maps/dir/?${params.toString()}`, '_blank', 'noopener,noreferrer');
+}
+
 let entregaActualId = null;
+
+function irARendirEntrega() {
+    if (!entregaActualId) return;
+    window.location.href = `/rendiciones?id_entrega=${entregaActualId}`;
+}
 
 function cerrarModalHojaRuta() {
     document.getElementById('modalHojaRuta').style.display = 'none';
@@ -472,18 +629,116 @@ async function consultarVentasGrupo4() {
 }
 
 /**
- * HU #3 (Issue #124): Confirmar pedido entregado por el chofer
+ * HU #3 (Issue #124): Confirmar pedido entregado por el chofer (con medio de pago y monto cobrado/parcial)
  */
 async function confirmarEntregaPedido(idEntrega, idVenta) {
-    if (!confirm(`¿Confirmar entrega física del pedido #PED-${idVenta.toString().padStart(4, '0')} al cliente?`)) {
+    if (!window._pedidosHojaRuta) {
+        window._pedidosHojaRuta = {};
+    }
+
+    let p = window._pedidosHojaRuta[`${idEntrega}_${idVenta}`] || null;
+
+    // Si no está cargado en memoria (ej: se abrió desde Ver Remito directamente), lo buscamos
+    if (!p) {
+        // Intentar obtenerlo de los pedidos pendientes en memoria
+        if (Array.isArray(pedidosGlobales)) {
+            const pedPend = pedidosGlobales.find(item => parseInt(item.id_venta) === parseInt(idVenta));
+            if (pedPend) {
+                p = {
+                    id_venta: pedPend.id_venta,
+                    total: pedPend.total,
+                    cliente_nombre: pedPend.cliente_nombre
+                };
+            }
+        }
+
+        // Si aún no se tiene, consultar la API de entregas para obtener el viaje y sus pedidos
+        if (!p && idEntrega) {
+            try {
+                const res = await g2Fetch(`${API_BASE}/entregas/${idEntrega}`);
+                const json = await res.json();
+                if (!json.error && json.data && Array.isArray(json.data.pedidos)) {
+                    json.data.pedidos.forEach(item => {
+                        window._pedidosHojaRuta[`${idEntrega}_${item.id_venta}`] = item;
+                    });
+                    p = window._pedidosHojaRuta[`${idEntrega}_${idVenta}`] || null;
+                }
+            } catch (e) {
+                console.warn('No se pudo precargar el pedido para la entrega:', e);
+            }
+        }
+    }
+
+    const total = p ? Number(p.total || 0) : 0;
+    const cliente = p ? (p.cliente_nombre || `Pedido #${idVenta}`) : `Pedido #${idVenta}`;
+
+    document.getElementById('confIdEntrega').value = idEntrega;
+    document.getElementById('confIdVenta').value = idVenta;
+    document.getElementById('confPedidoLabel').textContent = `#PED-${idVenta.toString().padStart(4, '0')}`;
+    document.getElementById('confClienteLabel').textContent = cliente;
+
+    const saldoEl = document.getElementById('confSaldoClienteLabel');
+    if (saldoEl) {
+        if (p && p.cliente_saldo !== null && p.cliente_saldo !== undefined) {
+            const saldo = Number(p.cliente_saldo);
+            const absFormatted = Math.abs(saldo).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            if (saldo < 0) {
+                saldoEl.innerHTML = `<span class="badge" style="background:#FEE2E2; color:#991B1B;">Debe $${absFormatted}</span>`;
+            } else if (saldo > 0) {
+                saldoEl.innerHTML = `<span class="badge" style="background:#DBEAFE; color:#1E40AF;">Saldo a favor: $${absFormatted}</span>`;
+            } else {
+                saldoEl.innerHTML = `<span class="badge" style="background:#DCFCE7; color:#166534;">Al día ($0,00)</span>`;
+            }
+        } else {
+            saldoEl.textContent = 'No disponible';
+        }
+    }
+
+    document.getElementById('confTotalPedidoLabel').textContent = `$${total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
+    document.getElementById('confMedioPago').value = 'efectivo';
+    const inputMonto = document.getElementById('confMontoCobrado');
+    inputMonto.value = total > 0 ? total.toFixed(2) : '0.00';
+    if (total > 0) {
+        inputMonto.max = total.toFixed(2);
+    } else {
+        inputMonto.removeAttribute('max');
+    }
+    document.getElementById('confObservaciones').value = '';
+
+    document.getElementById('modalConfirmarEntregaCobro').style.display = 'flex';
+}
+
+function cerrarModalConfirmarEntrega() {
+    document.getElementById('modalConfirmarEntregaCobro').style.display = 'none';
+}
+
+async function enviarConfirmacionEntrega(e) {
+    e.preventDefault();
+
+    const idEntrega = parseInt(document.getElementById('confIdEntrega').value, 10);
+    const idVenta = parseInt(document.getElementById('confIdVenta').value, 10);
+    const medioPago = document.getElementById('confMedioPago').value;
+    const montoCobrado = parseFloat(document.getElementById('confMontoCobrado').value);
+    const observaciones = document.getElementById('confObservaciones').value.trim();
+
+    if (isNaN(montoCobrado) || montoCobrado < 0) {
+        showToast('Ingresá un monto cobrado válido (mayor o igual a 0).', 'warning');
         return;
     }
+
+    const btn = document.getElementById('btnSubmitConfEntrega');
+    btn.disabled = true;
+    btn.textContent = 'Confirmando…';
 
     try {
         const res = await g2Fetch(`${API_BASE}/entregas/${idEntrega}/pedidos/${idVenta}/entregado`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({})
+            body: JSON.stringify({
+                medio_pago: medioPago,
+                monto_cobrado: montoCobrado,
+                observaciones: observaciones || null
+            })
         });
 
         const json = await res.json();
@@ -493,22 +748,26 @@ async function confirmarEntregaPedido(idEntrega, idVenta) {
             return;
         }
 
+        cerrarModalConfirmarEntrega();
         showToast(json.mensaje, 'success');
 
         // Refrescar modal de hoja de ruta si está abierto
         abrirModalHojaRuta(idEntrega);
         // Refrescar listado de viajes y pedidos pendientes
         cargarEntregas();
-        if (g2Admin) cargarPedidosPendientes();
+        cargarPedidosPendientes();
 
     } catch (err) {
         console.error(err);
         showToast('Error al conectar con el servidor.', 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Confirmar Entrega';
     }
 }
 
 /**
- * Ver detalle de una entrega y abrir su primer remito
+ * Ver detalle de una entrega y abrir sus remitos (con selector si tiene varios pedidos)
  */
 async function verDetalleEntrega(idEntrega) {
     try {
@@ -517,13 +776,18 @@ async function verDetalleEntrega(idEntrega) {
 
         if (!json.error && json.data) {
             const e = json.data;
-            if (e.pedidos && e.pedidos.length > 0) {
-                const primerRemito = e.pedidos.find(p => p.id_remito);
-                if (primerRemito) {
-                    verRemito(primerRemito.id_remito);
-                } else {
-                    alert(`Entrega #${idEntrega} no tiene remitos asociados.`);
-                }
+            const remitos = (e.pedidos || [])
+                .filter(p => p.id_remito)
+                .map(p => ({
+                    id_remito: p.id_remito,
+                    numero_remito: p.numero_remito,
+                    id_venta: p.id_venta
+                }));
+
+            if (remitos.length > 0) {
+                verRemito(remitos[0].id_remito, remitos);
+            } else {
+                showToast(`Entrega #${idEntrega} no tiene remitos asociados.`, 'warning');
             }
         }
     } catch (err) {
@@ -532,9 +796,9 @@ async function verDetalleEntrega(idEntrega) {
 }
 
 /**
- * Mostrar Comprobante de Remito Oficial en Modal con botón de confirmación de entrega
+ * Mostrar Comprobante de Remito Oficial en Modal con selector entre remitos del mismo viaje
  */
-async function verRemito(idRemito) {
+async function verRemito(idRemito, listaRemitos = null) {
     try {
         const res = await g2Fetch(`${API_BASE}/remitos/${idRemito}`);
         const json = await res.json();
@@ -545,7 +809,56 @@ async function verRemito(idRemito) {
         }
 
         const r = json.data;
+
+        // Si no se recibió la lista de remitos del viaje, consultarla para habilitar el selector
+        let remitosViaje = Array.isArray(listaRemitos) ? listaRemitos : null;
+        if (!remitosViaje && r.id_entrega) {
+            try {
+                const resEnt = await g2Fetch(`${API_BASE}/entregas/${r.id_entrega}`);
+                const jsonEnt = await resEnt.json();
+                if (!jsonEnt.error && jsonEnt.data && Array.isArray(jsonEnt.data.pedidos)) {
+                    remitosViaje = jsonEnt.data.pedidos
+                        .filter(p => p.id_remito)
+                        .map(p => ({
+                            id_remito: p.id_remito,
+                            numero_remito: p.numero_remito,
+                            id_venta: p.id_venta
+                        }));
+                }
+            } catch (_) {
+                remitosViaje = null;
+            }
+        }
+
+        // Renderizar barra selectora si el viaje tiene más de un remito
+        const selectorCont = document.getElementById('remitoSelectorContainer');
+        const selectorBtns = document.getElementById('remitoSelectorButtons');
+        if (selectorCont && selectorBtns) {
+            if (remitosViaje && remitosViaje.length > 1) {
+                selectorBtns.innerHTML = '';
+                remitosViaje.forEach((rem, idx) => {
+                    const esActual = parseInt(rem.id_remito) === parseInt(r.id_remito);
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = esActual ? 'clay-btn clay-btn-primary' : 'clay-btn clay-btn-secondary';
+                    btn.style.cssText = 'min-height: 34px; padding: 0.3rem 0.75rem; font-size: 0.85rem;';
+                    const pedLabel = rem.id_venta ? `#PED-${rem.id_venta.toString().padStart(4, '0')}` : `Remito ${idx + 1}`;
+                    btn.textContent = `${pedLabel} (${rem.numero_remito || 'R-' + rem.id_remito})`;
+                    btn.onclick = () => verRemito(rem.id_remito, remitosViaje);
+                    selectorBtns.appendChild(btn);
+                });
+                selectorCont.style.display = 'block';
+            } else {
+                selectorCont.style.display = 'none';
+                selectorBtns.innerHTML = '';
+            }
+        }
+
         document.getElementById('remitoNumero').textContent = r.numero_remito;
+        const elPedidoNum = document.getElementById('remitoPedidoNumero');
+        if (elPedidoNum) {
+            elPedidoNum.textContent = `#PED-${(r.id_venta || 0).toString().padStart(4, '0')}`;
+        }
         document.getElementById('remitoFecha').textContent = r.fecha_emision;
         document.getElementById('remitoChofer').textContent = r.repartidor_nombre;
         document.getElementById('remitoClienteNombre').textContent = r.cliente_nombre;
@@ -560,11 +873,17 @@ async function verRemito(idRemito) {
         (r.items || []).forEach(item => {
             const tr = document.createElement('tr');
             tr.style.borderBottom = '1px solid #E2E8F0';
+            const cant = parseInt(item.cantidad || 0);
+            const bultos = parseInt(item.bultos || 0);
+            const sueltas = cant % 6;
+            const bultosTexto = bultos > 0
+                ? `${bultos} bulto(s)${sueltas > 0 ? ` (+${sueltas} sueltas)` : ''}`
+                : `Suelto (${cant} un.)`;
             tr.innerHTML = `
                 <td style="padding: 0.6rem; font-weight: 700;">${item.codigo || '-'}</td>
                 <td style="padding: 0.6rem;">${item.descripcion}</td>
-                <td style="padding: 0.6rem; text-align: center; font-weight: 700;">${item.cantidad}</td>
-                <td style="padding: 0.6rem; text-align: center;">${item.bultos} bulto(s)</td>
+                <td style="padding: 0.6rem; text-align: center; font-weight: 700;">${cant}</td>
+                <td style="padding: 0.6rem; text-align: center;">${bultosTexto}</td>
             `;
             tbody.appendChild(tr);
         });
@@ -572,7 +891,7 @@ async function verRemito(idRemito) {
         // Configurar acción de entrega en el pie del remito
         const contAccion = document.getElementById('remitoAccionEntrega');
         if (contAccion) {
-            if (r.estado === 'entregado') {
+            if (r.estado === 'entregado' || r.estado === 'entregado_conforme') {
                 contAccion.innerHTML = `<span class="badge badge-entregada" style="padding: 0.5rem 1rem; font-size: 0.95rem;">Mercadería Entregada Conforme</span>`;
             } else {
                 contAccion.innerHTML = `
@@ -583,7 +902,9 @@ async function verRemito(idRemito) {
             }
         }
 
-        document.getElementById('modalRemito').style.display = 'flex';
+        const modalRemitoEl = document.getElementById('modalRemito');
+        modalRemitoEl.classList.add('active');
+        modalRemitoEl.style.display = 'flex';
 
     } catch (err) {
         console.error(err);
@@ -595,7 +916,9 @@ async function verRemito(idRemito) {
  * Cerrar modal de remito
  */
 function cerrarModalRemito() {
-    document.getElementById('modalRemito').style.display = 'none';
+    const modalRemitoEl = document.getElementById('modalRemito');
+    modalRemitoEl.classList.remove('active');
+    modalRemitoEl.style.display = 'none';
 }
 
 /**
@@ -604,11 +927,11 @@ function cerrarModalRemito() {
 function showToast(mensaje, tipo = 'info') {
     const container = document.getElementById('toastContainer');
     if (!container) return;
-    const icons = { 
-        success: '<svg class="icon-svg" viewBox="0 0 24 24" style="stroke:#059669"><path d="M5 12l5 5L20 7"/></svg>', 
-        error: '<svg class="icon-svg" viewBox="0 0 24 24" style="stroke:#DC2626"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>', 
-        info: '<svg class="icon-svg" viewBox="0 0 24 24" style="stroke:#0D6EFD"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>', 
-        warning: '<svg class="icon-svg" viewBox="0 0 24 24" style="stroke:#D97706"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>' 
+    const icons = {
+        success: '<svg class="icon-svg" viewBox="0 0 24 24" style="stroke:#059669"><path d="M5 12l5 5L20 7"/></svg>',
+        error: '<svg class="icon-svg" viewBox="0 0 24 24" style="stroke:#DC2626"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+        info: '<svg class="icon-svg" viewBox="0 0 24 24" style="stroke:#0D6EFD"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
+        warning: '<svg class="icon-svg" viewBox="0 0 24 24" style="stroke:#D97706"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'
     };
     const toast = document.createElement('div');
     toast.className = `toast toast-${tipo}`;
@@ -620,11 +943,15 @@ function showToast(mensaje, tipo = 'info') {
     }, 3500);
 }
 
-// Cerrar modales con Escape y click fuera
+// Cerrar modales con Escape y click fuera (respetando el modal superior activo)
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
+        const modalRemito = document.getElementById('modalRemito');
+        if (modalRemito && modalRemito.style.display === 'flex') {
+            cerrarModalRemito();
+            return;
+        }
         cerrarModalArticulos();
-        cerrarModalRemito();
         cerrarModalHojaRuta();
     }
 });
@@ -632,9 +959,7 @@ document.addEventListener('keydown', (e) => {
 document.querySelectorAll('.modal-overlay').forEach(overlay => {
     overlay.addEventListener('click', (e) => {
         if (e.target === overlay) {
-            cerrarModalArticulos();
-            cerrarModalRemito();
-            cerrarModalHojaRuta();
+            overlay.style.display = 'none';
         }
     });
 });

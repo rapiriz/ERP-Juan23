@@ -21,7 +21,7 @@ yarn-error.log
 config/database.local.php
 legacy/config/database.local.php
 runtime/
-.context/
+context/
 /learning-records
 /lessons
 /reference

@@ -150,7 +150,10 @@ class PromocionController extends Controller
 
     private function validarPromocion(Request $request, ProductoGateway $productos): array
     {
-        $todosLosProductos = $productos->todos();
+        $productosActivos = array_filter(
+            $productos->todos(),
+            fn (array $producto): bool => ($producto['estado'] ?? null) === 'activo'
+        );
 
         $datos = $request->validate([
             'nombre' => ['required', 'string', 'max:255'],
@@ -162,7 +165,7 @@ class PromocionController extends Controller
             'estado' => ['sometimes', Rule::in(['activa', 'inactiva'])],
             'productos' => ['required', 'array', 'min:1'],
             // Validamos contra el catálogo elegido por ProductoGateway (mock o HTTP).
-            'productos.*.id_producto' => ['required', 'integer', Rule::in(array_column($todosLosProductos, 'id'))],
+            'productos.*.id_producto' => ['required', 'integer', Rule::in(array_column($productosActivos, 'id'))],
             'productos.*.cantidad' => ['required', 'integer', 'min:1', 'max:9999'],
         ]);
 

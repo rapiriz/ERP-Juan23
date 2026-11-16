@@ -167,16 +167,30 @@ class EntregaRepository
             $params[':estado'] = $filtros['estado'];
         }
 
-        $sql .= " GROUP BY e.id_entrega ORDER BY e.id_entrega DESC";
+        $sql .= " GROUP BY e.id_entrega, e.id_repartidor, e.fecha_creacion, e.fecha_salida, e.estado, e.observaciones ORDER BY e.id_entrega DESC";
 
         $stmt = $this->db->prepare($sql);
         $stmt->execute($params);
         $entregas = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        // Enriquecer con nombres de repartidores mediante el servicio desacoplado
+        // Enriquecer con nombres de repartidores y carga real desde remitos (Tablas propias G2)
+        $stmtCarga = $this->db->prepare("
+            SELECT 
+                COALESCE(SUM(dr.bultos), 0) AS total_bultos,
+                COALESCE(SUM(dr.cantidad), 0) AS total_unidades
+            FROM remito r
+            INNER JOIN detalle_remito dr ON dr.id_remito = r.id_remito
+            WHERE r.id_entrega = :id_entrega
+        ");
+
         foreach ($entregas as &$ent) {
             $ent['repartidor_nombre'] = UsuarioService::obtenerNombre((int)$ent['id_repartidor']);
-            $ent['total_bultos'] = (int)($ent['cantidad_pedidos'] ?? 1) * 2;
+            $stmtCarga->execute([':id_entrega' => $ent['id_entrega']]);
+            $carga = $stmtCarga->fetch(PDO::FETCH_ASSOC) ?: [];
+            $bultos = (int)($carga['total_bultos'] ?? 0);
+            $unidades = (int)($carga['total_unidades'] ?? 0);
+            $ent['total_bultos'] = $bultos;
+            $ent['total_sueltos'] = max(0, $unidades - ($bultos * 6));
             $ent['total_dinero'] = 0.0;
         }
 
@@ -200,6 +214,10 @@ class EntregaRepository
         $entrega['repartidor_nombre'] = UsuarioService::obtenerNombre((int)$entrega['id_repartidor']);
         $entrega['creador_nombre'] = UsuarioService::obtenerNombre((int)$entrega['id_usuario_creacion']);
 
+        $tieneCobroCols = \Illuminate\Support\Facades\Schema::hasColumn('entrega_pedido', 'monto_cobrado')
+            && \Illuminate\Support\Facades\Schema::hasColumn('entrega_pedido', 'medio_pago');
+        $cobroSelect = $tieneCobroCols ? ', ep.monto_cobrado, ep.medio_pago' : '';
+
         // Obtener pedidos incluidos desde entrega_pedido y remito (Tablas de G2)
         $sqlPedidos = "
             SELECT 
@@ -207,7 +225,7 @@ class EntregaRepository
                 ep.id_entrega,
                 ep.id_venta,
                 ep.estado_pedido_entrega,
-                ep.motivo_rechazo,
+                ep.motivo_rechazo{$cobroSelect},
                 r.id_remito,
                 r.numero_remito,
                 r.estado AS estado_remito
@@ -224,17 +242,21 @@ class EntregaRepository
         $pedidos = [];
         foreach ($pedidosRaw as $p) {
             $venta = $this->ventasClient->obtenerVentaPorId((int)$p['id_venta']);
+            $idCliente = (int)($venta['id_cliente'] ?? 0);
             $pedidos[] = [
                 'id_venta' => (int)$p['id_venta'],
                 'fecha_venta' => $venta['fecha'] ?? date('Y-m-d H:i:s'),
                 'total' => (float)($venta['total'] ?? $venta['monto_total'] ?? 0.00),
-                'total_bultos' => (int)($venta['total_bultos'] ?? 1),
+                'total_bultos' => (int)($venta['total_bultos'] ?? 0),
                 'total_sueltos' => (int)($venta['total_sueltos'] ?? 0),
                 'observaciones_venta' => $venta['observaciones'] ?? '',
                 'estado_pedido_entrega' => $p['estado_pedido_entrega'],
+                'monto_cobrado' => isset($p['monto_cobrado']) ? (float)$p['monto_cobrado'] : null,
+                'medio_pago' => $p['medio_pago'] ?? null,
                 'motivo_rechazo' => $p['motivo_rechazo'],
-                'id_cliente' => (int)($venta['id_cliente'] ?? 1),
+                'id_cliente' => $idCliente,
                 'cliente_nombre' => $venta['cliente_nombre'] ?? $venta['cliente']['nombre'] ?? "Cliente Pedido #{$p['id_venta']}",
+                'cliente_saldo' => $this->obtenerSaldoCliente($idCliente),
                 'direccion' => $venta['direccion'] ?? 'Domicilio comercial',
                 'localidad' => $venta['localidad'] ?? 'Pigüé',
                 'telefono' => $venta['telefono'] ?? '',
@@ -261,18 +283,42 @@ class EntregaRepository
     /**
      * HU #3: Marcar un pedido dentro de una entrega como entregado
      */
-    public function marcarPedidoComoEntregado(int $idEntrega, int $idVenta, ?string $observaciones = null): void
-    {
+    public function marcarPedidoComoEntregado(
+        int $idEntrega,
+        int $idVenta,
+        ?string $observaciones = null,
+        ?string $medioPago = null,
+        ?float $montoCobrado = null
+    ): void {
+        $tieneCobroCols = \Illuminate\Support\Facades\Schema::hasColumn('entrega_pedido', 'monto_cobrado')
+            && \Illuminate\Support\Facades\Schema::hasColumn('entrega_pedido', 'medio_pago');
+
         // 1. Actualizar entrega_pedido (G2)
-        $sqlEp = "UPDATE entrega_pedido 
-                  SET estado_pedido_entrega = 'entregado', 
-                      fecha_actualizacion = NOW() 
-                  WHERE id_entrega = :id_entrega AND id_venta = :id_venta";
-        $stmtEp = $this->db->prepare($sqlEp);
-        $stmtEp->execute([
-            ':id_entrega' => $idEntrega,
-            ':id_venta' => $idVenta
-        ]);
+        if ($tieneCobroCols) {
+            $sqlEp = "UPDATE entrega_pedido 
+                      SET estado_pedido_entrega = 'entregado', 
+                          monto_cobrado = :monto_cobrado,
+                          medio_pago = :medio_pago,
+                          fecha_actualizacion = NOW() 
+                      WHERE id_entrega = :id_entrega AND id_venta = :id_venta";
+            $stmtEp = $this->db->prepare($sqlEp);
+            $stmtEp->execute([
+                ':monto_cobrado' => $montoCobrado,
+                ':medio_pago' => $medioPago,
+                ':id_entrega' => $idEntrega,
+                ':id_venta' => $idVenta
+            ]);
+        } else {
+            $sqlEp = "UPDATE entrega_pedido 
+                      SET estado_pedido_entrega = 'entregado', 
+                          fecha_actualizacion = NOW() 
+                      WHERE id_entrega = :id_entrega AND id_venta = :id_venta";
+            $stmtEp = $this->db->prepare($sqlEp);
+            $stmtEp->execute([
+                ':id_entrega' => $idEntrega,
+                ':id_venta' => $idVenta
+            ]);
+        }
 
         // 2. Actualizar estado del remito asociado a 'entregado_conforme' (G2)
         $sqlRemito = "UPDATE remito 
@@ -284,10 +330,7 @@ class EntregaRepository
             ':id_venta' => $idVenta
         ]);
 
-        // 3. Notificar a la API de Ventas de G4 (HTTP)
-        $this->actualizarEstadoVenta($idVenta, 'entregada');
-
-        // 4. Verificar si todos los pedidos de la entrega están entregados (G2)
+        // 3. Verificar si todos los pedidos de la entrega están entregados (G2)
         $sqlCheck = "SELECT COUNT(*) AS no_entregados 
                      FROM entrega_pedido 
                      WHERE id_entrega = :id_entrega 
@@ -339,7 +382,7 @@ class EntregaRepository
             $params[':id_repartidor'] = $idRepartidor;
         }
 
-        $sql .= " GROUP BY e.id_entrega HAVING pedidos_entregados > 0 OR e.estado = 'finalizada' ORDER BY e.id_entrega DESC";
+        $sql .= " GROUP BY e.id_entrega, e.id_repartidor, e.fecha_creacion, e.fecha_salida, e.estado, e.observaciones HAVING pedidos_entregados > 0 OR e.estado = 'finalizada' ORDER BY e.id_entrega DESC";
 
         $stmt = $this->db->prepare($sql);
         $stmt->execute($params);
@@ -362,5 +405,41 @@ class EntregaRepository
         }
 
         return $entregas;
+    }
+
+    /**
+     * Calcula el saldo actual de la cuenta corriente del cliente usando
+     * la misma fuente y fórmula que CuentaCorrienteController (/saldo):
+     * movimientos base de ClienteGateway + cuenta_corriente_movimientos.
+     * Negativo = debe dinero, 0 = al día, Positivo = saldo a favor.
+     */
+    public function obtenerSaldoCliente(int $idCliente): ?float
+    {
+        if ($idCliente <= 0) {
+            return null;
+        }
+
+        try {
+            $tieneTabla = \Illuminate\Support\Facades\Schema::hasTable('cuenta_corriente_movimientos');
+            $clienteApi = app(\App\Modules\Ventas\Contracts\ClienteGateway::class)->buscar($idCliente);
+
+            if (! $tieneTabla && $clienteApi === null) {
+                return null;
+            }
+
+            $saldoBase = $clienteApi !== null
+                ? (float) array_sum(array_column($clienteApi['movimientos'] ?? [], 'monto'))
+                : 0.0;
+
+            $movimientos = $tieneTabla
+                ? (float) \Illuminate\Support\Facades\DB::table('cuenta_corriente_movimientos')
+                    ->where('cliente_id', $idCliente)
+                    ->sum('importe')
+                : 0.0;
+
+            return round($saldoBase + $movimientos, 2);
+        } catch (\Throwable $e) {
+            return null;
+        }
     }
 }
