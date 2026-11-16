@@ -12,7 +12,7 @@ class G2SchemaReady
 {
     public const TABLES = [
         'caja' => ['CAJA', 'CAJA_MOVIMIENTO'],
-        'conciliacion' => ['PERIODO_CONCILIACION', 'MOVIMIENTO_BANCARIO', 'CONCILIACION_DETALLE', 'AJUSTE_BANCARIO', 'CHEQUE', 'CAJA_MOVIMIENTO', 'RENDICION_COBRO'],
+        'conciliacion' => ['MOVIMIENTO_BANCARIO', 'ARCHIVO_IMPORTADO_LOG', 'CAJA_MOVIMIENTO', 'RENDICION_COBRO'],
         'entregas' => ['entrega', 'entrega_pedido', 'remito', 'detalle_remito', 'RENDICION', 'RENDICION_COBRO'],
         'rendiciones' => ['RENDICION', 'RENDICION_COBRO', 'entrega', 'entrega_pedido', 'remito'],
     ];
@@ -29,14 +29,13 @@ class G2SchemaReady
                 : response()->view('modules.g2-unavailable', ['module' => $module, 'message' => $message], 503);
         }
 
-        // El origen de cobros falta en la entrega de G2. No sustituirlo por otro
-        // modelo financiero sin confirmar la correspondencia de sus claves.
+        // En conciliación, la integración de cobros se realiza directamente contra RENDICION_COBRO
         if ($module === 'conciliacion' && str_ends_with($request->route()->getActionName(), '@conciliarAutomatico')
-            && ! class_exists(\App\Modules\ConciliacionBancaria\Repositories\Cobro::class)) {
-            $message = 'La conciliación automática necesita que G2 complete la integración de cobros.';
+            && ! Schema::hasTable('RENDICION_COBRO')) {
+            $message = 'La conciliación automática necesita que esté disponible la tabla RENDICION_COBRO.';
 
             return $request->expectsJson()
-                ? response()->json(['error' => true, 'codigo' => 503, 'mensaje' => $message], 503)
+                ? response()->json(['error' => true, 'codigo' => 503, 'mensaje' => $message, 'data' => null], 503)
                 : response()->view('modules.g2-unavailable', ['module' => $module, 'message' => $message], 503);
         }
 

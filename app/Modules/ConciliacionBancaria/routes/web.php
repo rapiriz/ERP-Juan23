@@ -1,53 +1,44 @@
 <?php
 
-use App\Modules\ConciliacionBancaria\Controllers\ChequeController;
+use App\Modules\ConciliacionBancaria\Controllers\Api\V1\ConciliacionApiController;
 use App\Modules\ConciliacionBancaria\Controllers\CobranzaErpController;
 use App\Modules\ConciliacionBancaria\Controllers\ConciliacionController;
-use App\Modules\ConciliacionBancaria\Controllers\ConciliacionWebController;
 use App\Modules\ConciliacionBancaria\Controllers\MovimientoBancarioController;
 use App\Modules\Shared\Http\Middleware\G2Access;
 use App\Modules\Shared\Http\Middleware\G2SchemaReady;
 use Illuminate\Support\Facades\Route;
 
-// Rutas de interfaz web (Blade) protegidas por sesión
+// Rutas protegidas por sesión de G2
 Route::middleware(['auth', 'session.current', G2Access::class.':admin,contador,administrativo', G2SchemaReady::class.':conciliacion'])->group(function () {
-    Route::prefix('conciliacion')->name('conciliacion.')->group(function () {
-        Route::get('/', [ConciliacionWebController::class, 'index'])->name('index');
-        Route::get('/split', fn() => view('conciliacion.split-screen'))->name('split');
-        Route::get('/nuevo', [ConciliacionWebController::class, 'create'])->name('create');
-        Route::post('/mes', [ConciliacionWebController::class, 'asegurarMes'])->name('mes');
-        Route::post('/', [ConciliacionWebController::class, 'store'])->name('store');
-        Route::get('/{id}', [ConciliacionWebController::class, 'show'])->whereNumber('id')->name('show');
-        Route::post('/{id}/conciliar', [ConciliacionWebController::class, 'conciliarAutomatico'])->whereNumber('id')->name('conciliar');
-        Route::post('/movimientos/{id}/conciliar-manual', [ConciliacionWebController::class, 'conciliarManual'])->whereNumber('id')->name('conciliar-manual');
-        Route::patch('/{id}/cerrar', [ConciliacionWebController::class, 'cerrar'])->whereNumber('id')->name('cerrar');
-    });
-
-    Route::prefix('g2/api')->group(function () {
-        Route::get('/conciliacion', [ConciliacionController::class, 'index']);
-        Route::post('/conciliacion', [ConciliacionController::class, 'store']);
-        Route::get('/conciliacion/{id}', [ConciliacionController::class, 'show'])->whereNumber('id');
-        Route::patch('/conciliacion/{id}/conciliar', [ConciliacionController::class, 'conciliarAutomatico'])->whereNumber('id');
-        Route::post('/conciliacion/movimientos/{id}/conciliar-manual', [ConciliacionController::class, 'conciliarManual'])->whereNumber('id');
-        Route::patch('/conciliacion/{id}/cerrar', [ConciliacionController::class, 'cerrar'])->whereNumber('id');
-        Route::get('/cheques', [ChequeController::class, 'index']);
-        Route::get('/cheques/{id}', [ChequeController::class, 'show'])->whereNumber('id');
-        Route::patch('/cheques/{id}/depositar', [ChequeController::class, 'depositar'])->whereNumber('id');
-        Route::patch('/cheques/{id}/rechazar', [ChequeController::class, 'rechazar'])->whereNumber('id');
+    Route::prefix('g2/api/conciliacion')->group(function () {
+        Route::get('/propuestas', [ConciliacionController::class, 'propuestas']);
+        Route::post('/auto-matching', [ConciliacionController::class, 'autoMatching']);
+        Route::post('/manual', [ConciliacionController::class, 'conciliarManual']);
+        Route::patch('/movimientos/{id}/estado', [ConciliacionController::class, 'cambiarEstado'])->whereNumber('id');
     });
 });
 
-// APIs específicas del módulo de Conciliación Bancaria (HU #15 y Split Screen)
-// Matriz de endpoints según normativa de inmutabilidad:
-// GET /api/movimientos-bancarios
-// GET /api/movimientos-bancarios/{id}
-// POST /api/extractos/importar
-// GET /api/cobranzas-erp
-// GET /api/cobranzas-erp/{id}
-Route::middleware(['auth', 'session.current', G2Access::class.':admin,contador,administrativo', G2SchemaReady::class.':conciliacion'])->group(function () {
+// APIs públicas y de integración frontend de Conciliación Bancaria (HU-01, HU-02, HU-03)
+Route::middleware(['web'])->group(function () {
+    // Pantalla de Split Screen
+    Route::get('/conciliacion', fn() => view('conciliacion.split-screen'))->name('conciliacion.index');
+    Route::get('/conciliacion/split', fn() => view('conciliacion.split-screen'))->name('conciliacion.split');
+
+    // Movimientos bancarios (HU-01)
     Route::get('/api/movimientos-bancarios', [MovimientoBancarioController::class, 'index']);
     Route::get('/api/movimientos-bancarios/{id}', [MovimientoBancarioController::class, 'show'])->whereNumber('id');
     Route::post('/api/extractos/importar', [MovimientoBancarioController::class, 'importar']);
+
+    // Cobranzas ERP desde RENDICION_COBRO + RENDICION
     Route::get('/api/cobranzas-erp', [CobranzaErpController::class, 'index']);
     Route::get('/api/cobranzas-erp/{id}', [CobranzaErpController::class, 'show'])->whereNumber('id');
+
+    // Matching y excepciones (HU-02 y HU-03)
+    Route::get('/api/conciliacion/propuestas', [ConciliacionController::class, 'propuestas']);
+    Route::post('/api/conciliacion/auto-matching', [ConciliacionController::class, 'autoMatching']);
+    Route::post('/api/conciliacion/manual', [ConciliacionController::class, 'conciliarManual']);
+    Route::patch('/api/conciliacion/movimientos/{id}/estado', [ConciliacionController::class, 'cambiarEstado'])->whereNumber('id');
+
+    // Compatibilidad API stateless v1
+    Route::get('/api/v1/conciliacion/movimientos', [ConciliacionApiController::class, 'movimientos']);
 });

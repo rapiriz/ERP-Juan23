@@ -2,190 +2,128 @@
 
 namespace App\Modules\ConciliacionBancaria\Services;
 
+use App\Modules\ConciliacionBancaria\Models\MovimientoBancario;
 use App\Modules\ConciliacionBancaria\Repositories\ConciliacionRepository;
+use App\Modules\Rendiciones\Models\RendicionCobro;
+use App\Modules\Shared\Services\ClienteService;
 use Illuminate\Support\Carbon;
+use Exception;
 
 class ConciliacionService
 {
-    public function __construct(private ConciliacionRepository $repository)
-    {
-    }
+    private ConciliacionRepository $repository;
 
-    public function listarPeriodos(?string $estado = null): array
+    public function __construct(ConciliacionRepository $repository)
     {
-        return $this->repository->listarPeriodos($estado)->toArray();
-    }
-
-    public function buscarPeriodo(int $idPeriodo): ?array
-    {
-        $periodo = $this->repository->buscarPeriodo($idPeriodo);
-
-        return $periodo?->toArray();
+        $this->repository = $repository;
     }
 
     /**
-     * Crea un periodo manual. Bloquea si se superpone con uno existente
-     * (incluido el periodo automatico del mes, si ya se creo).
+     * HU-02: Obtener propuestas de auto-matching.
      */
-    public function crearPeriodo(array $datos): array
+    public function obtenerSugerencias(): array
     {
-        if ($this->repository->existeSuperposicion($datos['fecha_desde'], $datos['fecha_hasta'])) {
-            return [
-                'error' => true,
-                'mensaje' => 'Ya existe un periodo que se superpone con esas fechas.',
-            ];
-        }
+        // 1. Obtener movimientos bancarios pendientes y sin rendición asignada
+        $movimientosPendientes = MovimientoBancario::where('estado_conciliacion', 'pendiente')
+            ->whereNull('id_rendicion_cobro')
+            ->get();
 
-        $periodo = $this->repository->crearPeriodo($datos);
+        // 2. Obtener cobros del ERP pendientes (que no estén ya vinculados)
+        $idsAsociados = MovimientoBancario::whereNotNull('id_rendicion_cobro')->pluck('id_rendicion_cobro');
+        $cobrosPendientes = RendicionCobro::whereNotIn('id_rendicion_cobro', $idsAsociados)->get();
 
-        return $periodo->toArray();
-    }
+        $altaConfianza = [];
+        $paraRevisar = [];
 
-    /**
-     * Se llama cada vez que alguien entra al modulo. Si no existe todavia
-     * un periodo que cubra el dia de hoy, crea automaticamente uno para
-     * todo el mes calendario actual. Reemplaza la necesidad de un cron/
-     * scheduler: se crea "perezosamente" en el primer acceso del mes.
-     */
-    public function asegurarPeriodoAutomaticoDelMes(int $idUsuarioSistema): array
-    {
-        $hoy = Carbon::now();
-        $periodoExistente = $this->repository->buscarPeriodoQueCubre($hoy->toDateString());
+        foreach ($movimientosPendientes as $mov) {
+            foreach ($cobrosPendientes as $cobro) {
+                // Criterio 1: El monto debe ser exactamente igual (redondeado a 2 decimales)
+                if (round(floatval($mov->monto), 2) !== round(floatval($cobro->monto), 2)) {
+                    continue; 
+                }
 
-        if ($periodoExistente !== null) {
-            return $periodoExistente->toArray();
-        }
+                // Limpiamos de guiones y espacios el CUIT del movimiento bancario
+                $cuitMov = preg_replace('/\D/', '', (string) ($mov->cuit_extraido ?? ''));
 
-        $datos = [
-            'fecha_desde' => $hoy->copy()->startOfMonth()->toDateString(),
-            'fecha_hasta' => $hoy->copy()->endOfMonth()->toDateString(),
-            'id_usuario' => $idUsuarioSistema,
-        ];
+                // Obtenemos información del cliente del ERP y limpiamos su CUIT
+                $clienteInfo = ClienteService::obtenerCliente((int) $cobro->id_cliente);
+                $cuitCliente = preg_replace('/\D/', '', (string) ($clienteInfo['dni_cuit'] ?? ($clienteInfo['cuit'] ?? '')));
+                
+                // Evaluamos coincidencia de CUIT (si ambos existen y coinciden total o parcialmente)
+                $coincideCuit = ($cuitMov !== '' && $cuitCliente !== '' && ($cuitMov === $cuitCliente || str_contains($cuitCliente, $cuitMov) || str_contains($cuitMov, $cuitCliente)));
+                
+                // Evaluamos proximidad de fechas (diferencia menor o igual a 5 días hábiles)
+                $fechaCobro = $cobro->fecha_registro ?? $cobro->fecha ?? now();
+                $diferenciaDias = abs(Carbon::parse($mov->fecha_operacion)->diffInDays(Carbon::parse($fechaCobro)));
+                $fechaCercana = ($diferenciaDias <= 5);
 
-        $periodo = $this->repository->crearPeriodo($datos);
-
-        return $periodo->toArray();
-    }
-
-    public function conciliarAutomatico(int $idPeriodo): ?array
-    {
-        $periodo = $this->repository->buscarPeriodo($idPeriodo);
-
-        if (!$periodo) {
-            return null;
-        }
-
-        if ($periodo->estado !== 'abierto') {
-            return ['error' => true, 'mensaje' => 'Solo se puede conciliar un periodo abierto'];
-        }
-
-        $movimientosPendientes = $this->repository->listarMovimientosPendientes($idPeriodo);
-
-        $conciliados = [];
-        $sinCandidato = [];
-        $ambiguos = [];
-
-        foreach ($movimientosPendientes as $movimiento) {
-            $candidatos = $movimiento->tipo === 'credito'
-                ? $this->repository->buscarCandidatosCredito($movimiento)
-                : $this->repository->buscarCandidatosDebito($movimiento);
-
-            if (count($candidatos) === 0) {
-                $sinCandidato[] = $movimiento->id_movimiento_bancario;
-                continue;
-            }
-
-            if (count($candidatos) > 1) {
-                $ambiguos[] = [
-                    'id_movimiento_bancario' => $movimiento->id_movimiento_bancario,
-                    'candidatos_encontrados' => count($candidatos),
+                $propuesta = [
+                    'movimiento' => $mov,
+                    'cobro' => $cobro,
+                    'cliente' => $clienteInfo,
+                    'diferencia_dias' => $diferenciaDias
                 ];
-                continue;
+
+                // Si el CUIT coincide y la fecha está cerca -> Va a "Coincidencias sugeridas" (Alta confianza)
+                if ($coincideCuit && $fechaCercana) {
+                    $altaConfianza[] = $propuesta;
+                } else {
+                    // Si el monto coincide pero la fecha está un poco más alejada o el CUIT no vino en el banco -> Va a "Coincidencias por revisar"
+                    $paraRevisar[] = $propuesta;
+                }
             }
-
-            $candidato = $candidatos[0];
-
-            $detalle = $this->repository->crearDetalle([
-                'id_movimiento_bancario' => $movimiento->id_movimiento_bancario,
-                'id_cobro' => $candidato['origen'] === 'cobro' ? $candidato['id'] : null,
-                'id_movimiento_caja' => $candidato['origen'] === 'caja' ? $candidato['id'] : null,
-                'id_ajuste' => $candidato['origen'] === 'ajuste' ? $candidato['id'] : null,
-                'id_cheque' => $candidato['origen'] === 'cheque' ? $candidato['id'] : null,
-                'metodo' => 'automatico',
-                'id_usuario' => $periodo->id_usuario,
-            ]);
-
-            $this->repository->marcarMovimientoConciliado($movimiento);
-
-            $conciliados[] = [
-                'id_movimiento_bancario' => $movimiento->id_movimiento_bancario,
-                'origen' => $candidato['origen'],
-                'id_origen' => $candidato['id'],
-                'id_detalle' => $detalle->id_detalle,
-            ];
         }
 
         return [
-            'periodo' => $periodo->toArray(),
-            'total_pendientes_procesados' => $movimientosPendientes->count(),
-            'conciliados_automaticamente' => count($conciliados),
-            'detalle_conciliados' => $conciliados,
-            'sin_candidato' => $sinCandidato,
-            'ambiguos_requieren_revision_manual' => $ambiguos,
+            'alta_confianza' => $altaConfianza,
+            'para_revisar' => $paraRevisar
         ];
     }
 
-    public function conciliarManual(int $idMovimiento, array $datos): ?array
+    /**
+     * HU-02: Ejecutar auto-matching de todas las propuestas de alta confianza.
+     */
+    public function ejecutarAutoMatching(): array
     {
-        $movimiento = $this->repository->buscarMovimiento($idMovimiento);
+        $propuestas = $this->repository->obtenerPropuestasAutoMatching();
+        $conciliados = [];
 
-        if (!$movimiento) {
-            return null;
+        foreach ($propuestas['alta_confianza'] as $item) {
+            $mov = $item['movimiento'];
+            $cobro = $item['cobro'];
+
+            $res = $this->repository->conciliarMovimientoConCobro(
+                $mov->id_movimiento_bancario,
+                $cobro->id_rendicion_cobro,
+                'Conciliado automáticamente por Auto-Matching (monto y fecha coincidentes)'
+            );
+            $conciliados[] = $res;
         }
 
-        $origenes = array_filter([
-            $datos['id_cobro'] ?? null,
-            $datos['id_movimiento_caja'] ?? null,
-            $datos['id_ajuste'] ?? null,
-            $datos['id_cheque'] ?? null,
-        ]);
-
-        if (count($origenes) !== 1) {
-            return [
-                'error' => true,
-                'mensaje' => 'Debe indicarse exactamente un origen (cobro, movimiento de caja, ajuste o cheque)',
-            ];
-        }
-
-        $detalle = $this->repository->crearDetalle([
-            'id_movimiento_bancario' => $movimiento->id_movimiento_bancario,
-            'id_cobro' => $datos['id_cobro'] ?? null,
-            'id_movimiento_caja' => $datos['id_movimiento_caja'] ?? null,
-            'id_ajuste' => $datos['id_ajuste'] ?? null,
-            'id_cheque' => $datos['id_cheque'] ?? null,
-            'metodo' => 'manual',
-            'id_usuario' => $datos['id_usuario'],
-        ]);
-
-        $this->repository->marcarMovimientoConciliado($movimiento);
-
-        return $detalle->toArray();
+        return [
+            'total_procesados' => count($conciliados),
+            'conciliados' => $conciliados,
+        ];
     }
 
-    public function cerrarPeriodo(int $idPeriodo): ?array
+    /**
+     * HU-02: Conciliación manual entre un movimiento y un cobro seleccionado.
+     */
+    public function conciliarManual(int $idMovimiento, int $idRendicionCobro, ?string $observaciones = null): MovimientoBancario
     {
-        $periodo = $this->repository->buscarPeriodo($idPeriodo);
+        return $this->repository->conciliarMovimientoConCobro($idMovimiento, $idRendicionCobro, $observaciones);
+    }
 
-        if (!$periodo) {
-            return null;
+    /**
+     * HU-03: Gestión de excepciones y estados sin tablas adicionales.
+     */
+    public function gestionarExcepcion(int $idMovimiento, string $estado, ?string $motivo = null): MovimientoBancario
+    {
+        $estadosValidos = ['en_disputa', 'revision_manual', 'no_aplica', 'cerrado_definitivo', 'pendiente'];
+        if (!in_array($estado, $estadosValidos)) {
+            throw new Exception("Estado de conciliación inválido: {$estado}");
         }
 
-        if ($periodo->estado !== 'abierto') {
-            return ['error' => true, 'mensaje' => 'El periodo ya esta cerrado'];
-        }
-
-        $periodo = $this->repository->cerrarPeriodo($periodo);
-
-        return $periodo->toArray();
+        return $this->repository->cambiarEstadoMovimiento($idMovimiento, $estado, $motivo);
     }
 }

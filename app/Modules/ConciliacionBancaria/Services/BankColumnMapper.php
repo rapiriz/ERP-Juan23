@@ -188,21 +188,21 @@ class BankColumnMapper
                 continue;
             }
 
-            // Registro D: Detalle
+            // Registro D: Detalle (190 caracteres exactos)
             // Pos 7..16: Fecha DD-MM-YYYY
             $strFecha = trim(substr($line, 7, 10));
             // Pos 17..96: Descripción (80 chars)
             $strDesc = trim(substr($line, 17, 80));
-            // Pos 97..116: Comprobante (20 chars)
-            $strComp = trim(substr($line, 97, 20));
-            // Pos 130..152: CUIT emisor si viene posicional
-            $posCuit = trim(substr($line, 130, 23));
-            // Pos 158..159: Signo (+0 o -0)
+            // Pos 97..114: Comprobante (18 chars)
+            $strComp = trim(substr($line, 97, 18));
+            // Pos 139..149: CUIT contraparte (11 chars)
+            $posCuit = trim(substr($line, 139, 11));
+            // Pos 158: Signo (+ o -)
             $signoChar = substr($line, 158, 1);
-            // Pos 160..176: Monto en centavos (ej: 000000007000000 = 70000.00)
-            $montoRaw = substr($line, 159, 17);
-            // Pos 176..190: Saldo en centavos
-            $saldoRaw = substr($line, 176);
+            // Pos 159..173: Monto en centavos (15 chars, ej: 000000000420000 = 4200.00)
+            $montoRaw = substr($line, 159, 15);
+            // Pos 174..189: Saldo posterior en centavos (16 chars)
+            $saldoRaw = substr($line, 174, 16);
 
             $fechaDt = DateTime::createFromFormat('d-m-Y', $strFecha);
             if (!$fechaDt) {
@@ -216,7 +216,9 @@ class BankColumnMapper
             $signo = ($signoChar === '-') ? 'egreso' : 'ingreso';
 
             $descNorm = $this->parser->normalizarDescripcion($strDesc);
-            $cuit = $this->parser->extraerCuit($strDesc) ?: $this->parser->extraerCuit($posCuit);
+            $cuit = preg_match('/^\d{11}$/', $posCuit)
+                ? $posCuit
+                : $this->parser->extraerCuit($strDesc);
             $comprobante = !empty($strComp) ? $strComp : $this->parser->extraerComprobante($strDesc);
 
             $clasificacion = $this->parser->clasificar(
