@@ -851,7 +851,7 @@
 <!-- ========================================== -->
 <!-- MODAL: AUMENTO MASIVO DE PRECIOS     -->
 <!-- ========================================== -->
-<div id="modalAumento" class="clay-modal-backdrop hidden" onclick="if(event.target === this) cerrarModalAumentoMasivo()">
+<div id="modalAumento" class="clay-modal-backdrop hidden">
     <div class="clay-modal-content max-w-xl p-6 space-y-4" onclick="event.stopPropagation()">
         <div class="flex items-center justify-between pb-3 border-b border-slate-100">
             <div>
@@ -947,7 +947,7 @@
 <!-- ========================================== -->
 <!-- MODAL: HISTORIAL DE PRECIOS Y AUDITORÍA (P08 / P04) -->
 <!-- ========================================== -->
-<div id="modalHistorial" class="clay-modal-backdrop hidden" onclick="if(event.target === this) cerrarModalHistorial()">
+<div id="modalHistorial" class="clay-modal-backdrop hidden">
     <div class="clay-modal-content max-w-4xl p-6 space-y-4" onclick="event.stopPropagation()">
         <div class="flex items-center justify-between pb-3 border-b border-slate-100">
             <div>
@@ -1037,7 +1037,7 @@
 <!-- ========================================== -->
 <!-- MODAL: GESTIÓN DE CATEGORÍAS        -->
 <!-- ========================================== -->
-<div id="modalCategoria" class="clay-modal-backdrop hidden" onclick="if(event.target === this) cerrarModalCategorias()">
+<div id="modalCategoria" class="clay-modal-backdrop hidden">
     <div class="clay-modal-content max-w-lg p-6 space-y-4" onclick="event.stopPropagation()">
         <div class="flex items-center justify-between pb-3 border-b border-slate-100">
             <div>
@@ -1094,7 +1094,7 @@
 <!-- ========================================== -->
 <!-- MODAL: GESTIÓN DE MARCAS            -->
 <!-- ========================================== -->
-<div id="modalMarca" class="clay-modal-backdrop hidden" onclick="if(event.target === this) cerrarModalMarcas()">
+<div id="modalMarca" class="clay-modal-backdrop hidden">
     <div class="clay-modal-content max-w-lg p-6 space-y-4" onclick="event.stopPropagation()">
         <div class="flex items-center justify-between pb-3 border-b border-slate-100">
             <div>
