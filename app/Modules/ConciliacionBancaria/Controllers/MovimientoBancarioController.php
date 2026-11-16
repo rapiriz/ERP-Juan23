@@ -26,7 +26,8 @@ class MovimientoBancarioController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = MovimientoBancario::query();
+        // Cargamos la relación directamente para evitar consultas N+1
+        $query = MovimientoBancario::query()->with('rendicionCobro');
 
         // 1. Rango de fechas de operación
         if ($request->filled('fecha_desde')) {
@@ -133,9 +134,30 @@ class MovimientoBancarioController extends Controller
             ->orderBy('id_movimiento_bancario', 'desc')
             ->paginate($perPage);
 
+        // Enriquecemos los ítems para incluir la rendición formateada lista para el frontend
+        $items = collect($movimientos->items())->map(function ($m) {
+            $item = $m->toArray();
+
+            if ($m->rendicionCobro) {
+                $clienteInfo = \App\Modules\Shared\Services\ClienteService::obtenerCliente((int) $m->rendicionCobro->id_cliente);
+                $item['rendicion_formateada'] = [
+                    'id_rendicion_cobro' => $m->rendicionCobro->id_rendicion_cobro,
+                    'fecha' => $m->rendicionCobro->fecha_registro ?? $m->rendicionCobro->fecha ?? null,
+                    'monto' => (float) $m->rendicionCobro->monto,
+                    'medio_pago' => $m->rendicionCobro->medio_pago,
+                    'cliente_nombre' => $clienteInfo['razon_social'] ?? ($clienteInfo['nombre'] ?? "Cliente #{$m->rendicionCobro->id_cliente}"),
+                    'cliente_cuit' => $clienteInfo['dni_cuit'] ?? null,
+                ];
+            } else {
+                $item['rendicion_formateada'] = null;
+            }
+
+            return $item;
+        });
+
         return response()->json([
             'success' => true,
-            'data' => $movimientos->items(),
+            'data' => $items,
             'total' => $movimientos->total(),
             'current_page' => $movimientos->currentPage(),
             'per_page' => $movimientos->perPage(),

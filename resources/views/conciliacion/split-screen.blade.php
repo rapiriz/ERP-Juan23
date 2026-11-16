@@ -1670,7 +1670,6 @@
         <div class="nav-tabs">
             <button type="button" class="nav-tab-btn active" id="tab_btn_manual" onclick="cambiarPestana('manual', this)">Conciliación manual</button>
             <button type="button" class="nav-tab-btn" id="tab_btn_alta_confianza" onclick="cambiarPestana('alta_confianza', this)">Coincidencias sugeridas</button>
-            <button type="button" class="nav-tab-btn" id="tab_btn_para_revisar" onclick="cambiarPestana('para_revisar', this)">Coincidencias por revisar</button>
             <button type="button" class="nav-tab-btn" id="tab_btn_historial" onclick="cambiarPestana('historial', this)">Conciliaciones realizadas</button>
         </div>
 
@@ -3264,7 +3263,6 @@ async function cargarHistorialConciliaciones() {
     area.innerHTML = '<p style="margin-top:0.5rem; color:#64748B; font-size:0.88rem;">Cargando conciliaciones realizadas...</p>';
     
     try {
-        // Consultamos los movimientos matcheados (el backend ya incluye las rendiciones relacionadas)
         const res = await fetch('/api/movimientos-bancarios?estado_conciliacion=matcheado&per_page=50');
         const json = await res.json();
 
@@ -3284,7 +3282,7 @@ async function cargarHistorialConciliaciones() {
             const descBanco = expandirAbreviaturasDescripcion(m.descripcion_normalizada || m.descripcion_original || `Movimiento #${m.id_movimiento_bancario}`);
             const cuitBanco = m.cuit_extraido ? `CUIT: ${m.cuit_extraido}` : '';
 
-            // 1. Renderizado del lado izquierdo (Movimiento Bancario)
+            // Lado izquierdo: Movimiento Bancario
             const bancoHtml = `
                 <div style="display:flex; flex-direction:column; gap:0.1rem;">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -3297,34 +3295,31 @@ async function cargarHistorialConciliaciones() {
                 </div>
             `;
 
-            // 2. Renderizado del lado derecho (Rendición/es ERP asociada/s real/es)
+            // Lado derecho: Rendición ERP unida mediante el id_rendicion_cobro de la base de datos
             let erpHtml = '<span style="color:#94A3B8; font-style:italic;">Sin rendición asociada</span>';
-            const rendicionesAsociadas = m.rendiciones_cobro || m.rendicionesCobro || [];
+            const c = m.rendicion_formateada;
 
-            if (rendicionesAsociadas.length > 0) {
-                erpHtml = rendicionesAsociadas.map(c => {
-                    const idC = c.id_rendicion_cobro || c.id;
-                    const fechaErp = formatearFechaAr(c.fecha_registro || c.fecha || '');
-                    const montoErpVal = c.monto !== undefined ? parseFloat(c.monto).toLocaleString('es-AR', {minimumFractionDigits: 2}) : '0,00';
-                    const clienteNom = c.cliente_nombre || `Rendición #${idC}`;
-                    const medio = ETIQUETAS_MEDIO_ERP[c.medio_pago] || c.medio_pago || '';
-                    const cuitErp = c.cliente_cuit ? `CUIT: ${c.cliente_cuit}` : '';
+            if (c) {
+                const fechaErp = formatearFechaAr(c.fecha || '');
+                const montoErpVal = c.monto !== undefined ? parseFloat(c.monto).toLocaleString('es-AR', {minimumFractionDigits: 2}) : '0,00';
+                const clienteNom = c.cliente_nombre || `Rendición #${c.id_rendicion_cobro}`;
+                const medio = ETIQUETAS_MEDIO_ERP[c.medio_pago] || c.medio_pago || '';
+                const cuitErp = c.cliente_cuit ? `CUIT: ${c.cliente_cuit}` : '';
 
-                    return `
-                        <div style="display:flex; flex-direction:column; gap:0.1rem;">
-                            <div style="display:flex; justify-content:space-between; align-items:center;">
-                                <span><strong>#${idC}</strong> ${fechaErp ? '· ' + fechaErp : ''} ${cuitErp ? '· ' + escapeHtml(cuitErp) : ''}</span>
-                                <strong style="color:#1E293B;">$${montoErpVal}</strong>
-                            </div>
-                            <div style="font-size:0.75rem; color:#475569; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${escapeHtml(clienteNom)}">
-                                ${escapeHtml(clienteNom)} ${medio ? '· ' + escapeHtml(medio) : ''}
-                            </div>
+                erpHtml = `
+                    <div style="display:flex; flex-direction:column; gap:0.1rem;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <span><strong>#${c.id_rendicion_cobro}</strong> ${fechaErp ? '· ' + fechaErp : ''} ${cuitErp ? '· ' + escapeHtml(cuitErp) : ''}</span>
+                            <strong style="color:#1E293B;">$${montoErpVal}</strong>
                         </div>
-                    `;
-                }).join('<hr style="border:0; border-top:1px dashed #CBD5E1; margin:4px 0;">');
+                        <div style="font-size:0.75rem; color:#475569; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${escapeHtml(clienteNom)}">
+                            ${escapeHtml(clienteNom)} ${medio ? '· ' + escapeHtml(medio) : ''}
+                        </div>
+                    </div>
+                `;
             }
 
-            // Estructura en paralelo idéntica a la conciliación manual (.manual-match-row.complete)
+            // Estructura en paralelo idéntica a la conciliación manual
             html += `
                 <div class="manual-match-row complete">
                     <div style="display:flex; align-items:flex-start; gap:0.5rem; min-width:0; width:100%;">

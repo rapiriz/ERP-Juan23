@@ -205,7 +205,7 @@ class CobranzaErpController extends Controller
             'id_rendicion' => $c->id_rendicion,
             'id_cliente' => $c->id_cliente,
             'cliente_nombre' => $clienteInfo['razon_social'] ?? ($clienteInfo['nombre'] ?? "Cliente #{$c->id_cliente}"),
-            'cliente_cuit' => $clienteInfo['dni_cuit'] ?? null,
+            'cliente_cuit' => $clienteInfo['dni_cuit'] ?? ($clienteInfo['cuit'] ?? ($clienteInfo['cuit_cuil'] ?? ($clienteInfo['numero_documento'] ?? null))),
             'id_factura' => $c->id_factura,
             'monto' => (float) $c->monto,
             'monto_total' => (float) $c->monto,
